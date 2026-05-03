@@ -21,7 +21,7 @@ export default function Onboard() {
         onSuccess: () => {
           toast.success("Welcome to Harmonia!");
           if (role === "teacher") {
-            setLocation("/teacher-dashboard");
+            setLocation("/profile/edit?setup=1");
           } else {
             setLocation("/dashboard");
           }

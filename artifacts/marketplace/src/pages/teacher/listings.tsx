@@ -23,6 +23,24 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
+interface ListingFormState {
+  title: string;
+  type: CreateListingBodyType;
+  priceInCents: number;
+  description: string;
+  instrument: string;
+  durationMinutes: number;
+}
+
+const defaultForm: ListingFormState = {
+  title: "",
+  type: CreateListingBodyType.lesson,
+  priceInCents: 5000,
+  description: "",
+  instrument: "",
+  durationMinutes: 60,
+};
+
 export default function TeacherListings() {
   const { data: user } = useGetMe();
   const queryClient = useQueryClient();
@@ -36,36 +54,57 @@ export default function TeacherListings() {
   const deleteListing = useDeleteListing();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState<{
-    title: string;
-    type: CreateListingBodyType;
-    priceInCents: number;
-    description: string;
-    instrument: string;
-    durationMinutes: number;
-  }>({
-    title: "",
-    type: CreateListingBodyType.lesson,
-    priceInCents: 5000,
-    description: "",
-    instrument: "",
-    durationMinutes: 60
-  });
+  const [formData, setFormData] = useState<ListingFormState>(defaultForm);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editData, setEditData] = useState<ListingFormState>(defaultForm);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     createListing.mutate({
-      data: {
-        ...formData,
-        skillLevel: "all"
-      }
+      data: { ...formData, skillLevel: "all" }
     }, {
       onSuccess: () => {
         toast.success("Listing created successfully");
         setIsCreateOpen(false);
+        setFormData(defaultForm);
         queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
       },
       onError: () => toast.error("Failed to create listing")
+    });
+  };
+
+  const openEdit = (listing: NonNullable<typeof listingsData>["listings"][number]) => {
+    setEditData({
+      title: listing.title,
+      type: listing.type as CreateListingBodyType,
+      priceInCents: listing.priceInCents,
+      description: listing.description ?? "",
+      instrument: listing.instrument ?? "",
+      durationMinutes: listing.durationMinutes ?? 60,
+    });
+    setEditingId(listing.id);
+  };
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingId === null) return;
+    updateListing.mutate({
+      id: editingId,
+      data: {
+        title: editData.title,
+        description: editData.description,
+        instrument: editData.instrument,
+        priceInCents: editData.priceInCents,
+        durationMinutes: editData.durationMinutes,
+      }
+    }, {
+      onSuccess: () => {
+        toast.success("Listing updated");
+        setEditingId(null);
+        queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
+      },
+      onError: () => toast.error("Failed to update listing")
     });
   };
 
@@ -219,6 +258,9 @@ export default function TeacherListings() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => openEdit(listing)}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer" onClick={() => handleDelete(listing.id)}>
                               <Trash2 className="mr-2 h-4 w-4" /> Delete
                             </DropdownMenuItem>
@@ -243,6 +285,71 @@ export default function TeacherListings() {
           )}
         </div>
       </main>
+
+      <Dialog open={editingId !== null} onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Edit Listing</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-title">Title</Label>
+                <Input
+                  id="edit-title"
+                  value={editData.title}
+                  onChange={(e) => setEditData({...editData, title: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-price">Price ($)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={editData.priceInCents / 100}
+                  onChange={(e) => setEditData({...editData, priceInCents: Math.round(Number(e.target.value) * 100)})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                <Input
+                  id="edit-duration"
+                  type="number"
+                  value={editData.durationMinutes}
+                  onChange={(e) => setEditData({...editData, durationMinutes: Number(e.target.value)})}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-instrument">Instrument</Label>
+                <Input
+                  id="edit-instrument"
+                  value={editData.instrument}
+                  onChange={(e) => setEditData({...editData, instrument: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editData.description}
+                  onChange={(e) => setEditData({...editData, description: e.target.value})}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter className="pt-4 border-t border-border">
+              <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+              <Button type="submit" disabled={updateListing.isPending}>
+                {updateListing.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       
       <Footer />
     </div>
