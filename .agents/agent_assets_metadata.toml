@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "a-AlCb_nfSpABcaTknwnW"
+uri = "file://artifacts/marketplace/public/hero.png"
+type = "image"
+title = "Classical piano elegant room"
+
+[[generated]]
+id = "uv9W4ACyJmfFeQHvY6-0h"
+uri = "file://artifacts/marketplace/public/logo.png"
+type = "image"
+title = "Classical music minimal logo"

@@ -1,0 +1,232 @@
+import { Link } from "wouter";
+import { useGetTeacherDashboard } from "@workspace/api-client-react";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, DollarSign, Users, Star, Music } from "lucide-react";
+import { format } from "date-fns";
+
+export default function TeacherDashboard() {
+  const { data: dashboard, isLoading } = useGetTeacherDashboard();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <div className="flex-1 container mx-auto px-4 py-12 flex justify-center">
+          <div className="animate-pulse w-full space-y-8">
+            <div className="h-32 bg-muted rounded-xl" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="h-64 bg-muted rounded-xl md:col-span-2" />
+              <div className="h-64 bg-muted rounded-xl" />
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!dashboard) return null;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <Navbar />
+      
+      <main className="flex-1 container mx-auto px-4 py-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <h1 className="text-3xl font-serif font-bold text-foreground">Teacher Dashboard</h1>
+          <Button asChild>
+            <Link href="/profile/edit">Edit Profile</Link>
+          </Button>
+        </div>
+        
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+          <Card className="border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <DollarSign className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Total Earnings</p>
+                  <h3 className="text-2xl font-bold text-foreground">${(dashboard.totalEarningsInCents / 100).toFixed(2)}</h3>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Users className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Active Students</p>
+                  <h3 className="text-2xl font-bold text-foreground">{dashboard.totalStudents}</h3>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Calendar className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Lessons Taught</p>
+                  <h3 className="text-2xl font-bold text-foreground">{dashboard.totalLessonsCompleted}</h3>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Star className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Average Rating</p>
+                  <h3 className="text-2xl font-bold text-foreground">{dashboard.averageRating.toFixed(1)}</h3>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-8">
+            <Card className="border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif">Upcoming Bookings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!dashboard.upcomingBookings.length ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No upcoming bookings scheduled.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {dashboard.upcomingBookings.slice(0, 5).map(booking => (
+                      <div key={booking.id} className="flex flex-col sm:flex-row gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <h4 className="font-medium text-foreground truncate flex items-center gap-2">
+                              {booking.type === 'lesson' ? 'Lesson' : 'Event'}
+                              <span className="text-muted-foreground font-normal text-sm">
+                                with {booking.studentId} {/* We don't have student details populated in this simplified schema, so just showing ID */}
+                              </span>
+                            </h4>
+                            <Badge variant={booking.status === 'pending' ? 'secondary' : 'default'} className="capitalize shrink-0 ml-2">
+                              {booking.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {booking.scheduledAt ? format(new Date(booking.scheduledAt), 'MMM d, yyyy h:mm a') : 'Date pending'}
+                            <span className="text-border mx-1">•</span>
+                            ${(booking.priceInCents / 100).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif">Upcoming Masterclasses</CardTitle>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/listings">Manage Masterclasses</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!dashboard.upcomingMasterclasses.length ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No upcoming masterclasses.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {dashboard.upcomingMasterclasses.map(mc => (
+                      <div key={mc.id} className="flex justify-between items-center p-4 rounded-lg border border-border bg-muted/20">
+                        <div>
+                          <h4 className="font-medium text-foreground">{mc.title}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {format(new Date(mc.scheduledAt), 'MMM d, yyyy h:mm a')}
+                          </p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div><span className="font-medium">{mc.registeredPerformers}</span>/{mc.maxPerformers} Performers</div>
+                          <div><span className="font-medium">{mc.registeredObservers}</span>/{mc.maxObservers} Observers</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-8">
+            <Card className="border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif text-lg">My Offerings</CardTitle>
+                <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+                  <Link href="/listings">Manage</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 bg-muted/40 rounded-lg border border-border">
+                  <div className="flex items-center gap-3">
+                    <Music className="h-5 w-5 text-primary" />
+                    <span className="font-medium">Active Listings</span>
+                  </div>
+                  <span className="text-xl font-bold">{dashboard.activeListingsCount}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="font-serif text-lg">Recent Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!dashboard.recentReviews.length ? (
+                  <p className="text-sm text-muted-foreground">No reviews yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {dashboard.recentReviews.slice(0, 3).map(review => (
+                      <div key={review.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex text-primary">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`h-3 w-3 ${i < review.rating ? 'fill-primary' : 'fill-muted text-muted'}`} />
+                            ))}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{format(new Date(review.createdAt), 'MMM d, yyyy')}</span>
+                        </div>
+                        {review.title && <h4 className="text-sm font-medium text-foreground">{review.title}</h4>}
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{review.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </main>
+      
+      <Footer />
+    </div>
+  );
+}
