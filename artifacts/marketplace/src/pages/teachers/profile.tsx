@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "wouter";
-import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey } from "@workspace/api-client-react";
+import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, MapPin, Music, GraduationCap, Clock, CheckCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Star, MapPin, Music, GraduationCap, CalendarDays, CheckCircle, Mic2 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 
@@ -20,6 +21,12 @@ export default function TeacherProfile() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingNotes, setBookingNotes] = useState("");
+
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [eventType, setEventType] = useState("wedding");
+  const [eventDate, setEventDate] = useState("");
+  const [eventNotes, setEventNotes] = useState("");
+  const [eventSuccess, setEventSuccess] = useState(false);
 
   const { data: teacher, isLoading: isLoadingTeacher } = useGetTeacher(userId, { 
     query: { enabled: !!userId, queryKey: getGetTeacherQueryKey(userId) } 
@@ -34,6 +41,32 @@ export default function TeacherProfile() {
   });
 
   const createBooking = useCreateBooking();
+
+  const handleRequestEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error("Please sign in to send an inquiry");
+      return;
+    }
+
+    createBooking.mutate({
+      data: {
+        teacherId: userId,
+        type: CreateBookingBodyType.event,
+        scheduledAt: eventDate ? new Date(eventDate).toISOString() : undefined,
+        eventType,
+        notes: eventNotes,
+        instrument: teacher?.instruments[0],
+      }
+    }, {
+      onSuccess: () => {
+        setEventSuccess(true);
+      },
+      onError: () => {
+        toast.error("Failed to send inquiry. Please try again.");
+      }
+    });
+  };
 
   const handleBookLesson = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +238,7 @@ export default function TeacherProfile() {
                   <p className="text-sm text-muted-foreground">Private Lessons</p>
                 </div>
                 <Button 
-                  className="w-full mb-4" 
+                  className="w-full mb-3" 
                   size="lg"
                   onClick={() => {
                     if (!isLoaded || !user) {
@@ -215,7 +248,24 @@ export default function TeacherProfile() {
                     setBookingModalOpen(true);
                   }}
                 >
+                  <GraduationCap className="h-4 w-4 mr-2" />
                   Request Lesson
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full mb-4" 
+                  size="lg"
+                  onClick={() => {
+                    if (!isLoaded || !user) {
+                      toast.error("Please sign in to send an inquiry");
+                      return;
+                    }
+                    setEventSuccess(false);
+                    setEventModalOpen(true);
+                  }}
+                >
+                  <Mic2 className="h-4 w-4 mr-2" />
+                  Inquire for Event / Wedding
                 </Button>
                 <div className="text-xs text-center text-muted-foreground">
                   You won't be charged until the teacher confirms.
@@ -290,6 +340,72 @@ export default function TeacherProfile() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={eventModalOpen} onOpenChange={(open) => { setEventModalOpen(open); if (!open) setEventSuccess(false); }}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Inquire for Event / Wedding</DialogTitle>
+            <DialogDescription>
+              Tell {teacher.user?.firstName} about your event. They'll respond with availability and a custom quote.
+            </DialogDescription>
+          </DialogHeader>
+          {eventSuccess ? (
+            <div className="py-8 flex flex-col items-center gap-4 text-center">
+              <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <CheckCircle className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-serif font-semibold text-foreground">Inquiry Sent!</h3>
+              <p className="text-muted-foreground text-sm max-w-xs">
+                {teacher.user?.firstName} has received your event inquiry and will respond shortly.
+              </p>
+              <Button onClick={() => setEventModalOpen(false)} className="mt-2">Close</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleRequestEvent} className="space-y-5 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-type">Event Type</Label>
+                <Select value={eventType} onValueChange={setEventType}>
+                  <SelectTrigger id="event-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="wedding">Wedding</SelectItem>
+                    <SelectItem value="corporate">Corporate Event</SelectItem>
+                    <SelectItem value="concert">Concert / Recital</SelectItem>
+                    <SelectItem value="private_party">Private Party</SelectItem>
+                    <SelectItem value="funeral">Funeral / Memorial</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-date">Event Date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input 
+                  id="event-date"
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-notes">Event Details</Label>
+                <Textarea
+                  id="event-notes"
+                  placeholder="Describe the event, venue, duration, repertoire preferences, or any other details..."
+                  value={eventNotes}
+                  onChange={(e) => setEventNotes(e.target.value)}
+                  rows={4}
+                  required
+                />
+              </div>
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setEventModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={createBooking.isPending}>
+                  {createBooking.isPending ? "Sending..." : "Send Inquiry"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

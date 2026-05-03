@@ -122,15 +122,6 @@ function HomeRedirect() {
 
   if (!isLoaded) return <div className="h-screen w-full bg-background"></div>;
 
-  if (user) {
-    // If no role set, go to onboard
-    if (user.publicMetadata?.role === undefined && (user as any).role === undefined) {
-      // We check if the user has completed onboarding by checking their role
-      // But Clerk's useUser type might not include role directly if it's in publicMetadata
-      // Let's rely on the Onboard route checking getMe() via api-client
-    }
-  }
-
   return (
     <>
       <Show when="signed-in">

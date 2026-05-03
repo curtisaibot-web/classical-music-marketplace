@@ -5,7 +5,8 @@ import {
   useCreateListing, 
   useUpdateListing, 
   useDeleteListing,
-  useGetMe
+  useGetMe,
+  CreateListingBodyType
 } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -35,9 +36,16 @@ export default function TeacherListings() {
   const deleteListing = useDeleteListing();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    type: CreateListingBodyType;
+    priceInCents: number;
+    description: string;
+    instrument: string;
+    durationMinutes: number;
+  }>({
     title: "",
-    type: "lesson" as any,
+    type: CreateListingBodyType.lesson,
     priceInCents: 5000,
     description: "",
     instrument: "",
@@ -55,7 +63,7 @@ export default function TeacherListings() {
       onSuccess: () => {
         toast.success("Listing created successfully");
         setIsCreateOpen(false);
-        queryClient.invalidateQueries({ queryKey: ["/api/teachers", user?.id, "listings"] });
+        queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
       },
       onError: () => toast.error("Failed to create listing")
     });
@@ -66,7 +74,7 @@ export default function TeacherListings() {
       deleteListing.mutate({ id }, {
         onSuccess: () => {
           toast.success("Listing deleted");
-          queryClient.invalidateQueries({ queryKey: ["/api/teachers", user?.id, "listings"] });
+          queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
         },
         onError: () => toast.error("Failed to delete listing")
       });
@@ -113,7 +121,7 @@ export default function TeacherListings() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="type">Type</Label>
-                    <Select value={formData.type} onValueChange={(v: any) => setFormData({...formData, type: v})}>
+                    <Select value={formData.type} onValueChange={(v: CreateListingBodyType) => setFormData({...formData, type: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lesson">Private Lesson</SelectItem>
