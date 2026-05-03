@@ -1,22 +1,41 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Classical Music Marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management
+  - name: teachers
+    description: Teacher profile operations
+  - name: students
+    description: Student profile operations
+  - name: listings
+    description: Listing operations
+  - name: masterclasses
+    description: Masterclass event operations
+  - name: digital-products
+    description: Digital product operations
+  - name: bookings
+    description: Booking operations
+  - name: orders
+    description: Order operations
+  - name: reviews
+    description: Review operations
+  - name: dashboard
+    description: Dashboard summary operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +43,1638 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Users ──────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/onboard:
+    post:
+      operationId: onboardUser
+      tags: [users]
+      summary: Set role and create profile after signup
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardUserBody"
+      responses:
+        "200":
+          description: Onboarded user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Teacher Profiles ───────────────────────────────────────────────────────
+  /teachers:
+    get:
+      operationId: listTeachers
+      tags: [teachers]
+      summary: Browse teacher profiles
+      parameters:
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: minRate
+          in: query
+          schema:
+            type: integer
+        - name: maxRate
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of teachers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherListResponse"
+
+  /teachers/{userId}:
+    get:
+      operationId: getTeacher
+      tags: [teachers]
+      summary: Get a teacher profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /teachers/me:
+    get:
+      operationId: getMyTeacherProfile
+      tags: [teachers]
+      summary: Get current teacher profile
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateMyTeacherProfile
+      tags: [teachers]
+      summary: Update current teacher profile
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeacherProfileBody"
+      responses:
+        "200":
+          description: Updated teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Student Profiles ───────────────────────────────────────────────────────
+  /students/me:
+    get:
+      operationId: getMyStudentProfile
+      tags: [students]
+      summary: Get current student profile
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Student profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateMyStudentProfile
+      tags: [students]
+      summary: Update current student profile
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStudentProfileBody"
+      responses:
+        "200":
+          description: Updated student profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Listings ───────────────────────────────────────────────────────────────
+  /listings:
+    get:
+      operationId: listListings
+      tags: [listings]
+      summary: Browse all listings
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [lesson, event, masterclass, digital_product]
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: skillLevel
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: integer
+        - name: maxPrice
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListingListResponse"
+
+    post:
+      operationId: createListing
+      tags: [listings]
+      summary: Create a new listing
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingBody"
+      responses:
+        "201":
+          description: Created listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /listings/{id}:
+    get:
+      operationId: getListing
+      tags: [listings]
+      summary: Get a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateListing
+      tags: [listings]
+      summary: Update a listing
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateListingBody"
+      responses:
+        "200":
+          description: Updated listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteListing
+      tags: [listings]
+      summary: Delete a listing
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /listings/teacher/{userId}:
+    get:
+      operationId: getTeacherListings
+      tags: [listings]
+      summary: Get all listings for a teacher
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Teacher's listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListingListResponse"
+
+  # ── Masterclasses ──────────────────────────────────────────────────────────
+  /masterclasses:
+    get:
+      operationId: listMasterclasses
+      tags: [masterclasses]
+      summary: Browse upcoming masterclass events
+      parameters:
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of masterclasses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MasterclassListResponse"
+
+    post:
+      operationId: createMasterclass
+      tags: [masterclasses]
+      summary: Create a masterclass event
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMasterclassBody"
+      responses:
+        "201":
+          description: Created masterclass
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Masterclass"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /masterclasses/{id}:
+    get:
+      operationId: getMasterclass
+      tags: [masterclasses]
+      summary: Get a masterclass event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Masterclass event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Masterclass"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateMasterclass
+      tags: [masterclasses]
+      summary: Update a masterclass event
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMasterclassBody"
+      responses:
+        "200":
+          description: Updated masterclass
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Masterclass"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Digital Products ───────────────────────────────────────────────────────
+  /digital-products:
+    get:
+      operationId: listDigitalProducts
+      tags: [digital-products]
+      summary: Browse digital products
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of digital products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalProductListResponse"
+
+    post:
+      operationId: createDigitalProduct
+      tags: [digital-products]
+      summary: Create a digital product listing
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDigitalProductBody"
+      responses:
+        "201":
+          description: Created digital product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalProduct"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /digital-products/{id}:
+    get:
+      operationId: getDigitalProduct
+      tags: [digital-products]
+      summary: Get a digital product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Digital product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalProduct"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateDigitalProduct
+      tags: [digital-products]
+      summary: Update a digital product
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDigitalProductBody"
+      responses:
+        "200":
+          description: Updated digital product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalProduct"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Bookings ───────────────────────────────────────────────────────────────
+  /bookings:
+    get:
+      operationId: listBookings
+      tags: [bookings]
+      summary: List bookings for current user
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a booking request
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingBody"
+      responses:
+        "201":
+          description: Created booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get a booking
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateBooking
+      tags: [bookings]
+      summary: Update booking status
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookingBody"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Orders ─────────────────────────────────────────────────────────────────
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders for current user
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an order (digital product or masterclass ticket)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderBody"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get an order
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Reviews ────────────────────────────────────────────────────────────────
+  /reviews/teacher/{userId}:
+    get:
+      operationId: getTeacherReviews
+      tags: [reviews]
+      summary: Get reviews for a teacher
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewListResponse"
+
+  /reviews:
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Submit a review
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewBody"
+      responses:
+        "201":
+          description: Created review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Dashboard ──────────────────────────────────────────────────────────────
+  /dashboard/teacher:
+    get:
+      operationId: getTeacherDashboard
+      tags: [dashboard]
+      summary: Get teacher dashboard summary
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Teacher dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherDashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /dashboard/student:
+    get:
+      operationId: getStudentDashboard
+      tags: [dashboard]
+      summary: Get student dashboard summary
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Student dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
+  securitySchemes:
+    clerkAuth:
+      type: http
+      scheme: bearer
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    # ── User ────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+          enum: [teacher, student, null]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, createdAt]
+
+    OnboardUserBody:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [teacher, student]
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required: [role]
+
+    # ── Teacher Profile ──────────────────────────────────────────────────────
+    TeacherProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        bio:
+          type: ["string", "null"]
+        instruments:
+          type: array
+          items:
+            type: string
+        genres:
+          type: array
+          items:
+            type: string
+        city:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+        hourlyRate:
+          type: ["integer", "null"]
+        currency:
+          type: string
+        yearsExperience:
+          type: ["integer", "null"]
+        education:
+          type: ["string", "null"]
+        averageRating:
+          type: integer
+        reviewCount:
+          type: integer
+        isVerified:
+          type: boolean
+        profileImageUrl:
+          type: ["string", "null"]
+        websiteUrl:
+          type: ["string", "null"]
+        videoIntroUrl:
+          type: ["string", "null"]
+        stripeOnboarded:
+          type: boolean
+        user:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, instruments, genres, currency, averageRating, reviewCount, isVerified, stripeOnboarded, createdAt]
+
+    TeacherListResponse:
+      type: object
+      properties:
+        teachers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherProfile"
+        total:
+          type: integer
+      required: [teachers, total]
+
+    UpdateTeacherProfileBody:
+      type: object
+      properties:
+        bio:
+          type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        genres:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+        country:
+          type: string
+        timezone:
+          type: string
+        hourlyRate:
+          type: integer
+        yearsExperience:
+          type: integer
+        education:
+          type: string
+        profileImageUrl:
+          type: string
+        websiteUrl:
+          type: string
+        videoIntroUrl:
+          type: string
+
+    # ── Student Profile ──────────────────────────────────────────────────────
+    StudentProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        bio:
+          type: ["string", "null"]
+        instruments:
+          type: array
+          items:
+            type: string
+        skillLevel:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+        learningGoals:
+          type: ["string", "null"]
+        ageGroup:
+          type: ["string", "null"]
+        lessonsCompleted:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, instruments, lessonsCompleted, createdAt]
+
+    UpdateStudentProfileBody:
+      type: object
+      properties:
+        bio:
+          type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        skillLevel:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        timezone:
+          type: string
+        learningGoals:
+          type: string
+        ageGroup:
+          type: string
+
+    # ── Listing ──────────────────────────────────────────────────────────────
+    Listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        type:
+          type: string
+          enum: [lesson, event, masterclass, digital_product]
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        instrument:
+          type: ["string", "null"]
+        skillLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, all]
+        priceInCents:
+          type: integer
+        currency:
+          type: string
+        durationMinutes:
+          type: ["integer", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        isOnline:
+          type: boolean
+        city:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        teacher:
+          $ref: "#/components/schemas/TeacherProfile"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, type, status, title, skillLevel, priceInCents, currency, tags, isOnline, createdAt]
+
+    ListingListResponse:
+      type: object
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Listing"
+        total:
+          type: integer
+      required: [listings, total]
+
+    CreateListingBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [lesson, event, masterclass, digital_product]
+        title:
+          type: string
+        description:
+          type: string
+        instrument:
+          type: string
+        skillLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, all]
+        priceInCents:
+          type: integer
+        durationMinutes:
+          type: integer
+        imageUrl:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isOnline:
+          type: boolean
+        city:
+          type: string
+        country:
+          type: string
+      required: [type, title, priceInCents]
+
+    UpdateListingBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, inactive, draft]
+        title:
+          type: string
+        description:
+          type: string
+        instrument:
+          type: string
+        skillLevel:
+          type: string
+        priceInCents:
+          type: integer
+        durationMinutes:
+          type: integer
+        imageUrl:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    # ── Masterclass ───────────────────────────────────────────────────────────
+    Masterclass:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingId:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        maxPerformers:
+          type: integer
+        maxObservers:
+          type: integer
+        performerPriceInCents:
+          type: integer
+        observerPriceInCents:
+          type: integer
+        currency:
+          type: string
+        registeredPerformers:
+          type: integer
+        registeredObservers:
+          type: integer
+        meetingUrl:
+          type: ["string", "null"]
+        recordingUrl:
+          type: ["string", "null"]
+        isLive:
+          type: boolean
+        isCancelled:
+          type: boolean
+        instrument:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        teacher:
+          $ref: "#/components/schemas/TeacherProfile"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, listingId, teacherId, title, scheduledAt, durationMinutes, maxPerformers, maxObservers, performerPriceInCents, observerPriceInCents, currency, registeredPerformers, registeredObservers, isLive, isCancelled, createdAt]
+
+    MasterclassListResponse:
+      type: object
+      properties:
+        masterclasses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Masterclass"
+        total:
+          type: integer
+      required: [masterclasses, total]
+
+    CreateMasterclassBody:
+      type: object
+      properties:
+        listingId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        maxPerformers:
+          type: integer
+        maxObservers:
+          type: integer
+        performerPriceInCents:
+          type: integer
+        observerPriceInCents:
+          type: integer
+        instrument:
+          type: string
+        imageUrl:
+          type: string
+      required: [listingId, title, scheduledAt, performerPriceInCents, observerPriceInCents]
+
+    UpdateMasterclassBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        meetingUrl:
+          type: string
+        isCancelled:
+          type: boolean
+
+    # ── Digital Product ───────────────────────────────────────────────────────
+    DigitalProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingId:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+        instrument:
+          type: ["string", "null"]
+        difficulty:
+          type: ["string", "null"]
+        fileKey:
+          type: ["string", "null"]
+        fileSize:
+          type: ["integer", "null"]
+        fileType:
+          type: ["string", "null"]
+        previewUrl:
+          type: ["string", "null"]
+        downloadCount:
+          type: integer
+        isPublished:
+          type: boolean
+        priceInCents:
+          type: integer
+        currency:
+          type: string
+        teacher:
+          $ref: "#/components/schemas/TeacherProfile"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, listingId, teacherId, title, category, downloadCount, isPublished, priceInCents, currency, createdAt]
+
+    DigitalProductListResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/DigitalProduct"
+        total:
+          type: integer
+      required: [products, total]
+
+    CreateDigitalProductBody:
+      type: object
+      properties:
+        listingId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        instrument:
+          type: string
+        difficulty:
+          type: string
+        priceInCents:
+          type: integer
+        previewUrl:
+          type: string
+      required: [listingId, title, category, priceInCents]
+
+    UpdateDigitalProductBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        instrument:
+          type: string
+        difficulty:
+          type: string
+        priceInCents:
+          type: integer
+        previewUrl:
+          type: string
+        isPublished:
+          type: boolean
+
+    # ── Booking ───────────────────────────────────────────────────────────────
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: string
+        teacherId:
+          type: string
+        listingId:
+          type: ["integer", "null"]
+        type:
+          type: string
+          enum: [lesson, event]
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled, completed, refunded]
+        scheduledAt:
+          type: ["string", "null"]
+          format: date-time
+        durationMinutes:
+          type: ["integer", "null"]
+        priceInCents:
+          type: integer
+        currency:
+          type: string
+        notes:
+          type: ["string", "null"]
+        meetingUrl:
+          type: ["string", "null"]
+        instrument:
+          type: ["string", "null"]
+        eventType:
+          type: ["string", "null"]
+        eventDate:
+          type: ["string", "null"]
+          format: date-time
+        eventLocation:
+          type: ["string", "null"]
+        cancelReason:
+          type: ["string", "null"]
+        teacher:
+          $ref: "#/components/schemas/TeacherProfile"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, studentId, teacherId, type, status, priceInCents, currency, createdAt]
+
+    BookingListResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        total:
+          type: integer
+      required: [bookings, total]
+
+    CreateBookingBody:
+      type: object
+      properties:
+        teacherId:
+          type: string
+        listingId:
+          type: integer
+        type:
+          type: string
+          enum: [lesson, event]
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        notes:
+          type: string
+        instrument:
+          type: string
+        eventType:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        eventLocation:
+          type: string
+      required: [teacherId, type]
+
+    UpdateBookingBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [confirmed, cancelled, completed]
+        meetingUrl:
+          type: string
+        cancelReason:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+
+    # ── Order ─────────────────────────────────────────────────────────────────
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        buyerId:
+          type: string
+        sellerId:
+          type: string
+        type:
+          type: string
+          enum: [digital_product, masterclass_performer, masterclass_observer]
+        status:
+          type: string
+          enum: [pending, paid, refunded, failed]
+        digitalProductId:
+          type: ["integer", "null"]
+        masterclassEventId:
+          type: ["integer", "null"]
+        priceInCents:
+          type: integer
+        currency:
+          type: string
+        downloadUrl:
+          type: ["string", "null"]
+        downloadExpiresAt:
+          type: ["string", "null"]
+          format: date-time
+        downloadCount:
+          type: integer
+        paidAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, buyerId, sellerId, type, status, priceInCents, currency, downloadCount, createdAt]
+
+    OrderListResponse:
+      type: object
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+      required: [orders, total]
+
+    CreateOrderBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [digital_product, masterclass_performer, masterclass_observer]
+        digitalProductId:
+          type: integer
+        masterclassEventId:
+          type: integer
+      required: [type]
+
+    # ── Review ────────────────────────────────────────────────────────────────
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        reviewerId:
+          type: string
+        teacherId:
+          type: string
+        bookingId:
+          type: ["integer", "null"]
+        rating:
+          type: integer
+        title:
+          type: ["string", "null"]
+        body:
+          type: ["string", "null"]
+        isPublished:
+          type: boolean
+        reviewer:
+          $ref: "#/components/schemas/User"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, reviewerId, teacherId, rating, isPublished, createdAt]
+
+    ReviewListResponse:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+        total:
+          type: integer
+      required: [reviews, total]
+
+    CreateReviewBody:
+      type: object
+      properties:
+        teacherId:
+          type: string
+        bookingId:
+          type: integer
+        rating:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+      required: [teacherId, rating]
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    TeacherDashboard:
+      type: object
+      properties:
+        upcomingBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        recentReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+        totalEarningsInCents:
+          type: integer
+        totalStudents:
+          type: integer
+        totalLessonsCompleted:
+          type: integer
+        averageRating:
+          type: integer
+        activeListingsCount:
+          type: integer
+        upcomingMasterclasses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Masterclass"
+      required: [upcomingBookings, recentReviews, totalEarningsInCents, totalStudents, totalLessonsCompleted, averageRating, activeListingsCount, upcomingMasterclasses]
+
+    StudentDashboard:
+      type: object
+      properties:
+        upcomingBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        registeredMasterclasses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Masterclass"
+        lessonsCompleted:
+          type: integer
+        totalSpentInCents:
+          type: integer
+        favouriteTeachers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherProfile"
+      required: [upcomingBookings, recentOrders, registeredMasterclasses, lessonsCompleted, totalSpentInCents, favouriteTeachers]
