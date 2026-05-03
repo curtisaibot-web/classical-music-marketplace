@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, gte } from "drizzle-orm";
+import { eq, and, gte, count } from "drizzle-orm";
 import { db, masterclassEventsTable, teacherProfilesTable, usersTable } from "@workspace/db";
 import {
   GetMasterclassResponse,
@@ -18,22 +18,37 @@ router.get("/masterclasses", async (req, res): Promise<void> => {
   const params = ListMasterclassesQueryParams.safeParse(req.query);
   const limit = params.success ? (params.data.limit ?? 20) : 20;
   const offset = params.success ? (params.data.offset ?? 0) : 0;
+  const instrument = params.success ? params.data.instrument : undefined;
 
-  const rows = await db
-    .select()
-    .from(masterclassEventsTable)
-    .leftJoin(teacherProfilesTable, eq(masterclassEventsTable.teacherId, teacherProfilesTable.userId))
-    .leftJoin(usersTable, eq(masterclassEventsTable.teacherId, usersTable.id))
-    .where(and(eq(masterclassEventsTable.isCancelled, false), gte(masterclassEventsTable.scheduledAt, new Date())))
-    .limit(limit)
-    .offset(offset);
+  const now = new Date();
+  const conditions = [
+    eq(masterclassEventsTable.isCancelled, false),
+    gte(masterclassEventsTable.scheduledAt, now),
+  ];
+  if (instrument) {
+    conditions.push(eq(masterclassEventsTable.instrument, instrument));
+  }
+
+  const where = and(...conditions);
+
+  const [totalRow, rows] = await Promise.all([
+    db.select({ count: count() }).from(masterclassEventsTable).where(where),
+    db
+      .select()
+      .from(masterclassEventsTable)
+      .leftJoin(teacherProfilesTable, eq(masterclassEventsTable.teacherId, teacherProfilesTable.userId))
+      .leftJoin(usersTable, eq(masterclassEventsTable.teacherId, usersTable.id))
+      .where(where)
+      .limit(limit)
+      .offset(offset),
+  ]);
 
   const masterclasses = rows.map((r) => ({
     ...r.masterclass_events,
     teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
   }));
 
-  res.json(ListMasterclassesResponse.parse({ masterclasses, total: masterclasses.length }));
+  res.json(ListMasterclassesResponse.parse({ masterclasses, total: totalRow[0]?.count ?? 0 }));
 });
 
 router.post("/masterclasses", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {

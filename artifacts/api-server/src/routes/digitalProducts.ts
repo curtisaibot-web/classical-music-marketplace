@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { db, digitalProductsTable, teacherProfilesTable, usersTable } from "@workspace/db";
 import {
   GetDigitalProductResponse,
@@ -18,22 +18,33 @@ router.get("/digital-products", async (req, res): Promise<void> => {
   const params = ListDigitalProductsQueryParams.safeParse(req.query);
   const limit = params.success ? (params.data.limit ?? 20) : 20;
   const offset = params.success ? (params.data.offset ?? 0) : 0;
+  const category = params.success ? params.data.category : undefined;
+  const instrument = params.success ? params.data.instrument : undefined;
 
-  const rows = await db
-    .select()
-    .from(digitalProductsTable)
-    .leftJoin(teacherProfilesTable, eq(digitalProductsTable.teacherId, teacherProfilesTable.userId))
-    .leftJoin(usersTable, eq(digitalProductsTable.teacherId, usersTable.id))
-    .where(eq(digitalProductsTable.isPublished, true))
-    .limit(limit)
-    .offset(offset);
+  const conditions = [eq(digitalProductsTable.isPublished, true)];
+  if (category) conditions.push(eq(digitalProductsTable.category, category));
+  if (instrument) conditions.push(eq(digitalProductsTable.instrument, instrument));
+
+  const where = and(...conditions);
+
+  const [totalRow, rows] = await Promise.all([
+    db.select({ count: count() }).from(digitalProductsTable).where(where),
+    db
+      .select()
+      .from(digitalProductsTable)
+      .leftJoin(teacherProfilesTable, eq(digitalProductsTable.teacherId, teacherProfilesTable.userId))
+      .leftJoin(usersTable, eq(digitalProductsTable.teacherId, usersTable.id))
+      .where(where)
+      .limit(limit)
+      .offset(offset),
+  ]);
 
   const products = rows.map((r) => ({
     ...r.digital_products,
     teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
   }));
 
-  res.json(ListDigitalProductsResponse.parse({ products, total: products.length }));
+  res.json(ListDigitalProductsResponse.parse({ products, total: totalRow[0]?.count ?? 0 }));
 });
 
 router.post("/digital-products", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {

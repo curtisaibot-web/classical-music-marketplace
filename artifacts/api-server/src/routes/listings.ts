@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte, count } from "drizzle-orm";
 import { db, listingsTable, teacherProfilesTable, usersTable } from "@workspace/db";
 import {
   GetListingResponse,
@@ -20,28 +20,38 @@ router.get("/listings", async (req, res): Promise<void> => {
   const limit = params.success ? (params.data.limit ?? 20) : 20;
   const offset = params.success ? (params.data.offset ?? 0) : 0;
   const type = params.success ? params.data.type : undefined;
+  const instrument = params.success ? params.data.instrument : undefined;
+  const skillLevel = params.success ? params.data.skillLevel : undefined;
+  const minPrice = params.success ? params.data.minPrice : undefined;
+  const maxPrice = params.success ? params.data.maxPrice : undefined;
 
-  const query = db
-    .select()
-    .from(listingsTable)
-    .leftJoin(teacherProfilesTable, eq(listingsTable.teacherId, teacherProfilesTable.userId))
-    .leftJoin(usersTable, eq(listingsTable.teacherId, usersTable.id))
-    .limit(limit)
-    .offset(offset);
+  const conditions = [eq(listingsTable.status, "active")];
+  if (type) conditions.push(eq(listingsTable.type, type as "lesson" | "event" | "masterclass" | "digital_product"));
+  if (instrument) conditions.push(eq(listingsTable.instrument, instrument));
+  if (skillLevel) conditions.push(eq(listingsTable.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "all"));
+  if (minPrice !== undefined) conditions.push(gte(listingsTable.priceInCents, minPrice));
+  if (maxPrice !== undefined) conditions.push(lte(listingsTable.priceInCents, maxPrice));
 
-  if (type) {
-    query.where(and(eq(listingsTable.status, "active"), eq(listingsTable.type, type as "lesson" | "event" | "masterclass" | "digital_product")));
-  } else {
-    query.where(eq(listingsTable.status, "active"));
-  }
+  const where = and(...conditions);
 
-  const rows = await query;
+  const [totalRow, rows] = await Promise.all([
+    db.select({ count: count() }).from(listingsTable).where(where),
+    db
+      .select()
+      .from(listingsTable)
+      .leftJoin(teacherProfilesTable, eq(listingsTable.teacherId, teacherProfilesTable.userId))
+      .leftJoin(usersTable, eq(listingsTable.teacherId, usersTable.id))
+      .where(where)
+      .limit(limit)
+      .offset(offset),
+  ]);
+
   const listings = rows.map((r) => ({
     ...r.listings,
     teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
   }));
 
-  res.json(ListListingsResponse.parse({ listings, total: listings.length }));
+  res.json(ListListingsResponse.parse({ listings, total: totalRow[0]?.count ?? 0 }));
 });
 
 router.post("/listings", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
