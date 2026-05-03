@@ -29,6 +29,8 @@ tags:
     description: Review operations
   - name: dashboard
     description: Dashboard summary operations
+  - name: stripe
+    description: Stripe payment and Connect operations
 
 paths:
   /healthz:
@@ -863,6 +865,117 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ── Stripe ─────────────────────────────────────────────────────────────────
+  /stripe/checkout/booking:
+    post:
+      operationId: createBookingCheckout
+      tags: [stripe]
+      summary: Create Stripe Checkout session for a lesson or event booking
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /stripe/checkout/order:
+    post:
+      operationId: createOrderCheckout
+      tags: [stripe]
+      summary: Create Stripe Checkout session for an order (masterclass or digital product)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /stripe/connect/onboard:
+    post:
+      operationId: createConnectOnboarding
+      tags: [stripe]
+      summary: Start Stripe Connect Express onboarding for a teacher
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConnectOnboardingBody"
+      responses:
+        "200":
+          description: Onboarding URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingUrlResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /stripe/connect/status:
+    get:
+      operationId: getConnectStatus
+      tags: [stripe]
+      summary: Get teacher Stripe Connect account status
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Connect status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /stripe/connect/dashboard:
+    get:
+      operationId: getConnectDashboard
+      tags: [stripe]
+      summary: Get Stripe Express Dashboard login link for a teacher
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Dashboard URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -1678,3 +1791,65 @@ components:
           items:
             $ref: "#/components/schemas/TeacherProfile"
       required: [upcomingBookings, recentOrders, registeredMasterclasses, lessonsCompleted, totalSpentInCents, favouriteTeachers]
+
+    # ── Stripe ────────────────────────────────────────────────────────────────
+    CreateBookingCheckoutBody:
+      type: object
+      properties:
+        bookingId:
+          type: integer
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [bookingId, successUrl, cancelUrl]
+
+    CreateOrderCheckoutBody:
+      type: object
+      properties:
+        orderId:
+          type: integer
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [orderId, successUrl, cancelUrl]
+
+    CreateConnectOnboardingBody:
+      type: object
+      properties:
+        returnUrl:
+          type: string
+      required: [returnUrl]
+
+    CheckoutUrlResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+      required: [checkoutUrl]
+
+    OnboardingUrlResponse:
+      type: object
+      properties:
+        onboardingUrl:
+          type: string
+      required: [onboardingUrl]
+
+    ConnectStatusResponse:
+      type: object
+      properties:
+        isConnected:
+          type: boolean
+        isOnboarded:
+          type: boolean
+        stripeAccountId:
+          type: ["string", "null"]
+      required: [isConnected, isOnboarded]
+
+    DashboardUrlResponse:
+      type: object
+      properties:
+        dashboardUrl:
+          type: string
+      required: [dashboardUrl]

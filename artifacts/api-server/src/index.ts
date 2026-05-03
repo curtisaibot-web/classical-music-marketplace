@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initStripe } from "./stripeInit";
 
 const rawPort = process.env["PORT"];
 
@@ -13,6 +14,12 @@ const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+try {
+  await initStripe();
+} catch (err) {
+  logger.warn({ err }, "Stripe initialization failed — server will start without payment support");
 }
 
 app.listen(port, (err) => {

@@ -565,6 +565,41 @@ export interface StudentDashboard {
   favouriteTeachers: TeacherProfile[];
 }
 
+export interface CreateBookingCheckoutBody {
+  bookingId: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface CreateOrderCheckoutBody {
+  orderId: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface CreateConnectOnboardingBody {
+  returnUrl: string;
+}
+
+export interface CheckoutUrlResponse {
+  checkoutUrl: string;
+}
+
+export interface OnboardingUrlResponse {
+  onboardingUrl: string;
+}
+
+export interface ConnectStatusResponse {
+  isConnected: boolean;
+  isOnboarded: boolean;
+  /** @nullable */
+  stripeAccountId?: string | null;
+}
+
+export interface DashboardUrlResponse {
+  dashboardUrl: string;
+}
+
 /**
  * Unauthorized
  */

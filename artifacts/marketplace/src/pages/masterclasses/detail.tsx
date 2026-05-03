@@ -1,5 +1,5 @@
 import { useParams } from "wouter";
-import { useGetMasterclass, useCreateOrder, getGetMasterclassQueryKey } from "@workspace/api-client-react";
+import { useGetMasterclass, useCreateOrder, useCreateOrderCheckout, getGetMasterclassQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,9 @@ export default function MasterclassDetail() {
   });
 
   const createOrder = useCreateOrder();
+  const createCheckout = useCreateOrderCheckout();
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handlePurchase = (type: "masterclass_performer" | "masterclass_observer") => {
     if (!isLoaded || !user) {
@@ -27,19 +30,32 @@ export default function MasterclassDetail() {
     }
 
     createOrder.mutate({
-      data: {
-        type,
-        masterclassEventId: Number(id),
-      }
+      data: { type, masterclassEventId: Number(id) }
     }, {
-      onSuccess: () => {
-        toast.success("Payment coming soon! Registration recorded.");
+      onSuccess: (order) => {
+        const successUrl = `${window.location.origin}${basePath}/payment/success?type=${type}&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+
+        createCheckout.mutate({
+          data: { orderId: order.id, successUrl, cancelUrl }
+        }, {
+          onSuccess: (data) => {
+            if (data.checkoutUrl) {
+              window.location.href = data.checkoutUrl;
+            }
+          },
+          onError: () => {
+            toast.error("Failed to open payment. Please try again.");
+          }
+        });
       },
       onError: () => {
         toast.error("Failed to register. Please try again.");
       }
     });
   };
+
+  const isPending = createOrder.isPending || createCheckout.isPending;
 
   if (isLoading) {
     return (
@@ -65,7 +81,6 @@ export default function MasterclassDetail() {
       <Navbar />
       
       <main className="flex-1 bg-muted/30">
-        {/* Header Hero */}
         <div className="bg-foreground text-background py-16 lg:py-24 relative overflow-hidden">
           {mc.imageUrl && (
             <>
@@ -100,7 +115,6 @@ export default function MasterclassDetail() {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
             
-            {/* Left Column */}
             <div className="lg:col-span-2 space-y-10">
               <section>
                 <h2 className="text-2xl font-serif font-semibold mb-4 text-foreground">About This Masterclass</h2>
@@ -126,14 +140,12 @@ export default function MasterclassDetail() {
               </section>
             </div>
             
-            {/* Right Column - Registration */}
             <div className="space-y-6 sticky top-24">
               <Card className="border-border shadow-lg">
                 <CardHeader className="bg-muted/50 border-b border-border pb-4">
                   <CardTitle className="font-serif text-xl">Registration</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {/* Performer Option */}
                   <div className="p-6 border-b border-border">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -147,14 +159,13 @@ export default function MasterclassDetail() {
                     </div>
                     <Button 
                       className="w-full mt-6" 
-                      disabled={!performAvailable || createOrder.isPending}
+                      disabled={!performAvailable || isPending}
                       onClick={() => handlePurchase("masterclass_performer")}
                     >
-                      {performAvailable ? "Register as Performer" : "Sold Out"}
+                      {isPending ? "Opening checkout..." : performAvailable ? "Register as Performer" : "Sold Out"}
                     </Button>
                   </div>
 
-                  {/* Observer Option */}
                   <div className="p-6 bg-muted/20">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -168,10 +179,10 @@ export default function MasterclassDetail() {
                     <Button 
                       variant="outline"
                       className="w-full mt-6" 
-                      disabled={!observeAvailable || createOrder.isPending}
+                      disabled={!observeAvailable || isPending}
                       onClick={() => handlePurchase("masterclass_observer")}
                     >
-                      {observeAvailable ? "Register as Observer" : "Sold Out"}
+                      {isPending ? "Opening checkout..." : observeAvailable ? "Register as Observer" : "Sold Out"}
                     </Button>
                   </div>
                 </CardContent>

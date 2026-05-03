@@ -20,12 +20,18 @@ import type {
   BadRequestResponse,
   Booking,
   BookingListResponse,
+  CheckoutUrlResponse,
+  ConnectStatusResponse,
   CreateBookingBody,
+  CreateBookingCheckoutBody,
+  CreateConnectOnboardingBody,
   CreateDigitalProductBody,
   CreateListingBody,
   CreateMasterclassBody,
   CreateOrderBody,
+  CreateOrderCheckoutBody,
   CreateReviewBody,
+  DashboardUrlResponse,
   DigitalProduct,
   DigitalProductListResponse,
   GetTeacherReviewsParams,
@@ -42,6 +48,7 @@ import type {
   MasterclassListResponse,
   NotFoundResponse,
   OnboardUserBody,
+  OnboardingUrlResponse,
   Order,
   OrderListResponse,
   Review,
@@ -3048,6 +3055,432 @@ export function useGetStudentDashboard<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStudentDashboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create Stripe Checkout session for a lesson or event booking
+ */
+export const getCreateBookingCheckoutUrl = () => {
+  return `/api/stripe/checkout/booking`;
+};
+
+export const createBookingCheckout = async (
+  createBookingCheckoutBody: CreateBookingCheckoutBody,
+  options?: RequestInit,
+): Promise<CheckoutUrlResponse> => {
+  return customFetch<CheckoutUrlResponse>(getCreateBookingCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBookingCheckoutBody),
+  });
+};
+
+export const getCreateBookingCheckoutMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBookingCheckout>>,
+    TError,
+    { data: BodyType<CreateBookingCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBookingCheckout>>,
+  TError,
+  { data: BodyType<CreateBookingCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createBookingCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBookingCheckout>>,
+    { data: BodyType<CreateBookingCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBookingCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBookingCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBookingCheckout>>
+>;
+export type CreateBookingCheckoutMutationBody =
+  BodyType<CreateBookingCheckoutBody>;
+export type CreateBookingCheckoutMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Create Stripe Checkout session for a lesson or event booking
+ */
+export const useCreateBookingCheckout = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBookingCheckout>>,
+    TError,
+    { data: BodyType<CreateBookingCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBookingCheckout>>,
+  TError,
+  { data: BodyType<CreateBookingCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getCreateBookingCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Create Stripe Checkout session for an order (masterclass or digital product)
+ */
+export const getCreateOrderCheckoutUrl = () => {
+  return `/api/stripe/checkout/order`;
+};
+
+export const createOrderCheckout = async (
+  createOrderCheckoutBody: CreateOrderCheckoutBody,
+  options?: RequestInit,
+): Promise<CheckoutUrlResponse> => {
+  return customFetch<CheckoutUrlResponse>(getCreateOrderCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrderCheckoutBody),
+  });
+};
+
+export const getCreateOrderCheckoutMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrderCheckout>>,
+    TError,
+    { data: BodyType<CreateOrderCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrderCheckout>>,
+  TError,
+  { data: BodyType<CreateOrderCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrderCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrderCheckout>>,
+    { data: BodyType<CreateOrderCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOrderCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrderCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrderCheckout>>
+>;
+export type CreateOrderCheckoutMutationBody = BodyType<CreateOrderCheckoutBody>;
+export type CreateOrderCheckoutMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Create Stripe Checkout session for an order (masterclass or digital product)
+ */
+export const useCreateOrderCheckout = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrderCheckout>>,
+    TError,
+    { data: BodyType<CreateOrderCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrderCheckout>>,
+  TError,
+  { data: BodyType<CreateOrderCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrderCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Start Stripe Connect Express onboarding for a teacher
+ */
+export const getCreateConnectOnboardingUrl = () => {
+  return `/api/stripe/connect/onboard`;
+};
+
+export const createConnectOnboarding = async (
+  createConnectOnboardingBody: CreateConnectOnboardingBody,
+  options?: RequestInit,
+): Promise<OnboardingUrlResponse> => {
+  return customFetch<OnboardingUrlResponse>(getCreateConnectOnboardingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createConnectOnboardingBody),
+  });
+};
+
+export const getCreateConnectOnboardingMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createConnectOnboarding>>,
+    TError,
+    { data: BodyType<CreateConnectOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createConnectOnboarding>>,
+  TError,
+  { data: BodyType<CreateConnectOnboardingBody> },
+  TContext
+> => {
+  const mutationKey = ["createConnectOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createConnectOnboarding>>,
+    { data: BodyType<CreateConnectOnboardingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createConnectOnboarding(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateConnectOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createConnectOnboarding>>
+>;
+export type CreateConnectOnboardingMutationBody =
+  BodyType<CreateConnectOnboardingBody>;
+export type CreateConnectOnboardingMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Start Stripe Connect Express onboarding for a teacher
+ */
+export const useCreateConnectOnboarding = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createConnectOnboarding>>,
+    TError,
+    { data: BodyType<CreateConnectOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createConnectOnboarding>>,
+  TError,
+  { data: BodyType<CreateConnectOnboardingBody> },
+  TContext
+> => {
+  return useMutation(getCreateConnectOnboardingMutationOptions(options));
+};
+
+/**
+ * @summary Get teacher Stripe Connect account status
+ */
+export const getGetConnectStatusUrl = () => {
+  return `/api/stripe/connect/status`;
+};
+
+export const getConnectStatus = async (
+  options?: RequestInit,
+): Promise<ConnectStatusResponse> => {
+  return customFetch<ConnectStatusResponse>(getGetConnectStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetConnectStatusQueryKey = () => {
+  return [`/api/stripe/connect/status`] as const;
+};
+
+export const getGetConnectStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getConnectStatus>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetConnectStatusQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getConnectStatus>>
+  > = ({ signal }) => getConnectStatus({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetConnectStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getConnectStatus>>
+>;
+export type GetConnectStatusQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get teacher Stripe Connect account status
+ */
+
+export function useGetConnectStatus<
+  TData = Awaited<ReturnType<typeof getConnectStatus>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectStatus>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetConnectStatusQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Stripe Express Dashboard login link for a teacher
+ */
+export const getGetConnectDashboardUrl = () => {
+  return `/api/stripe/connect/dashboard`;
+};
+
+export const getConnectDashboard = async (
+  options?: RequestInit,
+): Promise<DashboardUrlResponse> => {
+  return customFetch<DashboardUrlResponse>(getGetConnectDashboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetConnectDashboardQueryKey = () => {
+  return [`/api/stripe/connect/dashboard`] as const;
+};
+
+export const getGetConnectDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getConnectDashboard>>,
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetConnectDashboardQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getConnectDashboard>>
+  > = ({ signal }) => getConnectDashboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetConnectDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getConnectDashboard>>
+>;
+export type GetConnectDashboardQueryError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Get Stripe Express Dashboard login link for a teacher
+ */
+
+export function useGetConnectDashboard<
+  TData = Awaited<ReturnType<typeof getConnectDashboard>>,
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getConnectDashboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetConnectDashboardQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

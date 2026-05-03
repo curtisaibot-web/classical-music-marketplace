@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "wouter";
-import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,9 @@ export default function TeacherProfile() {
   });
 
   const createBooking = useCreateBooking();
+  const createCheckout = useCreateBookingCheckout();
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handleRequestEvent = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,18 +111,38 @@ export default function TeacherProfile() {
         instrument: teacher?.instruments[0],
       }
     }, {
-      onSuccess: () => {
-        toast.success("Lesson request sent successfully!");
-        setBookingModalOpen(false);
-        setBookingDate("");
-        setBookingSlot("");
-        setBookingNotes("");
+      onSuccess: (booking) => {
+        const successUrl = `${window.location.origin}${basePath}/payment/success?type=booking&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+
+        createCheckout.mutate({
+          data: { bookingId: booking.id, successUrl, cancelUrl }
+        }, {
+          onSuccess: (data) => {
+            setBookingModalOpen(false);
+            setBookingDate("");
+            setBookingSlot("");
+            setBookingNotes("");
+            if (data.checkoutUrl) {
+              window.location.href = data.checkoutUrl;
+            }
+          },
+          onError: () => {
+            toast.success("Lesson request sent! Complete payment from your dashboard.");
+            setBookingModalOpen(false);
+            setBookingDate("");
+            setBookingSlot("");
+            setBookingNotes("");
+          }
+        });
       },
       onError: () => {
         toast.error("Failed to send request. Please try again.");
       }
     });
   };
+
+  const isBookingPending = createBooking.isPending || createCheckout.isPending;
 
   if (isLoadingTeacher) {
     return (
@@ -145,9 +168,7 @@ export default function TeacherProfile() {
       <main className="flex-1 container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
-          {/* Left Column - Teacher Info */}
           <div className="lg:col-span-2 space-y-12">
-            {/* Header Section */}
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-32 h-32 md:w-48 md:h-48 shrink-0 rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg">
                 {teacher.profileImageUrl ? (
@@ -193,7 +214,6 @@ export default function TeacherProfile() {
               </div>
             </div>
 
-            {/* Bio Section */}
             <section>
               <h2 className="text-2xl font-serif font-semibold mb-4 text-foreground">About</h2>
               <div className="prose prose-slate dark:prose-invert max-w-none text-muted-foreground">
@@ -205,7 +225,6 @@ export default function TeacherProfile() {
               </div>
             </section>
 
-            {/* Education Section */}
             {teacher.education && (
               <section>
                 <h2 className="text-2xl font-serif font-semibold mb-4 text-foreground">Education</h2>
@@ -215,7 +234,6 @@ export default function TeacherProfile() {
               </section>
             )}
 
-            {/* Reviews Section */}
             <section>
               <h2 className="text-2xl font-serif font-semibold mb-6 text-foreground">Student Reviews</h2>
               {!reviewsData?.reviews.length ? (
@@ -248,7 +266,6 @@ export default function TeacherProfile() {
             </section>
           </div>
           
-          {/* Right Column - Booking & Listings */}
           <div className="space-y-8">
             <Card className="border-border sticky top-24">
               <CardContent className="p-6">
@@ -294,7 +311,6 @@ export default function TeacherProfile() {
               </CardContent>
             </Card>
 
-            {/* Other Offerings */}
             {listingsData && listingsData.listings.length > 0 && (
               <div>
                 <h3 className="font-serif font-semibold text-xl mb-4 text-foreground">Other Offerings</h3>
@@ -392,8 +408,8 @@ export default function TeacherProfile() {
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setBookingModalOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={!bookingDate || !bookingSlot || createBooking.isPending}>
-                {createBooking.isPending ? "Sending..." : "Send Request"}
+              <Button type="submit" disabled={!bookingDate || !bookingSlot || isBookingPending}>
+                {isBookingPending ? "Opening checkout..." : "Continue to Payment"}
               </Button>
             </DialogFooter>
           </form>

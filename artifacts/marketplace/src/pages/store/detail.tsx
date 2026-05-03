@@ -1,11 +1,10 @@
 import { useParams } from "wouter";
-import { useGetDigitalProduct, useCreateOrder, getGetDigitalProductQueryKey } from "@workspace/api-client-react";
+import { useGetDigitalProduct, useCreateOrder, useCreateOrderCheckout, getGetDigitalProductQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Download, Music, ShieldCheck } from "lucide-react";
+import { BookOpen, Music, ShieldCheck } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 
@@ -18,6 +17,9 @@ export default function StoreDetail() {
   });
 
   const createOrder = useCreateOrder();
+  const createCheckout = useCreateOrderCheckout();
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const handlePurchase = () => {
     if (!isLoaded || !user) {
@@ -26,19 +28,32 @@ export default function StoreDetail() {
     }
 
     createOrder.mutate({
-      data: {
-        type: "digital_product",
-        digitalProductId: Number(id),
-      }
+      data: { type: "digital_product", digitalProductId: Number(id) }
     }, {
-      onSuccess: () => {
-        toast.success("Payment coming soon! Order recorded.");
+      onSuccess: (order) => {
+        const successUrl = `${window.location.origin}${basePath}/payment/success?type=order&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+
+        createCheckout.mutate({
+          data: { orderId: order.id, successUrl, cancelUrl }
+        }, {
+          onSuccess: (data) => {
+            if (data.checkoutUrl) {
+              window.location.href = data.checkoutUrl;
+            }
+          },
+          onError: () => {
+            toast.error("Failed to open payment. Please try again.");
+          }
+        });
       },
       onError: () => {
         toast.error("Failed to initiate purchase. Please try again.");
       }
     });
   };
+
+  const isPending = createOrder.isPending || createCheckout.isPending;
 
   if (isLoading) {
     return (
@@ -64,7 +79,6 @@ export default function StoreDetail() {
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
             
-            {/* Left - Preview/Image */}
             <div className="bg-muted rounded-2xl aspect-[4/5] flex items-center justify-center border border-border shadow-sm relative overflow-hidden">
               <BookOpen className="h-32 w-32 text-primary opacity-20" />
               <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
@@ -76,7 +90,6 @@ export default function StoreDetail() {
               </div>
             </div>
 
-            {/* Right - Info & Purchase */}
             <div className="space-y-8">
               <div>
                 <div className="flex gap-2 mb-4">
@@ -100,12 +113,12 @@ export default function StoreDetail() {
                     size="lg" 
                     className="w-full text-lg h-14" 
                     onClick={handlePurchase}
-                    disabled={createOrder.isPending}
+                    disabled={isPending}
                   >
-                    {createOrder.isPending ? "Processing..." : "Purchase & Download"}
+                    {isPending ? "Opening checkout..." : "Purchase & Download"}
                   </Button>
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <ShieldCheck className="h-4 w-4" /> Secure payment
+                    <ShieldCheck className="h-4 w-4" /> Secure payment via Stripe
                   </div>
                 </div>
               </div>

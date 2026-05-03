@@ -10,6 +10,7 @@ import bookingsRouter from "./bookings";
 import ordersRouter from "./orders";
 import reviewsRouter from "./reviews";
 import dashboardRouter from "./dashboard";
+import stripeRouter from "./stripe";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(bookingsRouter);
 router.use(ordersRouter);
 router.use(reviewsRouter);
 router.use(dashboardRouter);
+router.use(stripeRouter);
 
 export default router;

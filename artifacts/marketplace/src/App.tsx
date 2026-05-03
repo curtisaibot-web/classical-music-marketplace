@@ -24,6 +24,8 @@ import StudentOrders from "@/pages/student/orders";
 import TeacherDashboard from "@/pages/teacher/dashboard";
 import TeacherListings from "@/pages/teacher/listings";
 import TeacherProfileEdit from "@/pages/teacher/profile-edit";
+import PaymentSuccess from "@/pages/payment/success";
+import PaymentCancel from "@/pages/payment/cancel";
 
 const queryClient = new QueryClient();
 
@@ -125,7 +127,6 @@ function HomeRedirect() {
   return (
     <>
       <Show when="signed-in">
-        {/* We'll use a wrapper component to fetch actual user role from API before redirecting */}
         <AuthRouter />
       </Show>
       <Show when="signed-out">
@@ -204,6 +205,9 @@ function ClerkProviderWithRoutes() {
           <Route path="/teacher-dashboard" component={TeacherDashboard} />
           <Route path="/listings" component={TeacherListings} />
           <Route path="/profile/edit" component={TeacherProfileEdit} />
+
+          <Route path="/payment/success" component={PaymentSuccess} />
+          <Route path="/payment/cancel" component={PaymentCancel} />
           
           <Route component={NotFound} />
         </Switch>

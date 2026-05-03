@@ -1,15 +1,47 @@
 import { Link } from "wouter";
-import { useGetTeacherDashboard } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function TeacherDashboard() {
   const { data: dashboard, isLoading } = useGetTeacherDashboard();
+  const { data: connectStatus } = useGetConnectStatus();
+  const createOnboarding = useCreateConnectOnboarding();
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleSetupPayouts = () => {
+    const returnUrl = `${window.location.origin}${basePath}/teacher-dashboard`;
+    createOnboarding.mutate({ data: { returnUrl } }, {
+      onSuccess: (data) => {
+        if (data.onboardingUrl) {
+          window.location.href = data.onboardingUrl;
+        }
+      },
+      onError: () => {
+        toast.error("Failed to start payout setup. Please try again.");
+      }
+    });
+  };
+
+  const handleOpenDashboard = async () => {
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL ?? ""}/api/stripe/connect/dashboard`, {
+        credentials: "include",
+      });
+      if (!resp.ok) throw new Error("Failed");
+      const data = await resp.json();
+      if (data.dashboardUrl) window.open(data.dashboardUrl, "_blank");
+    } catch {
+      toast.error("Failed to open Stripe dashboard. Please try again.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -43,7 +75,6 @@ export default function TeacherDashboard() {
           </Button>
         </div>
         
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
           <Card className="border-border">
             <CardContent className="p-6">
@@ -100,7 +131,6 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Column */}
           <div className="lg:col-span-2 space-y-8">
             <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -175,8 +205,76 @@ export default function TeacherDashboard() {
             </Card>
           </div>
 
-          {/* Right Column */}
           <div className="space-y-8">
+            {/* Stripe Connect Card */}
+            <Card className="border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="font-serif text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  Payouts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!connectStatus ? (
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-8 bg-muted rounded" />
+                  </div>
+                ) : connectStatus.isConnected && connectStatus.isOnboarded ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span className="font-medium">Stripe payouts active</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      You receive 85% of each payment. The platform retains a 15% fee.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleOpenDashboard}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open Stripe Dashboard
+                    </Button>
+                  </>
+                ) : connectStatus.isConnected && !connectStatus.isOnboarded ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span className="font-medium">Setup incomplete</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Complete your Stripe account setup to receive payouts.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={handleSetupPayouts}
+                      disabled={createOnboarding.isPending}
+                    >
+                      {createOnboarding.isPending ? "Loading..." : "Complete Setup"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Connect your bank account to receive lesson and booking payments directly. The platform takes a 15% fee.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={handleSetupPayouts}
+                      disabled={createOnboarding.isPending}
+                    >
+                      {createOnboarding.isPending ? "Loading..." : "Set Up Payouts"}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="font-serif text-lg">My Offerings</CardTitle>

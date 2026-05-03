@@ -1907,3 +1907,56 @@ export const GetStudentDashboardResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Create Stripe Checkout session for a lesson or event booking
+ */
+export const CreateBookingCheckoutBody = zod.object({
+  bookingId: zod.number(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateBookingCheckoutResponse = zod.object({
+  checkoutUrl: zod.string(),
+});
+
+/**
+ * @summary Create Stripe Checkout session for an order (masterclass or digital product)
+ */
+export const CreateOrderCheckoutBody = zod.object({
+  orderId: zod.number(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateOrderCheckoutResponse = zod.object({
+  checkoutUrl: zod.string(),
+});
+
+/**
+ * @summary Start Stripe Connect Express onboarding for a teacher
+ */
+export const CreateConnectOnboardingBody = zod.object({
+  returnUrl: zod.string(),
+});
+
+export const CreateConnectOnboardingResponse = zod.object({
+  onboardingUrl: zod.string(),
+});
+
+/**
+ * @summary Get teacher Stripe Connect account status
+ */
+export const GetConnectStatusResponse = zod.object({
+  isConnected: zod.boolean(),
+  isOnboarded: zod.boolean(),
+  stripeAccountId: zod.string().nullish(),
+});
+
+/**
+ * @summary Get Stripe Express Dashboard login link for a teacher
+ */
+export const GetConnectDashboardResponse = zod.object({
+  dashboardUrl: zod.string(),
+});
