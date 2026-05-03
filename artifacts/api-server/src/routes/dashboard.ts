@@ -10,6 +10,7 @@ import {
   masterclassEventsTable,
   teacherProfilesTable,
   usersTable,
+  digitalProductsTable,
 } from "@workspace/db";
 import {
   GetTeacherDashboardResponse,
@@ -101,10 +102,11 @@ router.get("/dashboard/student", requireAuth, async (req, res): Promise<void> =>
         .limit(10),
       db
         .select()
-        .from(masterclassEventsTable)
+        .from(ordersTable)
+        .innerJoin(masterclassEventsTable, eq(ordersTable.masterclassEventId, masterclassEventsTable.id))
         .leftJoin(teacherProfilesTable, eq(masterclassEventsTable.teacherId, teacherProfilesTable.userId))
         .leftJoin(usersTable, eq(masterclassEventsTable.teacherId, usersTable.id))
-        .where(gte(masterclassEventsTable.scheduledAt, now))
+        .where(and(eq(ordersTable.buyerId, userId), or(eq(ordersTable.type, "masterclass_performer"), eq(ordersTable.type, "masterclass_observer"))))
         .limit(10),
       db
         .select()
@@ -124,6 +126,7 @@ router.get("/dashboard/student", requireAuth, async (req, res): Promise<void> =>
     recentOrders: recentOrdersRows,
     registeredMasterclasses: registeredMasterclassRows.map((r) => ({
       ...r.masterclass_events,
+      order: r.orders,
       teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
     })),
     lessonsCompleted: completedBookings.length,

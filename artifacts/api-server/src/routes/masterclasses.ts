@@ -10,6 +10,7 @@ import {
   ListMasterclassesQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.get("/masterclasses", async (req, res): Promise<void> => {
   res.json(ListMasterclassesResponse.parse({ masterclasses, total: masterclasses.length }));
 });
 
-router.post("/masterclasses", requireAuth, async (req, res): Promise<void> => {
+router.post("/masterclasses", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
@@ -76,7 +77,7 @@ router.get("/masterclasses/:id", async (req, res): Promise<void> => {
   res.json(GetMasterclassResponse.parse({ ...row.masterclass_events, teacher: row.teacher_profiles ? { ...row.teacher_profiles, user: row.users } : undefined }));
 });
 
-router.patch("/masterclasses/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/masterclasses/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

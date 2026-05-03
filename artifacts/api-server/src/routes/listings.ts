@@ -11,6 +11,7 @@ import {
   GetTeacherListingsResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -43,7 +44,7 @@ router.get("/listings", async (req, res): Promise<void> => {
   res.json(ListListingsResponse.parse({ listings, total: listings.length }));
 });
 
-router.post("/listings", requireAuth, async (req, res): Promise<void> => {
+router.post("/listings", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
@@ -102,7 +103,7 @@ router.get("/listings/:id", async (req, res): Promise<void> => {
   res.json(GetListingResponse.parse({ ...row.listings, teacher: row.teacher_profiles ? { ...row.teacher_profiles, user: row.users } : undefined }));
 });
 
-router.patch("/listings/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/listings/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -136,7 +137,7 @@ router.patch("/listings/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(GetListingResponse.parse({ ...listing, teacher: undefined }));
 });
 
-router.delete("/listings/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/listings/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

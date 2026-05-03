@@ -10,6 +10,7 @@ import {
   ListDigitalProductsQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.get("/digital-products", async (req, res): Promise<void> => {
   res.json(ListDigitalProductsResponse.parse({ products, total: products.length }));
 });
 
-router.post("/digital-products", requireAuth, async (req, res): Promise<void> => {
+router.post("/digital-products", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
@@ -76,7 +77,7 @@ router.get("/digital-products/:id", async (req, res): Promise<void> => {
   res.json(GetDigitalProductResponse.parse({ ...row.digital_products, teacher: row.teacher_profiles ? { ...row.teacher_profiles, user: row.users } : undefined }));
 });
 
-router.patch("/digital-products/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/digital-products/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

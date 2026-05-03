@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { eq } from "drizzle-orm";
 import { db, usersTable, teacherProfilesTable, studentProfilesTable } from "@workspace/db";
 import { GetMeResponse, OnboardUserBody, OnboardUserResponse } from "@workspace/api-zod";
@@ -65,6 +65,11 @@ router.post("/users/me/onboard", requireAuth, async (req, res): Promise<void> =>
       },
     })
     .returning();
+
+  // Sync role to Clerk publicMetadata so JWT session claims carry the role
+  await clerkClient.users.updateUserMetadata(userId, {
+    publicMetadata: { role },
+  });
 
   // Create role-specific profile
   if (role === "teacher") {
