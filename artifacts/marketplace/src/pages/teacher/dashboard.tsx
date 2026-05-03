@@ -120,7 +120,7 @@ export default function TeacherDashboard() {
                             <h4 className="font-medium text-foreground truncate flex items-center gap-2">
                               {booking.type === 'lesson' ? 'Lesson' : 'Event'}
                               <span className="text-muted-foreground font-normal text-sm">
-                                with {booking.studentId} {/* We don't have student details populated in this simplified schema, so just showing ID */}
+                                with {booking.studentId}
                               </span>
                             </h4>
                             <Badge variant={booking.status === 'pending' ? 'secondary' : 'default'} className="capitalize shrink-0 ml-2">

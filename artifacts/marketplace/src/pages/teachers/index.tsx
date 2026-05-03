@@ -12,7 +12,6 @@ export default function Teachers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   
-  // Use a simple timeout for debouncing (could use useDebounce hook but keeping it simple here)
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500);
     return () => clearTimeout(timer);

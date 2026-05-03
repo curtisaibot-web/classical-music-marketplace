@@ -20,7 +20,23 @@ export default function TeacherProfile() {
   const { user, isLoaded } = useUser();
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState("");
+  const [bookingSlot, setBookingSlot] = useState("");
   const [bookingNotes, setBookingNotes] = useState("");
+
+  const TIME_SLOTS = [
+    "08:00", "09:00", "10:00", "11:00", "12:00",
+    "13:00", "14:00", "15:00", "16:00", "17:00",
+    "18:00", "19:00", "20:00",
+  ];
+
+  const formatSlot = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  };
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [eventType, setEventType] = useState("wedding");
@@ -74,17 +90,19 @@ export default function TeacherProfile() {
       toast.error("Please sign in to book a lesson");
       return;
     }
-    
-    if (!bookingDate) {
-      toast.error("Please select a date and time");
+
+    if (!bookingDate || !bookingSlot) {
+      toast.error("Please select a date and time slot");
       return;
     }
+
+    const scheduledAt = new Date(`${bookingDate}T${bookingSlot}:00`).toISOString();
 
     createBooking.mutate({
       data: {
         teacherId: userId,
-        type: "lesson",
-        scheduledAt: new Date(bookingDate).toISOString(),
+        type: CreateBookingBodyType.lesson,
+        scheduledAt,
         durationMinutes: 60,
         notes: bookingNotes,
         instrument: teacher?.instruments[0],
@@ -93,6 +111,9 @@ export default function TeacherProfile() {
       onSuccess: () => {
         toast.success("Lesson request sent successfully!");
         setBookingModalOpen(false);
+        setBookingDate("");
+        setBookingSlot("");
+        setBookingNotes("");
       },
       onError: () => {
         toast.error("Failed to send request. Please try again.");
@@ -304,38 +325,74 @@ export default function TeacherProfile() {
       
       <Footer />
 
-      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      <Dialog open={bookingModalOpen} onOpenChange={(open) => { setBookingModalOpen(open); if (!open) { setBookingDate(""); setBookingSlot(""); setBookingNotes(""); } }}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">Request a Lesson</DialogTitle>
             <DialogDescription>
-              Select a preferred date and time. {teacher.user?.firstName} will review and confirm your request.
+              Pick a date and time slot. {teacher.user?.firstName} will review and confirm your request.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleBookLesson} className="space-y-6 pt-4">
+          <form onSubmit={handleBookLesson} className="space-y-6 pt-2">
             <div className="space-y-2">
-              <Label htmlFor="datetime">Preferred Date & Time</Label>
-              <Input 
-                id="datetime" 
-                type="datetime-local" 
+              <Label htmlFor="lesson-date">Select Date</Label>
+              <Input
+                id="lesson-date"
+                type="date"
+                min={todayStr}
                 value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
+                onChange={(e) => { setBookingDate(e.target.value); setBookingSlot(""); }}
                 required
+                className="w-full"
               />
             </div>
+
+            {bookingDate && (
+              <div className="space-y-2">
+                <Label>Select Time Slot</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {TIME_SLOTS.map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => setBookingSlot(slot)}
+                      className={`rounded-md border px-2 py-2 text-sm font-medium transition-colors ${
+                        bookingSlot === slot
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {formatSlot(slot)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bookingSlot && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 px-4 py-3 text-sm text-foreground flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+                <span>
+                  {new Date(`${bookingDate}T${bookingSlot}:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}{" "}
+                  at {formatSlot(bookingSlot)} · 60 min
+                </span>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes for Instructor</Label>
-              <Textarea 
-                id="notes" 
-                placeholder="What would you like to focus on?" 
+              <Label htmlFor="lesson-notes">Notes for {teacher.user?.firstName} <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                id="lesson-notes"
+                placeholder="What would you like to focus on? Skill level, goals, piece you're working on..."
                 value={bookingNotes}
                 onChange={(e) => setBookingNotes(e.target.value)}
-                rows={4}
+                rows={3}
               />
             </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setBookingModalOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={createBooking.isPending}>
+              <Button type="submit" disabled={!bookingDate || !bookingSlot || createBooking.isPending}>
                 {createBooking.isPending ? "Sending..." : "Send Request"}
               </Button>
             </DialogFooter>
