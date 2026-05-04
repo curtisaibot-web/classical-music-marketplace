@@ -654,6 +654,125 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type VideoReelStatus =
+  (typeof VideoReelStatus)[keyof typeof VideoReelStatus];
+
+export const VideoReelStatus = {
+  uploading: "uploading",
+  queued: "queued",
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+export interface VideoReel {
+  id: number;
+  teacherId: string;
+  rawFileUrl: string;
+  /** @nullable */
+  processedFileUrl?: string | null;
+  status: VideoReelStatus;
+  /** @nullable */
+  genre?: string | null;
+  instruments: string[];
+  webhookSecret: string;
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  archivedFileUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VideoReelOrNull = VideoReel | null;
+
+export type VideoReelOwnerStatus =
+  (typeof VideoReelOwnerStatus)[keyof typeof VideoReelOwnerStatus];
+
+export const VideoReelOwnerStatus = {
+  uploading: "uploading",
+  queued: "queued",
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+/**
+ * Teacher-facing reel — omits server-internal fields (webhookSecret, rawFileUrl).
+ */
+export interface VideoReelOwner {
+  id: number;
+  teacherId: string;
+  /** @nullable */
+  processedFileUrl?: string | null;
+  status: VideoReelOwnerStatus;
+  /** @nullable */
+  genre?: string | null;
+  instruments: string[];
+  /** @nullable */
+  errorMessage?: string | null;
+  /** @nullable */
+  archivedFileUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VideoReelOwnerOrNull = VideoReelOwner | null;
+
+export type VideoReelPublicStatus =
+  (typeof VideoReelPublicStatus)[keyof typeof VideoReelPublicStatus];
+
+export const VideoReelPublicStatus = {
+  uploading: "uploading",
+  queued: "queued",
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+/**
+ * Safe public view of a reel — sensitive fields (webhookSecret, rawFileUrl) are never included.
+ */
+export interface VideoReelPublic {
+  id: number;
+  teacherId: string;
+  /** @nullable */
+  processedFileUrl?: string | null;
+  status: VideoReelPublicStatus;
+  /** @nullable */
+  genre?: string | null;
+  instruments: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type VideoReelPublicOrNull = VideoReelPublic | null;
+
+export type ReelCallbackBodyStatus =
+  (typeof ReelCallbackBodyStatus)[keyof typeof ReelCallbackBodyStatus];
+
+export const ReelCallbackBodyStatus = {
+  processing: "processing",
+  ready: "ready",
+  failed: "failed",
+} as const;
+
+export interface ReelCallbackBody {
+  reelId: number;
+  webhookSecret: string;
+  status: ReelCallbackBodyStatus;
+  processedFileUrl?: string;
+  error?: string;
+}
+
+/**
+ * Acknowledgement returned by the callback endpoint — always 200.
+ */
+export interface ReelCallbackAck {
+  ok: boolean;
+  message?: string;
+}
+
 export interface DownloadRedirectResponse {
   /** Signed download URL for the file. */
   downloadUrl: string;
@@ -775,4 +894,11 @@ export type ListOrdersParams = {
 export type GetTeacherReviewsParams = {
   limit?: number;
   offset?: number;
+};
+
+export type UploadReelBody = {
+  file: Blob;
+  genre?: string;
+  /** Comma-separated list of instruments */
+  instruments?: string;
 };

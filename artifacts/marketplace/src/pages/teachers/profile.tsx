@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "wouter";
-import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, MapPin, GraduationCap, CalendarDays, CheckCircle, Mic2, BookOpen, Music2, Sparkles, Clock, Globe, Award } from "lucide-react";
+import { Star, MapPin, GraduationCap, CalendarDays, CheckCircle, Mic2, BookOpen, Music2, Sparkles, Clock, Globe, Award, Volume2, VolumeX } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 import { resolveImageUrl } from "@/lib/image-url";
@@ -87,6 +87,13 @@ export default function TeacherProfile() {
   const { data: reviewsData } = useGetTeacherReviews(userId, undefined, {
     query: { enabled: !!userId, queryKey: getGetTeacherReviewsQueryKey(userId) }
   });
+
+  const { data: reel } = useGetUserReel(userId, {
+    query: { enabled: !!userId, queryKey: getGetUserReelQueryKey(userId) }
+  });
+
+  const [reelMuted, setReelMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   usePageMeta({
     title: teacher ? `${teacher.user?.firstName} ${teacher.user?.lastName} — ${teacher.instruments.join(", ")} Teacher` : "Teacher Profile",
@@ -224,7 +231,30 @@ export default function TeacherProfile() {
 
       {/* ── Hero Banner ── */}
       <div className="relative w-full h-80 md:h-96 overflow-hidden bg-stone-900">
-        {portraitUrl ? (
+        {reel?.status === "ready" && reel?.processedFileUrl ? (
+          <>
+            <video
+              ref={videoRef}
+              src={reel.processedFileUrl}
+              autoPlay
+              muted={reelMuted}
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover opacity-70"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/30 to-transparent" />
+            <button
+              onClick={() => {
+                setReelMuted((m) => !m);
+                if (videoRef.current) videoRef.current.muted = !reelMuted;
+              }}
+              className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition"
+              title={reelMuted ? "Unmute" : "Mute"}
+            >
+              {reelMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+          </>
+        ) : portraitUrl ? (
           <>
             <img
               src={portraitUrl}

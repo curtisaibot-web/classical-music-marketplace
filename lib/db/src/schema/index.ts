@@ -8,3 +8,4 @@ export * from "./digitalProducts";
 export * from "./bookings";
 export * from "./orders";
 export * from "./reviews";
+export * from "./videoReels";

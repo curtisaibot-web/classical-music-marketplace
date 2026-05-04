@@ -13,6 +13,7 @@ import reviewsRouter from "./reviews";
 import dashboardRouter from "./dashboard";
 import stripeRouter from "./stripe";
 import storageRouter from "./storage";
+import reelsRouter from "./reels";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(ordersRouter);
 router.use(reviewsRouter);
 router.use(dashboardRouter);
 router.use(stripeRouter);
+router.use(reelsRouter);
 
 export default router;

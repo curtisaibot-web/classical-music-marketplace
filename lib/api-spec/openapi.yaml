@@ -33,6 +33,8 @@ tags:
     description: Stripe payment and Connect operations
   - name: storage
     description: Object storage upload and serving endpoints
+  - name: reels
+    description: Booking reel upload and processing operations
 
 paths:
   /healthz:
@@ -1016,6 +1018,95 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # ── Reels ──────────────────────────────────────────────────────────────────
+  /reels/upload:
+    post:
+      operationId: uploadReel
+      tags: [reels]
+      summary: Upload a raw video file and trigger n8n processing pipeline
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                genre:
+                  type: string
+                instruments:
+                  type: string
+                  description: Comma-separated list of instruments
+      responses:
+        "201":
+          description: Reel created and queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoReelOwner"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /reels/callback:
+    post:
+      operationId: reelCallback
+      tags: [reels]
+      summary: n8n callback to update reel processing status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReelCallbackBody"
+      responses:
+        "200":
+          description: Acknowledgement — always 200 so n8n does not retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelCallbackAck"
+
+  /reels/mine:
+    get:
+      operationId: getMyReel
+      tags: [reels]
+      summary: Get current teacher's reel
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Current reel or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoReelOwnerOrNull"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /reels/{userId}:
+    get:
+      operationId: getUserReel
+      tags: [reels]
+      summary: Get public reel for a musician
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reel or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoReelPublicOrNull"
 
   /stripe/connect/onboard:
     post:
@@ -2025,6 +2116,140 @@ components:
       properties:
         error:
           type: string
+
+    # ── Video Reels ────────────────────────────────────────────────────────────
+    VideoReel:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        rawFileUrl:
+          type: string
+        processedFileUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [uploading, queued, processing, ready, failed]
+        genre:
+          type: ["string", "null"]
+        instruments:
+          type: array
+          items:
+            type: string
+        webhookSecret:
+          type: string
+        errorMessage:
+          type: ["string", "null"]
+        archivedFileUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, rawFileUrl, status, instruments, webhookSecret, createdAt, updatedAt]
+
+    VideoReelOrNull:
+      oneOf:
+        - $ref: "#/components/schemas/VideoReel"
+        - type: "null"
+
+    VideoReelOwner:
+      type: object
+      description: Teacher-facing reel — omits server-internal fields (webhookSecret, rawFileUrl).
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        processedFileUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [uploading, queued, processing, ready, failed]
+        genre:
+          type: ["string", "null"]
+        instruments:
+          type: array
+          items:
+            type: string
+        errorMessage:
+          type: ["string", "null"]
+        archivedFileUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, status, instruments, createdAt, updatedAt]
+
+    VideoReelOwnerOrNull:
+      oneOf:
+        - $ref: "#/components/schemas/VideoReelOwner"
+        - type: "null"
+
+    VideoReelPublic:
+      type: object
+      description: Safe public view of a reel — sensitive fields (webhookSecret, rawFileUrl) are never included.
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        processedFileUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [uploading, queued, processing, ready, failed]
+        genre:
+          type: ["string", "null"]
+        instruments:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, status, instruments, createdAt, updatedAt]
+
+    VideoReelPublicOrNull:
+      oneOf:
+        - $ref: "#/components/schemas/VideoReelPublic"
+        - type: "null"
+
+    ReelCallbackBody:
+      type: object
+      properties:
+        reelId:
+          type: integer
+        webhookSecret:
+          type: string
+        status:
+          type: string
+          enum: [processing, ready, failed]
+        processedFileUrl:
+          type: string
+        error:
+          type: string
+      required: [reelId, webhookSecret, status]
+
+    ReelCallbackAck:
+      type: object
+      description: Acknowledgement returned by the callback endpoint — always 200.
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+      required: [ok]
 
     # ── Download ───────────────────────────────────────────────────────────────
     DownloadRedirectResponse:

@@ -2106,6 +2106,96 @@ export const CreateOrderCheckoutResponse = zod.object({
 });
 
 /**
+ * @summary Upload a raw video file and trigger n8n processing pipeline
+ */
+export const UploadReelBody = zod.object({
+  file: zod.instanceof(File),
+  genre: zod.string().optional(),
+  instruments: zod
+    .string()
+    .optional()
+    .describe("Comma-separated list of instruments"),
+});
+
+/**
+ * @summary n8n callback to update reel processing status
+ */
+export const ReelCallbackBody = zod.object({
+  reelId: zod.number(),
+  webhookSecret: zod.string(),
+  status: zod.enum(["processing", "ready", "failed"]),
+  processedFileUrl: zod.string().optional(),
+  error: zod.string().optional(),
+});
+
+export const ReelCallbackResponse = zod
+  .object({
+    ok: zod.boolean(),
+    message: zod.string().optional(),
+  })
+  .describe("Acknowledgement returned by the callback endpoint — always 200.");
+
+/**
+ * @summary Get current teacher's reel
+ */
+export const GetMyReelResponse = zod.union([
+  zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      processedFileUrl: zod.string().nullish(),
+      status: zod.enum([
+        "uploading",
+        "queued",
+        "processing",
+        "ready",
+        "failed",
+      ]),
+      genre: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      errorMessage: zod.string().nullish(),
+      archivedFileUrl: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .describe(
+      "Teacher-facing reel — omits server-internal fields (webhookSecret, rawFileUrl).",
+    ),
+  zod.null(),
+]);
+
+/**
+ * @summary Get public reel for a musician
+ */
+export const GetUserReelParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const GetUserReelResponse = zod.union([
+  zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      processedFileUrl: zod.string().nullish(),
+      status: zod.enum([
+        "uploading",
+        "queued",
+        "processing",
+        "ready",
+        "failed",
+      ]),
+      genre: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .describe(
+      "Safe public view of a reel — sensitive fields (webhookSecret, rawFileUrl) are never included.",
+    ),
+  zod.null(),
+]);
+
+/**
  * @summary Start Stripe Connect Express onboarding for a teacher
  */
 export const CreateConnectOnboardingBody = zod.object({

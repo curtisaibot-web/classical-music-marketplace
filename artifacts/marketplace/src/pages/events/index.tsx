@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { useListEvents } from "@workspace/api-client-react";
+import { useListEvents, useGetUserReel, getGetUserReelQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Music, MapPin, Search, X, AlertCircle, Star, Users } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Music, MapPin, Search, X, AlertCircle, Star, Users, Play, Volume2, VolumeX } from "lucide-react";
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
 
@@ -19,6 +20,67 @@ const INSTRUMENTS = [
 const EVENT_TYPES = [
   "Wedding", "Corporate", "Concert", "Private Party", "Gala", "Ceremony",
 ];
+
+function ReelModalButton({ teacherId, teacherName }: { teacherId: string; teacherName: string }) {
+  const { data: reel } = useGetUserReel(teacherId, {
+    query: { enabled: !!teacherId, queryKey: getGetUserReelQueryKey(teacherId) }
+  });
+  const [open, setOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  if (!reel || reel.status !== "ready" || !reel.processedFileUrl) return null;
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="text-xs h-8 gap-1.5"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        <Play className="h-3.5 w-3.5 fill-current" />
+        Watch Reel
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="p-0 max-w-2xl overflow-hidden bg-black border-0">
+          <div className="relative aspect-video">
+            <video
+              ref={videoRef}
+              src={reel.processedFileUrl}
+              autoPlay
+              muted={muted}
+              loop
+              playsInline
+              controls={false}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+            <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+              <div className="text-white">
+                <p className="font-serif font-semibold text-lg leading-tight">{teacherName}</p>
+                <p className="text-xs text-white/60 mt-0.5">Booking Reel</p>
+              </div>
+              <button
+                onClick={() => {
+                  setMuted((m) => !m);
+                  if (videoRef.current) videoRef.current.muted = !muted;
+                }}
+                className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition backdrop-blur-sm"
+              >
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export default function Events() {
   const [instrument, setInstrument] = useState("");
@@ -184,6 +246,7 @@ export default function Events() {
               {data.events.map((event) => {
                 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
                 const imgSrc = resolveImageUrl(event.imageUrl, basePath);
+                const teacherName = [event.teacher?.user?.firstName, event.teacher?.user?.lastName].filter(Boolean).join(" ");
                 return (
                   <Link key={event.id} href={`/events/${event.id}`}>
                     <Card className="h-full hover-elevate transition-all border-border flex flex-col cursor-pointer overflow-hidden group">
@@ -212,6 +275,14 @@ export default function Events() {
                             </Badge>
                           ))}
                         </div>
+                        {event.teacher?.userId && (
+                          <div className="absolute top-3 right-3">
+                            <ReelModalButton
+                              teacherId={event.teacher.userId}
+                              teacherName={teacherName}
+                            />
+                          </div>
+                        )}
                       </div>
                       <CardContent className="p-6 flex flex-col flex-1">
                         <h3 className="font-serif font-semibold text-xl text-foreground mb-1">
@@ -219,7 +290,7 @@ export default function Events() {
                         </h3>
 
                         <p className="text-sm text-muted-foreground mb-1">
-                          {event.teacher?.user?.firstName} {event.teacher?.user?.lastName}
+                          {teacherName}
                         </p>
 
                         {(event.city || event.country) && (

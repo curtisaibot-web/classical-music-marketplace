@@ -53,6 +53,8 @@ import type {
   OnboardingUrlResponse,
   Order,
   OrderListResponse,
+  ReelCallbackAck,
+  ReelCallbackBody,
   Review,
   ReviewListResponse,
   StudentDashboard,
@@ -67,9 +69,13 @@ import type {
   UpdateMasterclassBody,
   UpdateStudentProfileBody,
   UpdateTeacherProfileBody,
+  UploadReelBody,
   UploadUrlRequest,
   UploadUrlResponse,
   User,
+  VideoReelOwner,
+  VideoReelOwnerOrNull,
+  VideoReelPublicOrNull,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -3431,6 +3437,342 @@ export const useCreateOrderCheckout = <
 > => {
   return useMutation(getCreateOrderCheckoutMutationOptions(options));
 };
+
+/**
+ * @summary Upload a raw video file and trigger n8n processing pipeline
+ */
+export const getUploadReelUrl = () => {
+  return `/api/reels/upload`;
+};
+
+export const uploadReel = async (
+  uploadReelBody: UploadReelBody,
+  options?: RequestInit,
+): Promise<VideoReelOwner> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadReelBody.file);
+  if (uploadReelBody.genre !== undefined) {
+    formData.append(`genre`, uploadReelBody.genre);
+  }
+  if (uploadReelBody.instruments !== undefined) {
+    formData.append(`instruments`, uploadReelBody.instruments);
+  }
+
+  return customFetch<VideoReelOwner>(getUploadReelUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadReelMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadReel>>,
+    TError,
+    { data: BodyType<UploadReelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadReel>>,
+  TError,
+  { data: BodyType<UploadReelBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadReel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadReel>>,
+    { data: BodyType<UploadReelBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadReel(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadReelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadReel>>
+>;
+export type UploadReelMutationBody = BodyType<UploadReelBody>;
+export type UploadReelMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Upload a raw video file and trigger n8n processing pipeline
+ */
+export const useUploadReel = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadReel>>,
+    TError,
+    { data: BodyType<UploadReelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadReel>>,
+  TError,
+  { data: BodyType<UploadReelBody> },
+  TContext
+> => {
+  return useMutation(getUploadReelMutationOptions(options));
+};
+
+/**
+ * @summary n8n callback to update reel processing status
+ */
+export const getReelCallbackUrl = () => {
+  return `/api/reels/callback`;
+};
+
+export const reelCallback = async (
+  reelCallbackBody: ReelCallbackBody,
+  options?: RequestInit,
+): Promise<ReelCallbackAck> => {
+  return customFetch<ReelCallbackAck>(getReelCallbackUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reelCallbackBody),
+  });
+};
+
+export const getReelCallbackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reelCallback>>,
+    TError,
+    { data: BodyType<ReelCallbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reelCallback>>,
+  TError,
+  { data: BodyType<ReelCallbackBody> },
+  TContext
+> => {
+  const mutationKey = ["reelCallback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reelCallback>>,
+    { data: BodyType<ReelCallbackBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reelCallback(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReelCallbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reelCallback>>
+>;
+export type ReelCallbackMutationBody = BodyType<ReelCallbackBody>;
+export type ReelCallbackMutationError = ErrorType<unknown>;
+
+/**
+ * @summary n8n callback to update reel processing status
+ */
+export const useReelCallback = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reelCallback>>,
+    TError,
+    { data: BodyType<ReelCallbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reelCallback>>,
+  TError,
+  { data: BodyType<ReelCallbackBody> },
+  TContext
+> => {
+  return useMutation(getReelCallbackMutationOptions(options));
+};
+
+/**
+ * @summary Get current teacher's reel
+ */
+export const getGetMyReelUrl = () => {
+  return `/api/reels/mine`;
+};
+
+export const getMyReel = async (
+  options?: RequestInit,
+): Promise<VideoReelOwnerOrNull> => {
+  return customFetch<VideoReelOwnerOrNull>(getGetMyReelUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyReelQueryKey = () => {
+  return [`/api/reels/mine`] as const;
+};
+
+export const getGetMyReelQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyReel>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getMyReel>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyReelQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyReel>>> = ({
+    signal,
+  }) => getMyReel({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReel>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyReelQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyReel>>
+>;
+export type GetMyReelQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get current teacher's reel
+ */
+
+export function useGetMyReel<
+  TData = Awaited<ReturnType<typeof getMyReel>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getMyReel>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyReelQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get public reel for a musician
+ */
+export const getGetUserReelUrl = (userId: string) => {
+  return `/api/reels/${userId}`;
+};
+
+export const getUserReel = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<VideoReelPublicOrNull> => {
+  return customFetch<VideoReelPublicOrNull>(getGetUserReelUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserReelQueryKey = (userId: string) => {
+  return [`/api/reels/${userId}`] as const;
+};
+
+export const getGetUserReelQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserReel>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserReel>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserReelQueryKey(userId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserReel>>> = ({
+    signal,
+  }) => getUserReel(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserReel>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserReelQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserReel>>
+>;
+export type GetUserReelQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get public reel for a musician
+ */
+
+export function useGetUserReel<
+  TData = Awaited<ReturnType<typeof getUserReel>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserReel>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserReelQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Start Stripe Connect Express onboarding for a teacher
