@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, gte, lte, count } from "drizzle-orm";
-import { db, listingsTable, teacherProfilesTable, usersTable } from "@workspace/db";
+import { eq, and, gte, lte, count, ilike, inArray, sql, or } from "drizzle-orm";
+import { db, listingsTable, teacherProfilesTable, usersTable, masterclassEventsTable, digitalProductsTable } from "@workspace/db";
 import {
   GetListingResponse,
   ListListingsResponse,
@@ -25,12 +25,54 @@ router.get("/listings", async (req, res): Promise<void> => {
   const minPrice = params.success ? params.data.minPrice : undefined;
   const maxPrice = params.success ? params.data.maxPrice : undefined;
 
+  const city = params.success ? params.data.city : undefined;
+  const isOnline = params.success ? params.data.isOnline : undefined;
+  const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
+
   const conditions = [eq(listingsTable.status, "active")];
   if (type) conditions.push(eq(listingsTable.type, type as "lesson" | "event" | "masterclass" | "digital_product"));
-  if (instrument) conditions.push(eq(listingsTable.instrument, instrument));
+  if (instrument) conditions.push(ilike(listingsTable.instrument, instrument));
   if (skillLevel) conditions.push(eq(listingsTable.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "all"));
+  if (city) conditions.push(ilike(listingsTable.city, `%${city}%`));
+  if (isOnline !== undefined) conditions.push(eq(listingsTable.isOnline, isOnline));
   if (minPrice !== undefined) conditions.push(gte(listingsTable.priceInCents, minPrice));
   if (maxPrice !== undefined) conditions.push(lte(listingsTable.priceInCents, maxPrice));
+
+  if (dayOfWeek !== undefined) {
+    const effectiveType = type as string | undefined;
+    // Only masterclass listings have rows in masterclass_events.
+    // lesson, event, and digital_product are non-schedulable — skip DOW filter for them.
+    const isSchedulable = effectiveType === "masterclass";
+    const isNonSchedulable = effectiveType === "lesson" || effectiveType === "event" || effectiveType === "digital_product";
+    if (!isNonSchedulable) {
+      const listingIdsForDay = await db
+        .selectDistinct({ listingId: masterclassEventsTable.listingId })
+        .from(masterclassEventsTable)
+        .where(and(
+          eq(masterclassEventsTable.isCancelled, false),
+          gte(masterclassEventsTable.scheduledAt, new Date()),
+          sql`EXTRACT(DOW FROM ${masterclassEventsTable.scheduledAt}) = ${dayOfWeek}`,
+        ));
+      const ids = listingIdsForDay.map((r) => r.listingId).filter((id): id is number => id !== null);
+      if (ids.length === 0) {
+        if (isSchedulable) {
+          res.json(ListListingsResponse.parse({ listings: [], total: 0 }));
+          return;
+        }
+        // No masterclass results for this day — only show non-schedulable types
+        conditions.push(sql`${listingsTable.type} IN ('lesson', 'event', 'digital_product')`);
+      } else if (isSchedulable) {
+        conditions.push(inArray(listingsTable.id, ids));
+      } else {
+        // All types: matched masterclass listings + all non-schedulable types
+        conditions.push(or(
+          inArray(listingsTable.id, ids),
+          sql`${listingsTable.type} IN ('lesson', 'event', 'digital_product')`,
+        )!);
+      }
+    }
+    // else: effectiveType is lesson/event/digital_product — skip DOW filter entirely
+  }
 
   const where = and(...conditions);
 
@@ -46,8 +88,28 @@ router.get("/listings", async (req, res): Promise<void> => {
       .offset(offset),
   ]);
 
+  const listingIds = rows.map((r) => r.listings.id);
+  const [dpRows, mcRows] = listingIds.length > 0
+    ? await Promise.all([
+        db.select({ id: digitalProductsTable.id, listingId: digitalProductsTable.listingId })
+          .from(digitalProductsTable)
+          .where(inArray(digitalProductsTable.listingId, listingIds)),
+        db.select({ id: masterclassEventsTable.id, listingId: masterclassEventsTable.listingId })
+          .from(masterclassEventsTable)
+          .where(and(
+            inArray(masterclassEventsTable.listingId, listingIds),
+            eq(masterclassEventsTable.isCancelled, false),
+          )),
+      ])
+    : [[], []];
+
+  const dpMap = new Map<number, number>(dpRows.map((d) => [d.listingId, d.id]));
+  const mcMap = new Map<number, number>(mcRows.map((m) => [m.listingId, m.id]));
+
   const listings = rows.map((r) => ({
     ...r.listings,
+    digitalProductId: dpMap.get(r.listings.id) ?? null,
+    masterclassEventId: mcMap.get(r.listings.id) ?? null,
     teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
   }));
 

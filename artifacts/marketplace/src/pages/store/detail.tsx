@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Music, ShieldCheck } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function StoreDetail() {
   const { id } = useParams<{ id: string }>();
@@ -55,13 +56,23 @@ export default function StoreDetail() {
 
   const isPending = createOrder.isPending || createCheckout.isPending;
 
+  usePageMeta({
+    title: product?.title ?? "Digital Product",
+    description: product?.description ?? `${product?.category} by ${product?.teacher?.user?.firstName} ${product?.teacher?.user?.lastName}`,
+    imageUrl: product?.previewUrl ?? undefined,
+    type: "product",
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
         <div className="flex-1 container mx-auto px-4 py-12 flex justify-center">
           <div className="animate-pulse w-full max-w-4xl space-y-8">
+            <div className="h-16 bg-muted rounded w-1/3 mb-4" />
             <div className="h-64 bg-muted rounded-xl" />
+            <div className="h-8 bg-muted rounded w-2/3" />
+            <div className="h-32 bg-muted rounded" />
           </div>
         </div>
         <Footer />
@@ -69,7 +80,21 @@ export default function StoreDetail() {
     );
   }
 
-  if (!product) return <div className="p-8 text-center">Product not found</div>;
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center py-20">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-30" />
+            <h2 className="text-2xl font-serif font-semibold mb-2">Product not found</h2>
+            <p className="text-muted-foreground">This product may have been removed or is no longer available.</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

@@ -9,6 +9,7 @@ import { Calendar, Clock, Users, Music, CheckCircle2 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function MasterclassDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,13 +58,23 @@ export default function MasterclassDetail() {
 
   const isPending = createOrder.isPending || createCheckout.isPending;
 
+  usePageMeta({
+    title: mc?.title ?? "Masterclass",
+    description: mc?.description ?? `Live masterclass with ${mc?.teacher?.user?.firstName} ${mc?.teacher?.user?.lastName}`,
+    imageUrl: mc?.imageUrl ?? undefined,
+    type: "event",
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
         <div className="flex-1 container mx-auto px-4 py-12 flex justify-center">
-          <div className="animate-pulse w-full max-w-5xl space-y-8">
-            <div className="h-64 bg-muted rounded-xl" />
+          <div className="animate-pulse w-full max-w-5xl space-y-6">
+            <div className="h-72 bg-muted rounded-xl" />
+            <div className="h-8 bg-muted rounded w-2/3" />
+            <div className="h-4 bg-muted rounded w-1/3" />
+            <div className="h-32 bg-muted rounded" />
           </div>
         </div>
         <Footer />
@@ -71,7 +82,21 @@ export default function MasterclassDetail() {
     );
   }
 
-  if (!mc) return <div className="p-8 text-center">Masterclass not found</div>;
+  if (!mc) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center py-20">
+            <Music className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-30" />
+            <h2 className="text-2xl font-serif font-semibold mb-2">Masterclass not found</h2>
+            <p className="text-muted-foreground">This session may have been cancelled or is no longer available.</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   const performAvailable = mc.maxPerformers > mc.registeredPerformers;
   const observeAvailable = mc.maxObservers > mc.registeredObservers;

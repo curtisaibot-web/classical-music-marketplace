@@ -1,15 +1,16 @@
 import { Link } from "wouter";
-import { useGetStudentDashboard } from "@workspace/api-client-react";
+import { useGetStudentDashboard, useListBookings } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CreditCard, Music, Star, Clock } from "lucide-react";
+import { Calendar, CreditCard, Music, Star, Clock, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 
 export default function StudentDashboard() {
   const { data: dashboard, isLoading } = useGetStudentDashboard();
+  const { data: completedBookings } = useListBookings({ status: "completed", limit: 50 });
 
   if (isLoading) {
     return (
@@ -32,6 +33,7 @@ export default function StudentDashboard() {
   if (!dashboard) return null;
 
   const nextBooking = dashboard.upcomingBookings[0];
+  const pendingReviewBookings = (completedBookings?.bookings ?? []).filter(b => !b.hasReview);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -39,7 +41,25 @@ export default function StudentDashboard() {
       
       <main className="flex-1 container mx-auto px-4 py-12">
         <h1 className="text-3xl font-serif font-bold text-foreground mb-8">Student Dashboard</h1>
-        
+
+        {/* Review prompt banner */}
+        {pendingReviewBookings.length > 0 && (
+          <div className="mb-8 flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="h-5 w-5 text-primary shrink-0" />
+              <p className="text-sm text-foreground font-medium">
+                {pendingReviewBookings.length === 1
+                  ? "You have 1 completed lesson waiting for a review."
+                  : `You have ${pendingReviewBookings.length} completed lessons waiting for reviews.`}
+                {" "}Your feedback helps other students find great teachers.
+              </p>
+            </div>
+            <Button size="sm" asChild className="shrink-0">
+              <Link href="/bookings">Leave a Review</Link>
+            </Button>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
           <Card className="border-border">

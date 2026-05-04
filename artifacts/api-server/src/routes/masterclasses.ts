@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, gte, count } from "drizzle-orm";
+import { eq, and, gte, count, sql, ilike } from "drizzle-orm";
 import { db, masterclassEventsTable, teacherProfilesTable, usersTable } from "@workspace/db";
 import {
   GetMasterclassResponse,
@@ -20,13 +20,18 @@ router.get("/masterclasses", async (req, res): Promise<void> => {
   const offset = params.success ? (params.data.offset ?? 0) : 0;
   const instrument = params.success ? params.data.instrument : undefined;
 
+  const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
+
   const now = new Date();
   const conditions = [
     eq(masterclassEventsTable.isCancelled, false),
     gte(masterclassEventsTable.scheduledAt, now),
   ];
   if (instrument) {
-    conditions.push(eq(masterclassEventsTable.instrument, instrument));
+    conditions.push(ilike(masterclassEventsTable.instrument, instrument));
+  }
+  if (dayOfWeek !== undefined) {
+    conditions.push(sql`EXTRACT(DOW FROM ${masterclassEventsTable.scheduledAt}) = ${dayOfWeek}`);
   }
 
   const where = and(...conditions);

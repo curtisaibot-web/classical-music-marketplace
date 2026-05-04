@@ -104,6 +104,18 @@ paths:
           in: query
           schema:
             type: string
+        - name: listingType
+          in: query
+          schema:
+            type: string
+            enum: [lesson, event, masterclass, digital_product]
+        - name: dayOfWeek
+          in: query
+          description: "Filter teachers by the day of week they have masterclass events scheduled (0=Sunday, 1=Monday, ..., 6=Saturday). When listingType is 'lesson', 'event', or 'digital_product', this parameter is ignored because those listing types have no rows in masterclass_events — all matching teachers are returned regardless of this value."
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
         - name: minRate
           in: query
           schema:
@@ -248,6 +260,21 @@ paths:
           in: query
           schema:
             type: string
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: isOnline
+          in: query
+          schema:
+            type: boolean
+        - name: dayOfWeek
+          in: query
+          description: "Filter masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only masterclass listings are filtered by this value because they have rows in the masterclass_events table. Listings of type 'lesson', 'event', and 'digital_product' are always included regardless of this filter — they have no fixed schedule stored in masterclass_events."
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
         - name: minPrice
           in: query
           schema:
@@ -396,6 +423,13 @@ paths:
           in: query
           schema:
             type: string
+        - name: dayOfWeek
+          in: query
+          description: "Filter masterclass events by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only returns masterclasses whose next occurrence falls on the specified day."
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
         - name: limit
           in: query
           schema:
@@ -1304,6 +1338,12 @@ components:
           type: ["string", "null"]
         country:
           type: ["string", "null"]
+        digitalProductId:
+          type: ["integer", "null"]
+          description: "ID of the associated digital product (only set when type=digital_product)"
+        masterclassEventId:
+          type: ["integer", "null"]
+          description: "ID of the first upcoming masterclass event (only set when type=masterclass)"
         teacher:
           $ref: "#/components/schemas/TeacherProfile"
         createdAt:
@@ -1637,6 +1677,9 @@ components:
           type: ["string", "null"]
         cancelReason:
           type: ["string", "null"]
+        hasReview:
+          type: boolean
+          description: "Whether the student has already submitted a review for this booking"
         teacher:
           $ref: "#/components/schemas/TeacherProfile"
         createdAt:

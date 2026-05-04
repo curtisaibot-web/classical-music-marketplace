@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or } from "drizzle-orm";
-import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable } from "@workspace/db";
+import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable, reviewsTable } from "@workspace/db";
 import {
   GetBookingResponse,
   ListBookingsResponse,
@@ -32,8 +32,21 @@ router.get("/bookings", requireAuth, async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
+  const bookingIds = rows.map((r) => r.bookings.id);
+  const reviewedBookingIds = new Set<number>();
+  if (bookingIds.length > 0) {
+    const existingReviews = await db
+      .select({ bookingId: reviewsTable.bookingId })
+      .from(reviewsTable)
+      .where(eq(reviewsTable.reviewerId, userId));
+    for (const r of existingReviews) {
+      if (r.bookingId !== null) reviewedBookingIds.add(r.bookingId);
+    }
+  }
+
   const bookings = rows.map((r) => ({
     ...r.bookings,
+    hasReview: reviewedBookingIds.has(r.bookings.id),
     teacher: r.teacher_profiles ? { ...r.teacher_profiles, user: r.users } : undefined,
   }));
 

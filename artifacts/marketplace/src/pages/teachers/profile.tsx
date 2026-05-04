@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "wouter";
 import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,13 @@ export default function TeacherProfile() {
   
   const { data: reviewsData } = useGetTeacherReviews(userId, undefined, { 
     query: { enabled: !!userId, queryKey: getGetTeacherReviewsQueryKey(userId) }
+  });
+
+  usePageMeta({
+    title: teacher ? `${teacher.user?.firstName} ${teacher.user?.lastName} — ${teacher.instruments.join(", ")} Teacher` : "Teacher Profile",
+    description: teacher?.bio ?? `Classical music teacher specializing in ${teacher?.instruments.join(", ")}. Based in ${teacher?.city || "Online"}.`,
+    imageUrl: teacher?.profileImageUrl ?? undefined,
+    type: "profile",
   });
 
   const createBooking = useCreateBooking();

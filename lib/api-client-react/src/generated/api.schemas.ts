@@ -188,6 +188,16 @@ export interface Listing {
   city?: string | null;
   /** @nullable */
   country?: string | null;
+  /**
+   * ID of the associated digital product (only set when type=digital_product)
+   * @nullable
+   */
+  digitalProductId?: number | null;
+  /**
+   * ID of the first upcoming masterclass event (only set when type=masterclass)
+   * @nullable
+   */
+  masterclassEventId?: number | null;
   teacher?: TeacherProfile;
   createdAt: string;
 }
@@ -417,6 +427,8 @@ export interface Booking {
   eventLocation?: string | null;
   /** @nullable */
   cancelReason?: string | null;
+  /** Whether the student has already submitted a review for this booking */
+  hasReview?: boolean;
   teacher?: TeacherProfile;
   createdAt: string;
 }
@@ -670,16 +682,41 @@ export type ForbiddenResponse = ErrorResponse;
 export type ListTeachersParams = {
   instrument?: string;
   city?: string;
+  listingType?: ListTeachersListingType;
+  /**
+   * Filter by availability day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * @minimum 0
+   * @maximum 6
+   */
+  dayOfWeek?: number;
   minRate?: number;
   maxRate?: number;
   limit?: number;
   offset?: number;
 };
 
+export type ListTeachersListingType =
+  (typeof ListTeachersListingType)[keyof typeof ListTeachersListingType];
+
+export const ListTeachersListingType = {
+  lesson: "lesson",
+  event: "event",
+  masterclass: "masterclass",
+  digital_product: "digital_product",
+} as const;
+
 export type ListListingsParams = {
   type?: ListListingsType;
   instrument?: string;
   skillLevel?: string;
+  city?: string;
+  isOnline?: boolean;
+  /**
+   * Filter event/masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * @minimum 0
+   * @maximum 6
+   */
+  dayOfWeek?: number;
   minPrice?: number;
   maxPrice?: number;
   limit?: number;
@@ -698,6 +735,12 @@ export const ListListingsType = {
 
 export type ListMasterclassesParams = {
   instrument?: string;
+  /**
+   * Filter by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * @minimum 0
+   * @maximum 6
+   */
+  dayOfWeek?: number;
   limit?: number;
   offset?: number;
 };

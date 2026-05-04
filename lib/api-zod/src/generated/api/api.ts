@@ -53,12 +53,26 @@ export const OnboardUserResponse = zod.object({
 /**
  * @summary Browse teacher profiles
  */
+export const listTeachersQueryDayOfWeekMin = 0;
+export const listTeachersQueryDayOfWeekMax = 6;
+
 export const listTeachersQueryLimitDefault = 20;
 export const listTeachersQueryOffsetDefault = 0;
 
 export const ListTeachersQueryParams = zod.object({
   instrument: zod.coerce.string().optional(),
   city: zod.coerce.string().optional(),
+  listingType: zod
+    .enum(["lesson", "event", "masterclass", "digital_product"])
+    .optional(),
+  dayOfWeek: zod.coerce
+    .number()
+    .min(listTeachersQueryDayOfWeekMin)
+    .max(listTeachersQueryDayOfWeekMax)
+    .optional()
+    .describe(
+      "Filter by availability day of week (0=Sunday, 1=Monday, ..., 6=Saturday)",
+    ),
   minRate: zod.coerce.number().optional(),
   maxRate: zod.coerce.number().optional(),
   limit: zod.coerce.number().default(listTeachersQueryLimitDefault),
@@ -308,6 +322,9 @@ export const UpdateMyStudentProfileResponse = zod.object({
 /**
  * @summary Browse all listings
  */
+export const listListingsQueryDayOfWeekMin = 0;
+export const listListingsQueryDayOfWeekMax = 6;
+
 export const listListingsQueryLimitDefault = 20;
 export const listListingsQueryOffsetDefault = 0;
 
@@ -317,6 +334,16 @@ export const ListListingsQueryParams = zod.object({
     .optional(),
   instrument: zod.coerce.string().optional(),
   skillLevel: zod.coerce.string().optional(),
+  city: zod.coerce.string().optional(),
+  isOnline: zod.coerce.boolean().optional(),
+  dayOfWeek: zod.coerce
+    .number()
+    .min(listListingsQueryDayOfWeekMin)
+    .max(listListingsQueryDayOfWeekMax)
+    .optional()
+    .describe(
+      "Filter event\/masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)",
+    ),
   minPrice: zod.coerce.number().optional(),
   maxPrice: zod.coerce.number().optional(),
   limit: zod.coerce.number().default(listListingsQueryLimitDefault),
@@ -342,6 +369,18 @@ export const ListListingsResponse = zod.object({
       isOnline: zod.boolean(),
       city: zod.string().nullish(),
       country: zod.string().nullish(),
+      digitalProductId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the associated digital product (only set when type=digital_product)",
+        ),
+      masterclassEventId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the first upcoming masterclass event (only set when type=masterclass)",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -433,6 +472,18 @@ export const GetListingResponse = zod.object({
   isOnline: zod.boolean(),
   city: zod.string().nullish(),
   country: zod.string().nullish(),
+  digitalProductId: zod
+    .number()
+    .nullish()
+    .describe(
+      "ID of the associated digital product (only set when type=digital_product)",
+    ),
+  masterclassEventId: zod
+    .number()
+    .nullish()
+    .describe(
+      "ID of the first upcoming masterclass event (only set when type=masterclass)",
+    ),
   teacher: zod
     .object({
       id: zod.number(),
@@ -513,6 +564,18 @@ export const UpdateListingResponse = zod.object({
   isOnline: zod.boolean(),
   city: zod.string().nullish(),
   country: zod.string().nullish(),
+  digitalProductId: zod
+    .number()
+    .nullish()
+    .describe(
+      "ID of the associated digital product (only set when type=digital_product)",
+    ),
+  masterclassEventId: zod
+    .number()
+    .nullish()
+    .describe(
+      "ID of the first upcoming masterclass event (only set when type=masterclass)",
+    ),
   teacher: zod
     .object({
       id: zod.number(),
@@ -590,6 +653,18 @@ export const GetTeacherListingsResponse = zod.object({
       isOnline: zod.boolean(),
       city: zod.string().nullish(),
       country: zod.string().nullish(),
+      digitalProductId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the associated digital product (only set when type=digital_product)",
+        ),
+      masterclassEventId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the first upcoming masterclass event (only set when type=masterclass)",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -640,11 +715,20 @@ export const GetTeacherListingsResponse = zod.object({
 /**
  * @summary Browse upcoming masterclass events
  */
+export const listMasterclassesQueryDayOfWeekMin = 0;
+export const listMasterclassesQueryDayOfWeekMax = 6;
+
 export const listMasterclassesQueryLimitDefault = 20;
 export const listMasterclassesQueryOffsetDefault = 0;
 
 export const ListMasterclassesQueryParams = zod.object({
   instrument: zod.coerce.string().optional(),
+  dayOfWeek: zod.coerce
+    .number()
+    .min(listMasterclassesQueryDayOfWeekMin)
+    .max(listMasterclassesQueryDayOfWeekMax)
+    .optional()
+    .describe("Filter by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)"),
   limit: zod.coerce.number().default(listMasterclassesQueryLimitDefault),
   offset: zod.coerce.number().default(listMasterclassesQueryOffsetDefault),
 });
@@ -1174,6 +1258,12 @@ export const ListBookingsResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      hasReview: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the student has already submitted a review for this booking",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -1268,6 +1358,12 @@ export const GetBookingResponse = zod.object({
   eventDate: zod.coerce.date().nullish(),
   eventLocation: zod.string().nullish(),
   cancelReason: zod.string().nullish(),
+  hasReview: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the student has already submitted a review for this booking",
+    ),
   teacher: zod
     .object({
       id: zod.number(),
@@ -1350,6 +1446,12 @@ export const UpdateBookingResponse = zod.object({
   eventDate: zod.coerce.date().nullish(),
   eventLocation: zod.string().nullish(),
   cancelReason: zod.string().nullish(),
+  hasReview: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the student has already submitted a review for this booking",
+    ),
   teacher: zod
     .object({
       id: zod.number(),
@@ -1598,6 +1700,12 @@ export const GetTeacherDashboardResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      hasReview: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the student has already submitted a review for this booking",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -1774,6 +1882,12 @@ export const GetStudentDashboardResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      hasReview: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the student has already submitted a review for this booking",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
