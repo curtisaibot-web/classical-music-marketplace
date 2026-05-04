@@ -72,8 +72,16 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
       cancel_url: cancelUrl,
     };
 
+    sessionParams.payment_intent_data = {
+      metadata: {
+        booking_id: String(booking.id),
+        type: "booking",
+      },
+    };
+
     if (teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
+        ...sessionParams.payment_intent_data,
         application_fee_amount: Math.round(booking.priceInCents * PLATFORM_FEE_RATE),
         transfer_data: {
           destination: teacherProfile.stripeAccountId,
@@ -158,8 +166,16 @@ router.post("/stripe/checkout/order", requireAuth, async (req, res): Promise<voi
       cancel_url: cancelUrl,
     };
 
+    sessionParams.payment_intent_data = {
+      metadata: {
+        order_id: String(order.id),
+        type: order.type,
+      },
+    };
+
     if (sellerProfile?.stripeAccountId && sellerProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
+        ...sessionParams.payment_intent_data,
         application_fee_amount: Math.round(order.priceInCents * PLATFORM_FEE_RATE),
         transfer_data: {
           destination: sellerProfile.stripeAccountId,

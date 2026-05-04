@@ -17,37 +17,51 @@ export class WebhookHandlers {
     const sync = await getStripeSync();
     await sync.processWebhook(payload, signature);
 
-    try {
+    const { webhookSecret } = await getStripeCredentials();
+    if (webhookSecret) {
       const stripe = await getUncachableStripeClient();
-      const { webhookSecret } = await getStripeCredentials();
-      if (webhookSecret) {
-        const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-        await handleStripeEvent(event);
-      }
-    } catch (err) {
-      logger.error({ err }, "Failed to handle custom Stripe event logic");
+      const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      await handleStripeEvent(event);
     }
   }
 }
 
 async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  logger.info({ eventType: event.type, eventId: event.id }, "Processing Stripe event");
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    await handleCheckoutSessionCompleted(session);
+    await handleCheckoutSessionCompleted(session, event.id);
   } else if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    await handlePaymentIntentSucceeded(paymentIntent);
+    await handlePaymentIntentSucceeded(paymentIntent, event.id);
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session,
+  eventId: string,
+): Promise<void> {
   const metadata = session.metadata ?? {};
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
 
   if (metadata.booking_id) {
     const bookingId = parseInt(metadata.booking_id, 10);
-    if (!isNaN(bookingId)) {
+    if (isNaN(bookingId)) {
+      throw new Error(`Invalid booking_id in session metadata: ${metadata.booking_id}`);
+    }
+
+    const [existing] = await db
+      .select({ status: bookingsTable.status })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.id, bookingId));
+
+    if (!existing) {
+      throw new Error(`Booking ${bookingId} not found for checkout session ${session.id} (event ${eventId})`);
+    }
+
+    if (existing.status === "pending") {
       await db
         .update(bookingsTable)
         .set({
@@ -56,13 +70,28 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session):
           stripePaymentIntentId: paymentIntentId,
         })
         .where(eq(bookingsTable.id, bookingId));
-      logger.info({ bookingId, sessionId: session.id }, "Booking confirmed via Stripe");
+      logger.info({ bookingId, sessionId: session.id, eventId }, "Booking confirmed via checkout.session.completed");
+    } else {
+      logger.info({ bookingId, status: existing.status, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }
   }
 
   if (metadata.order_id) {
     const orderId = parseInt(metadata.order_id, 10);
-    if (!isNaN(orderId)) {
+    if (isNaN(orderId)) {
+      throw new Error(`Invalid order_id in session metadata: ${metadata.order_id}`);
+    }
+
+    const [existing] = await db
+      .select({ status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    if (!existing) {
+      throw new Error(`Order ${orderId} not found for checkout session ${session.id} (event ${eventId})`);
+    }
+
+    if (existing.status === "pending") {
       await db
         .update(ordersTable)
         .set({
@@ -72,58 +101,71 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session):
           stripePaymentIntentId: paymentIntentId,
         })
         .where(eq(ordersTable.id, orderId));
-      logger.info({ orderId, sessionId: session.id }, "Order paid via Stripe");
+      logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
 
       await unlockDigitalDownload(orderId);
+    } else {
+      logger.info({ orderId, status: existing.status, eventId }, "Order already in non-pending state — skipping idempotent update");
     }
   }
 }
 
-async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+async function handlePaymentIntentSucceeded(
+  paymentIntent: Stripe.PaymentIntent,
+  eventId: string,
+): Promise<void> {
   const metadata = paymentIntent.metadata ?? {};
 
   if (metadata.booking_id) {
     const bookingId = parseInt(metadata.booking_id, 10);
-    if (!isNaN(bookingId)) {
-      const [existing] = await db
-        .select({ status: bookingsTable.status })
-        .from(bookingsTable)
-        .where(eq(bookingsTable.id, bookingId));
+    if (isNaN(bookingId)) {
+      throw new Error(`Invalid booking_id in payment_intent metadata: ${metadata.booking_id}`);
+    }
 
-      if (existing && existing.status === "pending") {
-        await db
-          .update(bookingsTable)
-          .set({
-            status: "confirmed",
-            stripePaymentIntentId: paymentIntent.id,
-          })
-          .where(eq(bookingsTable.id, bookingId));
-        logger.info({ bookingId, paymentIntentId: paymentIntent.id }, "Booking confirmed via payment_intent.succeeded");
-      }
+    const [existing] = await db
+      .select({ status: bookingsTable.status })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.id, bookingId));
+
+    if (existing && existing.status === "pending") {
+      await db
+        .update(bookingsTable)
+        .set({
+          status: "confirmed",
+          stripePaymentIntentId: paymentIntent.id,
+        })
+        .where(eq(bookingsTable.id, bookingId));
+      logger.info({ bookingId, paymentIntentId: paymentIntent.id, eventId }, "Booking confirmed via payment_intent.succeeded");
+    } else {
+      logger.info({ bookingId, status: existing?.status, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }
   }
 
   if (metadata.order_id) {
     const orderId = parseInt(metadata.order_id, 10);
-    if (!isNaN(orderId)) {
-      const [existing] = await db
-        .select({ status: ordersTable.status })
-        .from(ordersTable)
+    if (isNaN(orderId)) {
+      throw new Error(`Invalid order_id in payment_intent metadata: ${metadata.order_id}`);
+    }
+
+    const [existing] = await db
+      .select({ status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    if (existing && existing.status === "pending") {
+      await db
+        .update(ordersTable)
+        .set({
+          status: "paid",
+          paidAt: new Date(),
+          stripePaymentIntentId: paymentIntent.id,
+        })
         .where(eq(ordersTable.id, orderId));
+      logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
 
-      if (existing && existing.status === "pending") {
-        await db
-          .update(ordersTable)
-          .set({
-            status: "paid",
-            paidAt: new Date(),
-            stripePaymentIntentId: paymentIntent.id,
-          })
-          .where(eq(ordersTable.id, orderId));
-        logger.info({ orderId, paymentIntentId: paymentIntent.id }, "Order paid via payment_intent.succeeded");
-
-        await unlockDigitalDownload(orderId);
-      }
+      await unlockDigitalDownload(orderId);
+    } else {
+      logger.info({ orderId, status: existing?.status, eventId }, "Order already in non-pending state — skipping idempotent update");
     }
   }
 }
