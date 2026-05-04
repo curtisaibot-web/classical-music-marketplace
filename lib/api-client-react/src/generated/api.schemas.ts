@@ -684,13 +684,21 @@ export type ListTeachersParams = {
   city?: string;
   listingType?: ListTeachersListingType;
   /**
-   * Filter by availability day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * Filter teachers by the day of week they have masterclass events scheduled (0=Sunday, 1=Monday, ..., 6=Saturday). When listingType is 'lesson', 'event', or 'digital_product', this parameter is ignored because those listing types have no rows in masterclass_events — all matching teachers are returned regardless of this value.
    * @minimum 0
    * @maximum 6
    */
   dayOfWeek?: number;
+  /**
+   * Comma-separated list of instruments to filter by (matches any). Takes precedence over `instrument` when provided.
+   */
+  instruments?: string;
   minRate?: number;
   maxRate?: number;
+  /**
+   * When true, only return teachers who have at least one active online listing.
+   */
+  onlineOnly?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -712,7 +720,7 @@ export type ListListingsParams = {
   city?: string;
   isOnline?: boolean;
   /**
-   * Filter event/masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * Filter masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only masterclass listings are filtered by this value because they have rows in the masterclass_events table. Listings of type 'lesson', 'event', and 'digital_product' are always included regardless of this filter — they have no fixed schedule stored in masterclass_events.
    * @minimum 0
    * @maximum 6
    */
@@ -736,7 +744,7 @@ export const ListListingsType = {
 export type ListMasterclassesParams = {
   instrument?: string;
   /**
-   * Filter by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * Filter masterclass events by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only returns masterclasses whose next occurrence falls on the specified day.
    * @minimum 0
    * @maximum 6
    */

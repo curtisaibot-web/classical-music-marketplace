@@ -116,6 +116,11 @@ paths:
             type: integer
             minimum: 0
             maximum: 6
+        - name: instruments
+          in: query
+          description: "Comma-separated list of instruments to filter by (matches any). Takes precedence over `instrument` when provided."
+          schema:
+            type: string
         - name: minRate
           in: query
           schema:
@@ -124,6 +129,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: onlineOnly
+          in: query
+          description: "When true, only return teachers who have at least one active online listing."
+          schema:
+            type: boolean
         - name: limit
           in: query
           schema:

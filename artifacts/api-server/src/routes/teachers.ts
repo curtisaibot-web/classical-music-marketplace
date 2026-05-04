@@ -18,15 +18,27 @@ router.get("/teachers", async (req, res): Promise<void> => {
   const limit = params.success ? (params.data.limit ?? 20) : 20;
   const offset = params.success ? (params.data.offset ?? 0) : 0;
   const instrument = params.success ? params.data.instrument : undefined;
+  const instrumentsRaw = params.success ? params.data.instruments : undefined;
   const city = params.success ? params.data.city : undefined;
   const minRate = params.success ? params.data.minRate : undefined;
   const maxRate = params.success ? params.data.maxRate : undefined;
   const listingType = params.success ? params.data.listingType : undefined;
   const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
+  const onlineOnly = req.query.onlineOnly === "true";
+
+  const resolvedInstruments = instrumentsRaw
+    ? instrumentsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : instrument ? [instrument] : [];
 
   const conditions = [];
-  if (instrument) {
-    conditions.push(sql`EXISTS (SELECT 1 FROM UNNEST(${teacherProfilesTable.instruments}) AS instr WHERE LOWER(instr) = LOWER(${instrument}))`);
+  if (resolvedInstruments.length === 1) {
+    const i = resolvedInstruments[0];
+    conditions.push(sql`EXISTS (SELECT 1 FROM UNNEST(${teacherProfilesTable.instruments}) AS instr WHERE LOWER(instr) = LOWER(${i}))`);
+  } else if (resolvedInstruments.length > 1) {
+    const orParts = resolvedInstruments.map(
+      (i) => sql`EXISTS (SELECT 1 FROM UNNEST(${teacherProfilesTable.instruments}) AS instr WHERE LOWER(instr) = LOWER(${i}))`
+    );
+    conditions.push(sql`(${sql.join(orParts, sql` OR `)})`);
   }
   if (city) {
     conditions.push(ilike(teacherProfilesTable.city, `%${city}%`));
@@ -36,6 +48,19 @@ router.get("/teachers", async (req, res): Promise<void> => {
   }
   if (maxRate !== undefined) {
     conditions.push(lte(teacherProfilesTable.hourlyRate, maxRate));
+  }
+
+  if (onlineOnly) {
+    const teacherIdsOnline = await db
+      .selectDistinct({ teacherId: listingsTable.teacherId })
+      .from(listingsTable)
+      .where(and(eq(listingsTable.isOnline, true), eq(listingsTable.status, "active")));
+    const ids = teacherIdsOnline.map((r) => r.teacherId);
+    if (ids.length === 0) {
+      res.json(ListTeachersResponse.parse({ teachers: [], total: 0 }));
+      return;
+    }
+    conditions.push(inArray(teacherProfilesTable.userId, ids));
   }
 
   if (listingType) {

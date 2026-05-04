@@ -71,10 +71,22 @@ export const ListTeachersQueryParams = zod.object({
     .max(listTeachersQueryDayOfWeekMax)
     .optional()
     .describe(
-      "Filter by availability day of week (0=Sunday, 1=Monday, ..., 6=Saturday)",
+      "Filter teachers by the day of week they have masterclass events scheduled (0=Sunday, 1=Monday, ..., 6=Saturday). When listingType is 'lesson', 'event', or 'digital_product', this parameter is ignored because those listing types have no rows in masterclass_events — all matching teachers are returned regardless of this value.",
+    ),
+  instruments: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated list of instruments to filter by (matches any). Takes precedence over `instrument` when provided.",
     ),
   minRate: zod.coerce.number().optional(),
   maxRate: zod.coerce.number().optional(),
+  onlineOnly: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, only return teachers who have at least one active online listing.",
+    ),
   limit: zod.coerce.number().default(listTeachersQueryLimitDefault),
   offset: zod.coerce.number().default(listTeachersQueryOffsetDefault),
 });
@@ -342,7 +354,7 @@ export const ListListingsQueryParams = zod.object({
     .max(listListingsQueryDayOfWeekMax)
     .optional()
     .describe(
-      "Filter event\/masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)",
+      "Filter masterclass listings by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only masterclass listings are filtered by this value because they have rows in the masterclass_events table. Listings of type 'lesson', 'event', and 'digital_product' are always included regardless of this filter — they have no fixed schedule stored in masterclass_events.",
     ),
   minPrice: zod.coerce.number().optional(),
   maxPrice: zod.coerce.number().optional(),
@@ -728,7 +740,9 @@ export const ListMasterclassesQueryParams = zod.object({
     .min(listMasterclassesQueryDayOfWeekMin)
     .max(listMasterclassesQueryDayOfWeekMax)
     .optional()
-    .describe("Filter by day of week (0=Sunday, 1=Monday, ..., 6=Saturday)"),
+    .describe(
+      "Filter masterclass events by day of week (0=Sunday, 1=Monday, ..., 6=Saturday). Only returns masterclasses whose next occurrence falls on the specified day.",
+    ),
   limit: zod.coerce.number().default(listMasterclassesQueryLimitDefault),
   offset: zod.coerce.number().default(listMasterclassesQueryOffsetDefault),
 });

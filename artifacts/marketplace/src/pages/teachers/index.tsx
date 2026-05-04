@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { useListTeachers } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Star, Music, MapPin, SlidersHorizontal, X, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Search, Star, Music, MapPin, SlidersHorizontal, X, AlertCircle, ChevronDown } from "lucide-react";
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Badge } from "@/components/ui/badge";
@@ -20,13 +24,7 @@ const INSTRUMENTS = [
   "Harp", "Guitar", "Organ", "Voice",
 ];
 
-const PRICE_RANGES = [
-  { label: "Any price", min: undefined, max: undefined },
-  { label: "Under $50/hr", min: undefined, max: 5000 },
-  { label: "$50–$100/hr", min: 5000, max: 10000 },
-  { label: "$100–$150/hr", min: 10000, max: 15000 },
-  { label: "$150+/hr", min: 15000, max: undefined },
-];
+const MAX_PRICE = 300;
 
 const LISTING_TYPES = [
   { value: "all", label: "Any type" },
@@ -45,14 +43,40 @@ const DAYS_OF_WEEK = [
   { label: "Sat", value: 6 },
 ];
 
+function readUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const instrumentsParam = params.get("instruments");
+  const instruments = instrumentsParam ? instrumentsParam.split(",").filter(Boolean) : [];
+  const city = params.get("city") ?? "";
+  const minRateCents = params.get("minRate");
+  const maxRateCents = params.get("maxRate");
+  const priceMin = minRateCents ? Math.round(Number(minRateCents) / 100) : 0;
+  const priceMax = maxRateCents ? Math.round(Number(maxRateCents) / 100) : MAX_PRICE;
+  const onlineOnly = params.get("onlineOnly") === "true";
+  const listingType = params.get("listingType") ?? "all";
+  const dayOfWeekParam = params.get("dayOfWeek");
+  const dayOfWeek = dayOfWeekParam !== null ? Number(dayOfWeekParam) : undefined;
+  return { instruments, city, priceMin, priceMax, onlineOnly, listingType, dayOfWeek };
+}
+
 export default function Teachers() {
-  const [instrument, setInstrument] = useState("");
-  const [city, setCity] = useState("");
-  const [debouncedCity, setDebouncedCity] = useState("");
-  const [priceRange, setPriceRange] = useState("0");
-  const [listingType, setListingType] = useState("all");
-  const [dayOfWeek, setDayOfWeek] = useState<number | undefined>(undefined);
-  const [showFilters, setShowFilters] = useState(false);
+  const initial = readUrlParams();
+
+  const [instruments, setInstruments] = useState<string[]>(initial.instruments);
+  const [city, setCity] = useState(initial.city);
+  const [debouncedCity, setDebouncedCity] = useState(initial.city);
+  const [priceRange, setPriceRange] = useState<[number, number]>([initial.priceMin, initial.priceMax]);
+  const [onlineOnly, setOnlineOnly] = useState(initial.onlineOnly);
+  const [listingType, setListingType] = useState(initial.listingType);
+  const [dayOfWeek, setDayOfWeek] = useState<number | undefined>(initial.dayOfWeek);
+  const [showFilters, setShowFilters] = useState(
+    initial.instruments.length > 0 ||
+    initial.priceMin > 0 ||
+    initial.priceMax < MAX_PRICE ||
+    initial.onlineOnly ||
+    initial.listingType !== "all" ||
+    initial.dayOfWeek !== undefined
+  );
 
   usePageMeta({
     title: "Find a Teacher",
@@ -64,28 +88,67 @@ export default function Teachers() {
     return () => clearTimeout(timer);
   }, [city]);
 
-  const selectedRange = PRICE_RANGES[Number(priceRange)];
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (instruments.length > 0) params.set("instruments", instruments.join(","));
+    if (city) params.set("city", city);
+    if (priceRange[0] > 0) params.set("minRate", String(priceRange[0] * 100));
+    if (priceRange[1] < MAX_PRICE) params.set("maxRate", String(priceRange[1] * 100));
+    if (onlineOnly) params.set("onlineOnly", "true");
+    if (listingType !== "all") params.set("listingType", listingType);
+    if (dayOfWeek !== undefined) params.set("dayOfWeek", String(dayOfWeek));
+    const search = params.toString();
+    const url = window.location.pathname + (search ? "?" + search : "");
+    window.history.replaceState({}, "", url);
+  }, [instruments, city, priceRange, onlineOnly, listingType, dayOfWeek]);
 
-  const { data, isLoading, isError, refetch } = useListTeachers({
-    instrument: instrument === "all" ? undefined : instrument || undefined,
+  const minRateCents = priceRange[0] > 0 ? priceRange[0] * 100 : undefined;
+  const maxRateCents = priceRange[1] < MAX_PRICE ? priceRange[1] * 100 : undefined;
+
+  const { data, isLoading, isFetching, isError, refetch } = useListTeachers({
+    instruments: instruments.length > 0 ? instruments.join(",") : undefined,
     city: debouncedCity || undefined,
-    minRate: selectedRange?.min,
-    maxRate: selectedRange?.max,
+    minRate: minRateCents,
+    maxRate: maxRateCents,
+    onlineOnly: onlineOnly || undefined,
     listingType: listingType === "all" ? undefined : listingType as "lesson" | "event" | "masterclass" | "digital_product" | undefined,
     dayOfWeek: dayOfWeek,
     limit: 20,
   });
 
-  const hasActiveFilters = (instrument && instrument !== "all") || city || priceRange !== "0" || listingType !== "all" || dayOfWeek !== undefined;
+  const hasActiveFilters =
+    instruments.length > 0 ||
+    city !== "" ||
+    priceRange[0] > 0 ||
+    priceRange[1] < MAX_PRICE ||
+    onlineOnly ||
+    listingType !== "all" ||
+    dayOfWeek !== undefined;
 
-  const clearFilters = () => {
-    setInstrument("");
+  const clearFilters = useCallback(() => {
+    setInstruments([]);
     setCity("");
     setDebouncedCity("");
-    setPriceRange("0");
+    setPriceRange([0, MAX_PRICE]);
+    setOnlineOnly(false);
     setListingType("all");
     setDayOfWeek(undefined);
+  }, []);
+
+  const toggleInstrument = (inst: string) => {
+    setInstruments((prev) =>
+      prev.includes(inst) ? prev.filter((i) => i !== inst) : [...prev, inst]
+    );
   };
+
+  const priceLabel =
+    priceRange[0] === 0 && priceRange[1] >= MAX_PRICE
+      ? "Any price"
+      : priceRange[1] >= MAX_PRICE
+      ? `$${priceRange[0]}+/hr`
+      : priceRange[0] === 0
+      ? `Under $${priceRange[1]}/hr`
+      : `$${priceRange[0]}–$${priceRange[1]}/hr`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -118,55 +181,115 @@ export default function Teachers() {
                 Filters
                 {hasActiveFilters && (
                   <Badge className="bg-white text-primary ml-1 px-1.5 py-0 text-xs">
-                    {[instrument, city, priceRange !== "0" ? "price" : ""].filter(Boolean).length}
+                    {[
+                      instruments.length > 0 ? "i" : "",
+                      city ? "c" : "",
+                      priceRange[0] > 0 || priceRange[1] < MAX_PRICE ? "p" : "",
+                      onlineOnly ? "o" : "",
+                      listingType !== "all" ? "l" : "",
+                      dayOfWeek !== undefined ? "d" : "",
+                    ].filter(Boolean).length}
                   </Badge>
                 )}
               </Button>
             </div>
 
             {showFilters && (
-              <div className="bg-background border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Instrument</Label>
-                  <Select value={instrument || "all"} onValueChange={(v) => setInstrument(v === "all" ? "" : v)}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Any instrument" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Any instrument</SelectItem>
-                      {INSTRUMENTS.map((inst) => (
-                        <SelectItem key={inst} value={inst}>{inst}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="bg-background border border-border rounded-xl p-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Instruments</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between font-normal bg-background"
+                        >
+                          <span className="truncate">
+                            {instruments.length === 0
+                              ? "Any instrument"
+                              : instruments.length === 1
+                              ? instruments[0]
+                              : `${instruments.length} selected`}
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" align="start">
+                        <div className="grid grid-cols-2 gap-1 max-h-64 overflow-y-auto">
+                          {INSTRUMENTS.map((inst) => (
+                            <label
+                              key={inst}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer text-sm"
+                            >
+                              <Checkbox
+                                checked={instruments.includes(inst)}
+                                onCheckedChange={() => toggleInstrument(inst)}
+                              />
+                              {inst}
+                            </label>
+                          ))}
+                        </div>
+                        {instruments.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-2 text-xs h-7"
+                            onClick={() => setInstruments([])}
+                          >
+                            Clear selection
+                          </Button>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Listing Type</Label>
+                    <Select value={listingType} onValueChange={setListingType}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LISTING_TYPES.map((lt) => (
+                          <SelectItem key={lt.value} value={lt.value}>{lt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Listing Type</Label>
-                  <Select value={listingType} onValueChange={setListingType}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LISTING_TYPES.map((lt) => (
-                        <SelectItem key={lt.value} value={lt.value}>{lt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Price Range</Label>
+                    <span className="text-sm font-medium text-foreground">{priceLabel}</span>
+                  </div>
+                  <Slider
+                    min={0}
+                    max={MAX_PRICE}
+                    step={10}
+                    value={priceRange}
+                    onValueChange={(v) => setPriceRange(v as [number, number])}
+                    className="py-1"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Free</span>
+                    <span>${MAX_PRICE}+/hr</span>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Price Range</Label>
-                  <Select value={priceRange} onValueChange={setPriceRange}>
-                    <SelectTrigger className="bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRICE_RANGES.map((range, i) => (
-                        <SelectItem key={i} value={String(i)}>{range.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">Online lessons only</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Show only teachers who offer online lessons</p>
+                  </div>
+                  <Switch
+                    checked={onlineOnly}
+                    onCheckedChange={setOnlineOnly}
+                  />
                 </div>
-                <div className="space-y-1.5 sm:col-span-3">
+
+                <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Available on Day</Label>
                   <div className="flex flex-wrap gap-2">
                     {DAYS_OF_WEEK.map((d) => (
@@ -190,15 +313,27 @@ export default function Teachers() {
             {hasActiveFilters && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-muted-foreground">Active filters:</span>
-                {instrument && instrument !== "all" && (
+                {instruments.map((inst) => (
+                  <Badge key={inst} variant="secondary" className="gap-1 text-xs">
+                    {inst}
+                    <button onClick={() => toggleInstrument(inst)} className="hover:text-foreground"><X className="h-3 w-3" /></button>
+                  </Badge>
+                ))}
+                {(priceRange[0] > 0 || priceRange[1] < MAX_PRICE) && (
                   <Badge variant="secondary" className="gap-1 text-xs">
-                    {instrument}
-                    <button onClick={() => setInstrument("")} className="hover:text-foreground"><X className="h-3 w-3" /></button>
+                    {priceLabel}
+                    <button onClick={() => setPriceRange([0, MAX_PRICE])} className="hover:text-foreground"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
-                {listingType && listingType !== "all" && (
+                {onlineOnly && (
                   <Badge variant="secondary" className="gap-1 text-xs">
-                    {LISTING_TYPES.find(lt => lt.value === listingType)?.label}
+                    Online only
+                    <button onClick={() => setOnlineOnly(false)} className="hover:text-foreground"><X className="h-3 w-3" /></button>
+                  </Badge>
+                )}
+                {listingType !== "all" && (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    {LISTING_TYPES.find((lt) => lt.value === listingType)?.label}
                     <button onClick={() => setListingType("all")} className="hover:text-foreground"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
@@ -208,15 +343,9 @@ export default function Teachers() {
                     <button onClick={() => { setCity(""); setDebouncedCity(""); }} className="hover:text-foreground"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
-                {priceRange !== "0" && (
-                  <Badge variant="secondary" className="gap-1 text-xs">
-                    {PRICE_RANGES[Number(priceRange)]?.label}
-                    <button onClick={() => setPriceRange("0")} className="hover:text-foreground"><X className="h-3 w-3" /></button>
-                  </Badge>
-                )}
                 {dayOfWeek !== undefined && (
                   <Badge variant="secondary" className="gap-1 text-xs">
-                    {DAYS_OF_WEEK.find(d => d.value === dayOfWeek)?.label}
+                    {DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)?.label}
                     <button onClick={() => setDayOfWeek(undefined)} className="hover:text-foreground"><X className="h-3 w-3" /></button>
                   </Badge>
                 )}
@@ -268,10 +397,15 @@ export default function Teachers() {
           </div>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground mb-6">
-              {data.total} {data.total === 1 ? "teacher" : "teachers"} found
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="flex items-center gap-3 mb-6">
+              <p className="text-sm text-muted-foreground">
+                {data.total} {data.total === 1 ? "teacher" : "teachers"} found
+              </p>
+              {isFetching && (
+                <span className="text-xs text-muted-foreground animate-pulse">Updating…</span>
+              )}
+            </div>
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity duration-200 ${isFetching ? "opacity-60" : "opacity-100"}`}>
               {data.teachers.map((teacher) => {
                 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
                 const imgSrc = resolveImageUrl(teacher.profileImageUrl, basePath);
