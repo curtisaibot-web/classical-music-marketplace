@@ -94,9 +94,24 @@ pnpm --filter @workspace/db run push-force
 pnpm --filter @workspace/scripts run seed
 ```
 
+## Payments (Stripe)
+
+Stripe integration code is fully implemented but **not yet connected**. The user chose to skip the Stripe connection for now. When ready:
+
+1. Connect Stripe via Replit's integration panel (search "Stripe"), OR
+2. Provide `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as environment secrets
+
+Key files:
+- `artifacts/api-server/src/stripeClient.ts` — Stripe client factory
+- `artifacts/api-server/src/routes/stripe.ts` — 5 payment endpoints
+- `artifacts/api-server/src/webhookHandlers.ts` — webhook processing
+- `artifacts/api-server/src/stripeInit.ts` — initialization (called at startup)
+
+**NOTE:** Do NOT use the Replit integrations system for Stripe without user confirmation. User dismissed it once — ask before proposing again.
+
 ## Pending Tasks
 
-- **Task #2**: Marketplace Web App (React Frontend) — blocked by Task #1 ✅
-- **Task #3**: Stripe Payment Integration — blocked by Task #1 ✅
 - **Task #4**: Digital Products: Uploads & Secure Downloads
 - **Task #5**: Reviews, Search & Launch Polish
+- **Task #6**: Wire up event/wedding musician booking module
+- **Task #8**: Connect real images and fix placeholder content
