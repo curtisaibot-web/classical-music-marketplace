@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGetMyTeacherProfile, useUpdateMyTeacherProfile } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -7,8 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, Music, Camera } from "lucide-react";
 import { toast } from "sonner";
+
+interface UploadState {
+  isUploading: boolean;
+  error: string | null;
+}
 
 export default function TeacherProfileEdit() {
   const { data: profile, isLoading } = useGetMyTeacherProfile();
@@ -21,8 +26,13 @@ export default function TeacherProfileEdit() {
     city: "",
     hourlyRate: 5000,
     yearsExperience: 0,
-    education: ""
+    education: "",
+    profileImageUrl: "",
   });
+
+  const [uploadState, setUploadState] = useState<UploadState>({ isUploading: false, error: null });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
@@ -33,29 +43,92 @@ export default function TeacherProfileEdit() {
         city: profile.city || "",
         hourlyRate: profile.hourlyRate || 5000,
         yearsExperience: profile.yearsExperience || 0,
-        education: profile.education || ""
+        education: profile.education || "",
+        profileImageUrl: profile.profileImageUrl || "",
       });
     }
   }, [profile]);
 
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+    setUploadState({ isUploading: true, error: null });
+
+    try {
+      const urlResp = await fetch("/api/storage/images/request-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+
+      if (!urlResp.ok) {
+        const data = await urlResp.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "Failed to request upload URL");
+      }
+
+      const { uploadURL, objectPath } = await urlResp.json() as { uploadURL: string; objectPath: string };
+
+      const putResp = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!putResp.ok) throw new Error("Failed to upload image to storage");
+
+      URL.revokeObjectURL(objectUrl);
+      const servingUrl = `/api/storage${objectPath}`;
+      setFormData((prev) => ({ ...prev, profileImageUrl: servingUrl }));
+      setPreviewUrl(null);
+      setUploadState({ isUploading: false, error: null });
+      toast.success("Photo uploaded — save your profile to apply changes.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setUploadState({ isUploading: false, error: msg });
+      URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
+      toast.error(msg);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     updateProfile.mutate({
       data: {
         bio: formData.bio,
-        instruments: formData.instruments.split(",").map(s => s.trim()).filter(Boolean),
-        genres: formData.genres.split(",").map(s => s.trim()).filter(Boolean),
+        instruments: formData.instruments.split(",").map((s) => s.trim()).filter(Boolean),
+        genres: formData.genres.split(",").map((s) => s.trim()).filter(Boolean),
         city: formData.city,
         hourlyRate: formData.hourlyRate,
         yearsExperience: formData.yearsExperience,
-        education: formData.education
-      }
+        education: formData.education,
+        profileImageUrl: formData.profileImageUrl || undefined,
+      },
     }, {
       onSuccess: () => toast.success("Profile updated successfully"),
-      onError: () => toast.error("Failed to update profile")
+      onError: () => toast.error("Failed to update profile"),
     });
   };
+
+  const displayImageUrl = previewUrl || formData.profileImageUrl || null;
 
   if (isLoading) {
     return (
@@ -71,7 +144,7 @@ export default function TeacherProfileEdit() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      
+
       <div className="bg-muted py-10 border-b border-border">
         <div className="container mx-auto px-4 max-w-3xl">
           <h1 className="text-3xl font-serif font-bold text-foreground">Edit Profile</h1>
@@ -82,6 +155,64 @@ export default function TeacherProfileEdit() {
       <main className="flex-1 container mx-auto px-4 py-12 max-w-3xl">
         <form onSubmit={handleSubmit}>
           <div className="space-y-8">
+
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="font-serif">Profile Photo</CardTitle>
+                <CardDescription>This photo appears on your public profile and teacher cards.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="w-28 h-28 rounded-full overflow-hidden bg-muted border-2 border-border shrink-0 flex items-center justify-center">
+                    {displayImageUrl ? (
+                      <img
+                        src={displayImageUrl}
+                        alt="Profile preview"
+                        className="w-full h-full object-cover object-top"
+                      />
+                    ) : (
+                      <Music className="h-10 w-10 text-muted-foreground opacity-30" />
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadState.isUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      {uploadState.isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                      {uploadState.isUploading ? "Uploading…" : displayImageUrl ? "Change Photo" : "Upload Photo"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG or WebP · Max 5 MB
+                    </p>
+                    {uploadState.error && (
+                      <p className="text-xs text-destructive">{uploadState.error}</p>
+                    )}
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleImageUpload(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-border">
               <CardHeader>
                 <CardTitle className="font-serif">Basic Information</CardTitle>
@@ -90,54 +221,54 @@ export default function TeacherProfileEdit() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="bio">Biography</Label>
-                  <Textarea 
-                    id="bio" 
+                  <Textarea
+                    id="bio"
                     value={formData.bio}
-                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder="Tell prospective students about yourself..."
                     className="min-h-[150px]"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="instruments">Instruments (comma-separated)</Label>
-                    <Input 
-                      id="instruments" 
+                    <Input
+                      id="instruments"
                       value={formData.instruments}
-                      onChange={(e) => setFormData({...formData, instruments: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, instruments: e.target.value })}
                       placeholder="e.g. Piano, Violin, Music Theory"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="genres">Genres (comma-separated)</Label>
-                    <Input 
-                      id="genres" 
+                    <Input
+                      id="genres"
                       value={formData.genres}
-                      onChange={(e) => setFormData({...formData, genres: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, genres: e.target.value })}
                       placeholder="e.g. Classical, Jazz, Contemporary"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="city">City / Location</Label>
-                    <Input 
-                      id="city" 
+                    <Input
+                      id="city"
                       value={formData.city}
-                      onChange={(e) => setFormData({...formData, city: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       placeholder="e.g. New York, NY"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="yearsExperience">Years of Experience</Label>
-                    <Input 
-                      id="yearsExperience" 
+                    <Input
+                      id="yearsExperience"
                       type="number"
                       min="0"
                       value={formData.yearsExperience}
-                      onChange={(e) => setFormData({...formData, yearsExperience: Number(e.target.value)})}
+                      onChange={(e) => setFormData({ ...formData, yearsExperience: Number(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -151,23 +282,23 @@ export default function TeacherProfileEdit() {
               <CardContent className="space-y-6">
                 <div className="space-y-2 max-w-sm">
                   <Label htmlFor="hourlyRate">Default Hourly Rate ($)</Label>
-                  <Input 
-                    id="hourlyRate" 
+                  <Input
+                    id="hourlyRate"
                     type="number"
                     min="0"
                     step="1"
                     value={formData.hourlyRate / 100}
-                    onChange={(e) => setFormData({...formData, hourlyRate: Math.round(Number(e.target.value) * 100)})}
+                    onChange={(e) => setFormData({ ...formData, hourlyRate: Math.round(Number(e.target.value) * 100) })}
                   />
                   <p className="text-xs text-muted-foreground">This is your base rate for private lessons.</p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="education">Education & Credentials</Label>
-                  <Textarea 
-                    id="education" 
+                  <Textarea
+                    id="education"
                     value={formData.education}
-                    onChange={(e) => setFormData({...formData, education: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                     placeholder="List your degrees, conservatories, and major instructors..."
                     className="min-h-[100px]"
                   />
@@ -176,7 +307,7 @@ export default function TeacherProfileEdit() {
             </Card>
 
             <div className="flex justify-end gap-4 border-t border-border pt-6">
-              <Button type="submit" disabled={updateProfile.isPending}>
+              <Button type="submit" disabled={updateProfile.isPending || uploadState.isUploading}>
                 {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes
               </Button>
@@ -184,7 +315,7 @@ export default function TeacherProfileEdit() {
           </div>
         </form>
       </main>
-      
+
       <Footer />
     </div>
   );

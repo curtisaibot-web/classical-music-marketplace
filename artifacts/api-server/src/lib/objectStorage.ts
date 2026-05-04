@@ -132,6 +132,56 @@ export class ObjectStorageService {
     return { uploadUrl, fileKey };
   }
 
+  /**
+   * Generate a presigned PUT URL for uploading a public-facing image
+   * (profile photos, listing images). Files land in the /images/ namespace,
+   * which is separate from the /uploads/ namespace used for private digital
+   * product files.
+   */
+  async getImageUploadURL(teacherId: string): Promise<{ uploadUrl: string; fileKey: string }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/images/${teacherId}/${objectId}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const uploadUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    const fileKey = `/objects/images/${teacherId}/${objectId}`;
+    return { uploadUrl, fileKey };
+  }
+
+  /**
+   * Retrieve an image file from the /images/ namespace. Only serves
+   * paths that start with /objects/images/ — rejects anything else.
+   */
+  async getImageFile(objectPath: string): Promise<File> {
+    if (!objectPath.startsWith("/objects/images/")) {
+      throw new ObjectNotFoundError();
+    }
+
+    const entityId = objectPath.slice("/objects/images/".length);
+    let entityDir = this.getPrivateObjectDir();
+    if (!entityDir.endsWith("/")) {
+      entityDir = `${entityDir}/`;
+    }
+    const fullPath = `${entityDir}images/${entityId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const objectFile = bucket.file(objectName);
+    const [exists] = await objectFile.exists();
+    if (!exists) {
+      throw new ObjectNotFoundError();
+    }
+    return objectFile;
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();
