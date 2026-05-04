@@ -42,8 +42,9 @@ Proxy path: `/api/__clerk`
 | `student_profiles` | Student goals, skill level, instruments |
 | `listings` | Polymorphic: lesson / event / masterclass / digital_product |
 | `masterclass_events` | Live masterclass scheduling with performer/observer tiers |
+| `event_listing_details` | Event-specific fields per listing: event types, venue types, headcount, travel radius, repertoire, deposit |
 | `digital_products` | Sheet music, lesson plans, recordings |
-| `bookings` | Lesson + event bookings (status machine) |
+| `bookings` | Lesson + event bookings (status machine) with event-specific fields: eventType, eventDate, eventLocation |
 | `orders` | Digital product + masterclass ticket purchases |
 | `reviews` | Ratings linked to bookings |
 
@@ -61,6 +62,7 @@ Base: `/api`
 | Students | `GET /students/me`, `PUT /students/me` |
 | Listings | CRUD `/listings`, `GET /listings/teacher/:userId` |
 | Masterclasses | CRUD `/masterclasses` |
+| Events | `GET /events`, `GET /events/:id`, `GET /events/availability/:teacherId`, `POST /event-booking-requests` |
 | Digital Products | CRUD `/digital-products` (auto-creates listing on POST) |
 | Bookings | CRUD `/bookings` (auth-gated) |
 | Orders | CRUD `/orders` (auth-gated) |
@@ -154,7 +156,17 @@ the Vite `BASE_URL` so local paths become e.g. `/marketplace/images/teachers/sof
 **Seed note:** The seed uses `onConflictDoNothing`. If re-seeding doesn't update existing records
 (e.g. `profileImageUrl`), run direct SQL `UPDATE` statements or truncate tables first.
 
+## Events / Wedding Musician Booking Module
+
+The event booking module is fully wired. Key files:
+- `lib/db/src/schema/eventListingDetails.ts` — event-specific listing details table
+- `artifacts/api-server/src/routes/events.ts` — all 4 event routes
+- `lib/api-client-react/src/events.ts` — React Query hooks (manual, not generated)
+- `artifacts/marketplace/src/pages/events/index.tsx` — browse page with instrument/city/event-type filters
+- `artifacts/marketplace/src/pages/events/detail.tsx` — detail page with availability calendar + booking request form
+
+The availability calendar shows booked dates (red) fetched from confirmed/pending event bookings for the teacher. Booking requests create a `bookings` row with type=`event` and status=`pending`.
+
 ## Pending Tasks
 
 - **Task #5**: Reviews, Search & Launch Polish
-- **Task #6**: Wire up event/wedding musician booking module

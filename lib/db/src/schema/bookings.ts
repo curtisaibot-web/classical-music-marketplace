@@ -34,6 +34,7 @@ export const bookingsTable = pgTable("bookings", {
   eventType: text("event_type"), // for event bookings: wedding, corporate, concert, etc.
   eventDate: timestamp("event_date", { withTimezone: true }),
   eventLocation: text("event_location"),
+  headcount: integer("headcount"), // expected guest count for event bookings
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelReason: text("cancel_reason"),
   completedAt: timestamp("completed_at", { withTimezone: true }),

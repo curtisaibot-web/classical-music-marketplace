@@ -23,6 +23,7 @@ export function Navbar() {
           <nav className="hidden md:flex gap-6">
             <Link href="/teachers" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Teachers</Link>
             <Link href="/masterclasses" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Masterclasses</Link>
+            <Link href="/events" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Events</Link>
             <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
             <Link href="/store" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Store</Link>
           </nav>
