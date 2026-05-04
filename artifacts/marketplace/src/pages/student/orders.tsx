@@ -12,6 +12,7 @@ import { toast } from "sonner";
 export default function StudentOrders() {
   const { data: ordersData, isLoading } = useListOrders();
   const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
+  const [usedDownloadIds, setUsedDownloadIds] = useState<Set<number>>(new Set());
   const apiBase = import.meta.env.VITE_API_URL ?? "";
 
   const getIconForType = (type: string) => {
@@ -39,16 +40,21 @@ export default function StudentOrders() {
       }
       if (resp.status === 403) {
         const data = await resp.json().catch(() => ({}));
-        toast.error(data.error ?? "Download limit reached for this purchase.");
+        const msg = (data as { error?: string }).error ?? "Download limit reached for this purchase.";
+        toast.error(msg);
+        if (msg.toLowerCase().includes("already been used") || msg.toLowerCase().includes("already used")) {
+          setUsedDownloadIds((s) => new Set(s).add(orderId));
+        }
         return;
       }
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
-        toast.error(data.error ?? "Failed to get download link");
+        toast.error((data as { error?: string }).error ?? "Failed to get download link");
         return;
       }
       const { downloadUrl } = await resp.json() as { downloadUrl: string };
       window.open(downloadUrl, "_blank", "noopener,noreferrer");
+      setUsedDownloadIds((s) => new Set(s).add(orderId));
     } catch {
       toast.error("Failed to get download link. Please try again.");
     } finally {
@@ -61,13 +67,13 @@ export default function StudentOrders() {
   };
 
   const isDownloadAvailable = (order: {
+    id: number;
     type: string;
     status: string;
-    downloadUrl?: string | null;
     downloadExpiresAt?: string | Date | null;
   }) => {
     if (order.type !== "digital_product" || order.status !== "paid") return false;
-    if (!order.downloadUrl) return false;
+    if (usedDownloadIds.has(order.id)) return false;
     if (order.downloadExpiresAt && new Date(order.downloadExpiresAt) < new Date()) return false;
     return true;
   };
@@ -75,12 +81,10 @@ export default function StudentOrders() {
   const isExpired = (order: {
     type: string;
     status: string;
-    downloadUrl?: string | null;
     downloadExpiresAt?: string | Date | null;
   }) =>
     order.type === "digital_product" &&
     order.status === "paid" &&
-    order.downloadUrl &&
     order.downloadExpiresAt &&
     new Date(order.downloadExpiresAt) < new Date();
 
@@ -163,6 +167,11 @@ export default function StudentOrders() {
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
                             <span>Link expired</span>
+                          </div>
+                        ) : usedDownloadIds.has(order.id) ? (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Downloaded</span>
                           </div>
                         ) : null}
                       </div>

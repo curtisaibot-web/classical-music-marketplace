@@ -6,7 +6,9 @@ import {
   useUpdateListing,
   useDeleteListing,
   useGetMe,
-  CreateListingBodyType
+  useCreateDigitalProduct,
+  useUpdateDigitalProduct,
+  CreateListingBodyType,
 } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -18,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2, MoreVertical, Music, Video, ShoppingBag, Camera, Loader2, ImageIcon } from "lucide-react";
+import { Plus, Edit, Trash2, MoreVertical, Music, Video, ShoppingBag, Camera, Loader2, ImageIcon, FileUp, FileCheck, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,6 +33,11 @@ interface ListingFormState {
   instrument: string;
   durationMinutes: number;
   imageUrl: string;
+  category: string;
+  difficulty: string;
+  fileKey: string;
+  fileSize: number | null;
+  fileType: string;
 }
 
 const defaultForm: ListingFormState = {
@@ -41,7 +48,157 @@ const defaultForm: ListingFormState = {
   instrument: "",
   durationMinutes: 60,
   imageUrl: "",
+  category: "sheet_music",
+  difficulty: "",
+  fileKey: "",
+  fileSize: null,
+  fileType: "",
 };
+
+const ALLOWED_FILE_TYPES: Record<string, string> = {
+  "application/pdf": "PDF",
+  "audio/mpeg": "MP3",
+  "audio/mp3": "MP3",
+  "application/zip": "ZIP",
+  "application/x-zip-compressed": "ZIP",
+  "audio/wav": "WAV",
+  "audio/flac": "FLAC",
+};
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
+interface FileUploadFieldProps {
+  value: { fileKey: string; fileSize: number | null; fileType: string };
+  onChange: (v: { fileKey: string; fileSize: number | null; fileType: string }) => void;
+}
+
+function FileUploadField({ value, onChange }: FileUploadFieldProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasFile = Boolean(value.fileKey);
+
+  const handleFile = async (file: File) => {
+    const contentType = file.type || "application/octet-stream";
+    if (!ALLOWED_FILE_TYPES[contentType]) {
+      toast.error("Unsupported file type. Please upload a PDF, MP3, WAV, FLAC, or ZIP file.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File must be smaller than 100 MB.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const urlResp = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType,
+        }),
+      });
+
+      if (!urlResp.ok) {
+        const data = await urlResp.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "Failed to request upload URL");
+      }
+
+      const { uploadURL, objectPath } = await urlResp.json() as { uploadURL: string; objectPath: string };
+
+      const putResp = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": contentType },
+      });
+
+      if (!putResp.ok) throw new Error("Failed to upload file to storage");
+
+      onChange({ fileKey: objectPath, fileSize: file.size, fileType: ALLOWED_FILE_TYPES[contentType] ?? "FILE" });
+      setUploadedName(file.name);
+      toast.success("File uploaded successfully.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      toast.error(msg);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleClear = () => {
+    onChange({ fileKey: "", fileSize: null, fileType: "" });
+    setUploadedName(null);
+  };
+
+  const displayName = uploadedName ?? (hasFile ? `Previously uploaded file (${value.fileType || "FILE"})` : null);
+
+  return (
+    <div className="space-y-2">
+      <Label>
+        Product File <span className="text-muted-foreground font-normal">(PDF, MP3, WAV, FLAC, ZIP · max 100 MB)</span>
+      </Label>
+      {displayName ? (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+          <FileCheck className="h-5 w-5 text-primary shrink-0" />
+          <span className="text-sm text-foreground flex-1 truncate">{displayName}</span>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+            aria-label="Remove file"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div
+          className="border border-dashed border-border rounded-lg p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors"
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+              <p className="text-sm text-muted-foreground">Uploading…</p>
+            </>
+          ) : (
+            <>
+              <FileUp className="h-8 w-8 text-muted-foreground opacity-60" />
+              <p className="text-sm text-muted-foreground">Click to upload your file</p>
+              <p className="text-xs text-muted-foreground">PDF, MP3, WAV, FLAC, ZIP</p>
+            </>
+          )}
+        </div>
+      )}
+      {!displayName && !isUploading && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full"
+        >
+          <FileUp className="h-4 w-4 mr-2" />
+          Choose File
+        </Button>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.mp3,.wav,.flac,.zip"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
 
 interface ImageUploadFieldProps {
   value: string;
@@ -176,35 +333,66 @@ export default function TeacherListings() {
   const createListing = useCreateListing();
   const updateListing = useUpdateListing();
   const deleteListing = useDeleteListing();
+  const createDigitalProduct = useCreateDigitalProduct();
+  const updateDigitalProduct = useUpdateDigitalProduct();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState<ListingFormState>(defaultForm);
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingDigitalProductId, setEditingDigitalProductId] = useState<number | null>(null);
   const [editData, setEditData] = useState<ListingFormState>(defaultForm);
+
+  const isDigitalProduct = (type: string) => type === "digital_product";
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    createListing.mutate({
-      data: {
-        title: formData.title,
-        type: formData.type,
-        priceInCents: formData.priceInCents,
-        description: formData.description,
-        instrument: formData.instrument,
-        durationMinutes: formData.durationMinutes,
-        imageUrl: formData.imageUrl || undefined,
-        skillLevel: "all",
-      }
-    }, {
-      onSuccess: () => {
-        toast.success("Listing created successfully");
-        setIsCreateOpen(false);
-        setFormData(defaultForm);
-        queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
-      },
-      onError: () => toast.error("Failed to create listing")
-    });
+
+    if (isDigitalProduct(formData.type)) {
+      createDigitalProduct.mutate({
+        data: {
+          title: formData.title,
+          description: formData.description || undefined,
+          category: formData.category || "other",
+          instrument: formData.instrument || undefined,
+          difficulty: formData.difficulty || undefined,
+          priceInCents: formData.priceInCents,
+          fileKey: formData.fileKey || undefined,
+          fileSize: formData.fileSize ?? undefined,
+          fileType: formData.fileType || undefined,
+          isPublished: true,
+        }
+      }, {
+        onSuccess: () => {
+          toast.success("Digital product created successfully");
+          setIsCreateOpen(false);
+          setFormData(defaultForm);
+          queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
+        },
+        onError: () => toast.error("Failed to create digital product")
+      });
+    } else {
+      createListing.mutate({
+        data: {
+          title: formData.title,
+          type: formData.type,
+          priceInCents: formData.priceInCents,
+          description: formData.description,
+          instrument: formData.instrument,
+          durationMinutes: formData.durationMinutes,
+          imageUrl: formData.imageUrl || undefined,
+          skillLevel: "all",
+        }
+      }, {
+        onSuccess: () => {
+          toast.success("Listing created successfully");
+          setIsCreateOpen(false);
+          setFormData(defaultForm);
+          queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
+        },
+        onError: () => toast.error("Failed to create listing")
+      });
+    }
   };
 
   const openEdit = (listing: NonNullable<typeof listingsData>["listings"][number]) => {
@@ -216,31 +404,67 @@ export default function TeacherListings() {
       instrument: listing.instrument ?? "",
       durationMinutes: listing.durationMinutes ?? 60,
       imageUrl: listing.imageUrl ?? "",
+      category: "sheet_music",
+      difficulty: "",
+      fileKey: "",
+      fileSize: null,
+      fileType: "",
     });
     setEditingId(listing.id);
+    setEditingDigitalProductId(listing.digitalProductId ?? null);
   };
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId === null) return;
-    updateListing.mutate({
-      id: editingId,
-      data: {
+
+    if (isDigitalProduct(editData.type) && editingDigitalProductId !== null) {
+      const updatePayload: Record<string, unknown> = {
         title: editData.title,
-        description: editData.description,
-        instrument: editData.instrument,
+        description: editData.description || undefined,
+        instrument: editData.instrument || undefined,
         priceInCents: editData.priceInCents,
-        durationMinutes: editData.durationMinutes,
-        imageUrl: editData.imageUrl || undefined,
+        difficulty: editData.difficulty || undefined,
+      };
+      if (editData.fileKey) {
+        updatePayload.fileKey = editData.fileKey;
+        updatePayload.fileSize = editData.fileSize ?? undefined;
+        updatePayload.fileType = editData.fileType || undefined;
       }
-    }, {
-      onSuccess: () => {
-        toast.success("Listing updated");
-        setEditingId(null);
-        queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
-      },
-      onError: () => toast.error("Failed to update listing")
-    });
+
+      updateDigitalProduct.mutate({
+        id: editingDigitalProductId,
+        data: updatePayload as Parameters<typeof updateDigitalProduct.mutate>[0]["data"],
+      }, {
+        onSuccess: () => {
+          toast.success("Digital product updated");
+          setEditingId(null);
+          setEditingDigitalProductId(null);
+          queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
+        },
+        onError: () => toast.error("Failed to update digital product")
+      });
+    } else {
+      updateListing.mutate({
+        id: editingId,
+        data: {
+          title: editData.title,
+          description: editData.description,
+          instrument: editData.instrument,
+          priceInCents: editData.priceInCents,
+          durationMinutes: editData.durationMinutes,
+          imageUrl: editData.imageUrl || undefined,
+        }
+      }, {
+        onSuccess: () => {
+          toast.success("Listing updated");
+          setEditingId(null);
+          setEditingDigitalProductId(null);
+          queryClient.invalidateQueries({ queryKey: getGetTeacherListingsQueryKey(user?.id || "") });
+        },
+        onError: () => toast.error("Failed to update listing")
+      });
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -264,6 +488,14 @@ export default function TeacherListings() {
     }
   };
 
+  const isCreatePending = formData.type === "digital_product"
+    ? createDigitalProduct.isPending
+    : createListing.isPending;
+
+  const isEditPending = editData.type === "digital_product"
+    ? updateDigitalProduct.isPending
+    : updateListing.isPending;
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
@@ -274,7 +506,7 @@ export default function TeacherListings() {
             <h1 className="text-3xl font-serif font-bold text-foreground">My Listings</h1>
             <p className="text-muted-foreground mt-1">Manage your lessons, products, and events.</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) setFormData(defaultForm); }}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> New Listing</Button>
             </DialogTrigger>
@@ -295,7 +527,10 @@ export default function TeacherListings() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="type">Type</Label>
-                    <Select value={formData.type} onValueChange={(v: CreateListingBodyType) => setFormData({ ...formData, type: v })}>
+                    <Select
+                      value={formData.type}
+                      onValueChange={(v: CreateListingBodyType) => setFormData({ ...defaultForm, title: formData.title, type: v })}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lesson">Private Lesson</SelectItem>
@@ -325,35 +560,89 @@ export default function TeacherListings() {
                       onChange={(e) => setFormData({ ...formData, instrument: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duration (minutes)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      value={formData.durationMinutes}
-                      onChange={(e) => setFormData({ ...formData, durationMinutes: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <ImageUploadField
-                      value={formData.imageUrl}
-                      onChange={(url) => setFormData({ ...formData, imageUrl: url })}
-                    />
-                  </div>
+
+                  {isDigitalProduct(formData.type) ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Select
+                          value={formData.category}
+                          onValueChange={(v) => setFormData({ ...formData, category: v })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sheet_music">Sheet Music</SelectItem>
+                            <SelectItem value="lesson_plan">Lesson Plan</SelectItem>
+                            <SelectItem value="backing_track">Backing Track</SelectItem>
+                            <SelectItem value="arrangement">Arrangement</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="difficulty">Difficulty <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <Select
+                          value={formData.difficulty || "__none__"}
+                          onValueChange={(v) => setFormData({ ...formData, difficulty: v === "__none__" ? "" : v })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select difficulty" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Not specified</SelectItem>
+                            <SelectItem value="beginner">Beginner</SelectItem>
+                            <SelectItem value="intermediate">Intermediate</SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <FileUploadField
+                          value={{ fileKey: formData.fileKey, fileSize: formData.fileSize, fileType: formData.fileType }}
+                          onChange={(v) => setFormData({ ...formData, ...v })}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="duration">Duration (minutes)</Label>
+                        <Input
+                          id="duration"
+                          type="number"
+                          value={formData.durationMinutes}
+                          onChange={(e) => setFormData({ ...formData, durationMinutes: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <ImageUploadField
+                          value={formData.imageUrl}
+                          onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <DialogFooter className="pt-4 border-t border-border">
-                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={createListing.isPending}>
-                    {createListing.isPending ? "Creating..." : "Create Listing"}
+                  <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); setFormData(defaultForm); }}>Cancel</Button>
+                  <Button type="submit" disabled={isCreatePending}>
+                    {isCreatePending ? "Creating..." : "Create Listing"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -423,6 +712,12 @@ export default function TeacherListings() {
                         <div className="text-muted-foreground">
                           {listing.instrument && <span className="mr-4 inline-block">{listing.instrument}</span>}
                           {listing.durationMinutes && <span>{listing.durationMinutes} min</span>}
+                          {listing.type === 'digital_product' && !listing.digitalProductId && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                              <ShoppingBag className="h-3 w-3" />
+                              No file uploaded
+                            </span>
+                          )}
                         </div>
                         <div className="font-bold text-foreground text-base">
                           ${(listing.priceInCents / 100).toFixed(2)}
@@ -437,7 +732,7 @@ export default function TeacherListings() {
         </div>
       </main>
 
-      <Dialog open={editingId !== null} onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+      <Dialog open={editingId !== null} onOpenChange={(open) => { if (!open) { setEditingId(null); setEditingDigitalProductId(null); } }}>
         <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">Edit Listing</DialogTitle>
@@ -466,15 +761,6 @@ export default function TeacherListings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-duration">Duration (minutes)</Label>
-                <Input
-                  id="edit-duration"
-                  type="number"
-                  value={editData.durationMinutes}
-                  onChange={(e) => setEditData({ ...editData, durationMinutes: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2 col-span-2">
                 <Label htmlFor="edit-instrument">Instrument</Label>
                 <Input
                   id="edit-instrument"
@@ -482,26 +768,78 @@ export default function TeacherListings() {
                   onChange={(e) => setEditData({ ...editData, instrument: e.target.value })}
                 />
               </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <Textarea
-                  id="edit-description"
-                  value={editData.description}
-                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div className="col-span-2">
-                <ImageUploadField
-                  value={editData.imageUrl}
-                  onChange={(url) => setEditData({ ...editData, imageUrl: url })}
-                />
-              </div>
+
+              {isDigitalProduct(editData.type) ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-difficulty">Difficulty <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <Select
+                      value={editData.difficulty || "__none__"}
+                      onValueChange={(v) => setEditData({ ...editData, difficulty: v === "__none__" ? "" : v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select difficulty" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Not specified</SelectItem>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editData.description}
+                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FileUploadField
+                      value={{ fileKey: editData.fileKey, fileSize: editData.fileSize, fileType: editData.fileType }}
+                      onChange={(v) => setEditData({ ...editData, ...v })}
+                    />
+                    {editingDigitalProductId && !editData.fileKey && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Upload a new file to replace the existing one, or leave empty to keep it.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                    <Input
+                      id="edit-duration"
+                      type="number"
+                      value={editData.durationMinutes}
+                      onChange={(e) => setEditData({ ...editData, durationMinutes: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="edit-description">Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editData.description}
+                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <ImageUploadField
+                      value={editData.imageUrl}
+                      onChange={(url) => setEditData({ ...editData, imageUrl: url })}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter className="pt-4 border-t border-border">
-              <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
-              <Button type="submit" disabled={updateListing.isPending}>
-                {updateListing.isPending ? "Saving..." : "Save Changes"}
+              <Button type="button" variant="outline" onClick={() => { setEditingId(null); setEditingDigitalProductId(null); }}>Cancel</Button>
+              <Button type="submit" disabled={isEditPending}>
+                {isEditPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
