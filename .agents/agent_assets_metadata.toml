@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "a-AlCb_nfSpABcaTknwnW"
@@ -12,3 +11,111 @@ id = "uv9W4ACyJmfFeQHvY6-0h"
 uri = "file://artifacts/marketplace/public/logo.png"
 type = "image"
 title = "Classical music minimal logo"
+
+[[generated]]
+id = "m9Hyp9Qyc14i-QlwyxcJJ"
+uri = "file://artifacts/marketplace/public/images/teachers/sofia_chen.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "SSzYSH-bpOPRBKE8mBkor"
+uri = "file://artifacts/marketplace/public/images/teachers/james_okafor.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "F1peDNqfr6QZXszz70maD"
+uri = "file://artifacts/marketplace/public/images/teachers/elena_vasquez.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "y175Hx6H135xOXx6AOVhG"
+uri = "file://artifacts/marketplace/public/images/teachers/luca_ferrari.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "RgfDYAdybcs8kfXUxPWWS"
+uri = "file://artifacts/marketplace/public/images/teachers/amara_diallo.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "5ryOX1PDpwEunOaRcG2Ie"
+uri = "file://artifacts/marketplace/public/images/teachers/hiroshi_tanaka.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "BQCGZFhIa22ly0J8GB0_a"
+uri = "file://artifacts/marketplace/public/images/teachers/claire_dupont.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "zROk7lfZNK67pgpXaUOSN"
+uri = "file://artifacts/marketplace/public/images/teachers/mikhail_petrov.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "NJtBrFCZvIuno40fEKcqH"
+uri = "file://artifacts/marketplace/public/images/hero_concert_hall.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "rgKnC9AnGIz72tpf-46yz"
+uri = "file://artifacts/marketplace/public/images/masterclasses/chopin_masterclass.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "tw_PvtCxiu9eaXurPgcZy"
+uri = "file://artifacts/marketplace/public/images/masterclasses/performance_workshop.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "1QP6dax3p4HO5mNgmXvSJ"
+uri = "file://artifacts/marketplace/public/images/store/bach_cello_suite.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "nBIxYXlRmM-wf_LRSk9lh"
+uri = "file://artifacts/marketplace/public/images/store/flute_warmup.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "067RGyvZZR6pfac_Vej33"
+uri = "file://artifacts/marketplace/public/images/store/competition_workbook.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "mQCOVAbrYo71gXWB_7562"
+uri = "file://artifacts/marketplace/public/images/store/italian_diction.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "ih9-g95HwpkYsH4axzE7J"
+uri = "file://artifacts/marketplace/public/images/events/wedding_harp.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "z4tvNJt0Pkg14duSd39Ks"
+uri = "file://artifacts/marketplace/public/images/events/corporate_performance.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "jy-keK5Stk_7PpZbke4K-"
+uri = "file://attached_assets/stock_images/store_flute_warmup.jpg"
+type = "image"
+title = "Classical music flute warm up exercises sheet music, musical notation on white paper, elegant"

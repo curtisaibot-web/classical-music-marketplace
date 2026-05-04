@@ -109,9 +109,26 @@ Key files:
 
 **NOTE:** Do NOT use the Replit integrations system for Stripe without user confirmation. User dismissed it once — ask before proposing again.
 
+## Images & Visual Assets
+
+All images are AI-generated and stored in `artifacts/marketplace/public/images/`:
+
+| Folder | Contents |
+|---|---|
+| `images/teachers/` | 8 musician portrait photos (one per seed teacher) |
+| `images/masterclasses/` | Event/masterclass cover photos |
+| `images/store/` | Digital product cover images (sheet music, workbooks) |
+| `images/hero_concert_hall.png` | Homepage hero background |
+
+Image URLs are stored as root-relative paths (e.g. `/images/teachers/sofia_chen.png`) in the DB.
+The helper `artifacts/marketplace/src/lib/image-url.ts` → `resolveImageUrl(url, basePath)` prepends
+the Vite `BASE_URL` so local paths become e.g. `/marketplace/images/teachers/sofia_chen.png`.
+
+**Seed note:** The seed uses `onConflictDoNothing`. If re-seeding doesn't update existing records
+(e.g. `profileImageUrl`), run direct SQL `UPDATE` statements or truncate tables first.
+
 ## Pending Tasks
 
 - **Task #4**: Digital Products: Uploads & Secure Downloads
 - **Task #5**: Reviews, Search & Launch Polish
 - **Task #6**: Wire up event/wedding musician booking module
-- **Task #8**: Connect real images and fix placeholder content

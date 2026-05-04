@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Star, Music, MapPin } from "lucide-react";
+import { resolveImageUrl } from "@/lib/image-url";
 
 export default function Teachers() {
   const [search, setSearch] = useState("");
@@ -63,24 +64,28 @@ export default function Teachers() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {data.teachers.map((teacher) => (
+            {data.teachers.map((teacher) => {
+              const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+              const imgSrc = resolveImageUrl(teacher.profileImageUrl, basePath);
+              return (
               <Link key={teacher.id} href={`/teachers/${teacher.userId}`}>
                 <Card className="h-full hover-elevate transition-all border-border overflow-hidden group cursor-pointer flex flex-col">
-                  <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-                    {teacher.profileImageUrl ? (
-                      <img 
-                        src={teacher.profileImageUrl} 
+                  <div className="aspect-[3/4] bg-muted relative overflow-hidden">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
                         alt={`${teacher.user?.firstName} ${teacher.user?.lastName}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-secondary text-secondary-foreground">
                         <Music className="h-16 w-16 opacity-20" />
                       </div>
                     )}
-                    <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm px-2.5 py-1.5 rounded-md text-sm font-medium flex items-center shadow-sm">
-                      <Star className="h-4 w-4 text-primary fill-primary mr-1.5" />
-                      {teacher.averageRating.toFixed(1)}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1.5 rounded-md text-sm font-medium flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      {(teacher.averageRating / 100).toFixed(1)}
                     </div>
                   </div>
                   <CardContent className="p-6 flex flex-col flex-1">
@@ -105,7 +110,8 @@ export default function Teachers() {
                   </CardContent>
                 </Card>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Star, MapPin, Music, GraduationCap, CalendarDays, CheckCircle, Mic2 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
+import { resolveImageUrl } from "@/lib/image-url";
 
 export default function TeacherProfile() {
   const { userId } = useParams<{ userId: string }>();
@@ -171,8 +172,8 @@ export default function TeacherProfile() {
           <div className="lg:col-span-2 space-y-12">
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="w-32 h-32 md:w-48 md:h-48 shrink-0 rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg">
-                {teacher.profileImageUrl ? (
-                  <img src={teacher.profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
+                {resolveImageUrl(teacher.profileImageUrl, basePath) ? (
+                  <img src={resolveImageUrl(teacher.profileImageUrl, basePath)!} alt="Profile" className="w-full h-full object-cover object-top" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-secondary text-secondary-foreground">
                     <Music className="h-16 w-16 opacity-20" />
@@ -202,7 +203,7 @@ export default function TeacherProfile() {
                   </div>
                   <div className="flex items-center">
                     <Star className="h-4 w-4 text-primary fill-primary mr-1.5" />
-                    <span className="font-medium text-foreground mr-1">{teacher.averageRating.toFixed(1)}</span>
+                    <span className="font-medium text-foreground mr-1">{(teacher.averageRating / 100).toFixed(1)}</span>
                     ({teacher.reviewCount} reviews)
                   </div>
                 </div>

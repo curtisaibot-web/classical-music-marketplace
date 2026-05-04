@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BookOpen, Search, Download } from "lucide-react";
+import { resolveImageUrl } from "@/lib/image-url";
 
 export default function Store() {
   const [search, setSearch] = useState("");
@@ -63,12 +64,25 @@ export default function Store() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {data.products.map((product) => (
+            {data.products.map((product) => {
+              const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+              const imgSrc = resolveImageUrl(product.previewUrl, basePath);
+              return (
               <Link key={product.id} href={`/store/${product.id}`}>
-                <Card className="h-full hover-elevate transition-all border-border flex flex-col cursor-pointer group">
-                  <div className="h-40 bg-secondary/30 flex items-center justify-center border-b border-border relative">
-                    <BookOpen className="h-12 w-12 text-primary opacity-50 group-hover:scale-110 transition-transform" />
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded backdrop-blur-sm">
+                <Card className="h-full hover-elevate transition-all border-border flex flex-col cursor-pointer group overflow-hidden">
+                  <div className="h-40 bg-secondary/30 relative border-b border-border overflow-hidden">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={product.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <BookOpen className="h-12 w-12 text-primary opacity-40 group-hover:scale-110 transition-transform" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs text-white/90 bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
                       <Download className="h-3 w-3" />
                       {product.downloadCount}
                     </div>
@@ -84,15 +98,15 @@ export default function Store() {
                     <p className="text-sm text-muted-foreground mb-4">
                       by {product.teacher?.user?.firstName} {product.teacher?.user?.lastName}
                     </p>
-                    
                     <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{product.instrument || 'General'}</span>
+                      <span>{product.instrument || "General"}</span>
                       {product.difficulty && <span className="capitalize">{product.difficulty}</span>}
                     </div>
                   </CardContent>
                 </Card>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

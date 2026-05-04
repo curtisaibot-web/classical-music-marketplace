@@ -6,8 +6,9 @@ import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, Star } from "lucide-react";
+import { Calendar, Users, Star, Music } from "lucide-react";
 import { format } from "date-fns";
+import { resolveImageUrl } from "@/lib/image-url";
 
 export default function Masterclasses() {
   const { data, isLoading } = useListMasterclasses({ limit: 20 });
@@ -40,26 +41,35 @@ export default function Masterclasses() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {data.masterclasses.map((mc) => (
+            {data.masterclasses.map((mc) => {
+              const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+              const imgSrc = resolveImageUrl(mc.imageUrl, basePath);
+              return (
               <Link key={mc.id} href={`/masterclasses/${mc.id}`}>
                 <Card className="h-full hover-elevate transition-all border-border flex flex-col cursor-pointer overflow-hidden group">
-                  {mc.imageUrl && (
-                    <div className="h-48 overflow-hidden bg-muted">
-                      <img 
-                        src={mc.imageUrl} 
-                        alt={mc.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  <div className="h-52 overflow-hidden bg-muted relative">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={mc.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                    </div>
-                  )}
-                  <CardContent className={`p-6 flex flex-col flex-1 ${!mc.imageUrl && 'pt-8'}`}>
-                    <div className="flex justify-between items-start mb-4">
-                      <Badge variant="secondary" className="bg-primary/10 text-primary font-medium">
-                        {mc.instrument || 'All Instruments'}
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <Music className="h-12 w-12 opacity-20" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-3 left-3">
+                      <Badge className="bg-primary text-primary-foreground text-xs">
+                        {mc.instrument || "All Instruments"}
                       </Badge>
-                      <div className="text-right text-sm">
-                        <div className="font-medium text-foreground">{format(new Date(mc.scheduledAt), 'MMM d, yyyy')}</div>
-                        <div className="text-muted-foreground">{format(new Date(mc.scheduledAt), 'h:mm a')}</div>
+                    </div>
+                  </div>
+                  <CardContent className="p-6 flex flex-col flex-1">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="text-sm text-muted-foreground">
+                        {format(new Date(mc.scheduledAt), "MMM d, yyyy")} · {format(new Date(mc.scheduledAt), "h:mm a")}
                       </div>
                     </div>
                     
@@ -96,7 +106,8 @@ export default function Masterclasses() {
                   </CardContent>
                 </Card>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
