@@ -15,6 +15,15 @@ export async function initStripe(): Promise<void> {
     await runMigrations({ databaseUrl });
     logger.info("Stripe schema ready");
 
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret && !process.env.REPLIT_CONNECTORS_HOSTNAME) {
+      logger.warn(
+        "STRIPE_WEBHOOK_SECRET is not set. " +
+        "Webhook events will not update booking/order status. " +
+        "Set STRIPE_WEBHOOK_SECRET or connect Stripe via the Replit Integrations tab.",
+      );
+    }
+
     const stripeSync = await getStripeSync();
 
     const domain = process.env.REPLIT_DOMAINS?.split(",")[0];

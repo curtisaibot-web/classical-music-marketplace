@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, bookingsTable, ordersTable, digitalProductsTable } from "@workspace/db";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -61,18 +61,19 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Booking ${bookingId} not found for checkout session ${session.id} (event ${eventId})`);
     }
 
-    if (existing.status === "pending") {
-      await db
-        .update(bookingsTable)
-        .set({
-          status: "confirmed",
-          stripeCheckoutSessionId: session.id,
-          stripePaymentIntentId: paymentIntentId,
-        })
-        .where(eq(bookingsTable.id, bookingId));
+    const updatedBookings = await db
+      .update(bookingsTable)
+      .set({
+        status: "confirmed",
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId,
+      })
+      .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
+      .returning({ id: bookingsTable.id });
+    if (updatedBookings.length > 0) {
       logger.info({ bookingId, sessionId: session.id, eventId }, "Booking confirmed via checkout.session.completed");
     } else {
-      logger.info({ bookingId, status: existing.status, eventId }, "Booking already in non-pending state — skipping idempotent update");
+      logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }
   }
 
@@ -91,21 +92,21 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Order ${orderId} not found for checkout session ${session.id} (event ${eventId})`);
     }
 
-    if (existing.status === "pending") {
-      await db
-        .update(ordersTable)
-        .set({
-          status: "paid",
-          paidAt: new Date(),
-          stripeCheckoutSessionId: session.id,
-          stripePaymentIntentId: paymentIntentId,
-        })
-        .where(eq(ordersTable.id, orderId));
+    const updatedOrders = await db
+      .update(ordersTable)
+      .set({
+        status: "paid",
+        paidAt: new Date(),
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId,
+      })
+      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
+      .returning({ id: ordersTable.id });
+    if (updatedOrders.length > 0) {
       logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
-
       await unlockDigitalDownload(orderId);
     } else {
-      logger.info({ orderId, status: existing.status, eventId }, "Order already in non-pending state — skipping idempotent update");
+      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
     }
   }
 }
@@ -122,22 +123,18 @@ async function handlePaymentIntentSucceeded(
       throw new Error(`Invalid booking_id in payment_intent metadata: ${metadata.booking_id}`);
     }
 
-    const [existing] = await db
-      .select({ status: bookingsTable.status })
-      .from(bookingsTable)
-      .where(eq(bookingsTable.id, bookingId));
-
-    if (existing && existing.status === "pending") {
-      await db
-        .update(bookingsTable)
-        .set({
-          status: "confirmed",
-          stripePaymentIntentId: paymentIntent.id,
-        })
-        .where(eq(bookingsTable.id, bookingId));
+    const updatedBookings = await db
+      .update(bookingsTable)
+      .set({
+        status: "confirmed",
+        stripePaymentIntentId: paymentIntent.id,
+      })
+      .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
+      .returning({ id: bookingsTable.id });
+    if (updatedBookings.length > 0) {
       logger.info({ bookingId, paymentIntentId: paymentIntent.id, eventId }, "Booking confirmed via payment_intent.succeeded");
     } else {
-      logger.info({ bookingId, status: existing?.status, eventId }, "Booking already in non-pending state — skipping idempotent update");
+      logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }
   }
 
@@ -147,25 +144,20 @@ async function handlePaymentIntentSucceeded(
       throw new Error(`Invalid order_id in payment_intent metadata: ${metadata.order_id}`);
     }
 
-    const [existing] = await db
-      .select({ status: ordersTable.status })
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
-
-    if (existing && existing.status === "pending") {
-      await db
-        .update(ordersTable)
-        .set({
-          status: "paid",
-          paidAt: new Date(),
-          stripePaymentIntentId: paymentIntent.id,
-        })
-        .where(eq(ordersTable.id, orderId));
+    const updatedOrders = await db
+      .update(ordersTable)
+      .set({
+        status: "paid",
+        paidAt: new Date(),
+        stripePaymentIntentId: paymentIntent.id,
+      })
+      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
+      .returning({ id: ordersTable.id });
+    if (updatedOrders.length > 0) {
       logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
-
       await unlockDigitalDownload(orderId);
     } else {
-      logger.info({ orderId, status: existing?.status, eventId }, "Order already in non-pending state — skipping idempotent update");
+      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
     }
   }
 }
