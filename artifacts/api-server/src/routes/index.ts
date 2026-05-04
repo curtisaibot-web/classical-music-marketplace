@@ -11,10 +11,12 @@ import ordersRouter from "./orders";
 import reviewsRouter from "./reviews";
 import dashboardRouter from "./dashboard";
 import stripeRouter from "./stripe";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(storageRouter);
 router.use(usersRouter);
 router.use(teachersRouter);
 router.use(studentsRouter);

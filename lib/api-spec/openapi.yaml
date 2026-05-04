@@ -31,6 +31,8 @@ tags:
     description: Dashboard summary operations
   - name: stripe
     description: Stripe payment and Connect operations
+  - name: storage
+    description: Object storage upload and serving endpoints
 
 paths:
   /healthz:
@@ -778,6 +780,59 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /orders/{id}/download:
+    get:
+      operationId: getOrderDownload
+      tags: [orders]
+      summary: Get a signed download URL for a purchased digital product
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signed download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadRedirectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: Download link has expired
+
+  # ── Storage ────────────────────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for file upload
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '500':
+          description: Failed to generate upload URL.
+
   # ── Reviews ────────────────────────────────────────────────────────────────
   /reviews/teacher/{userId}:
     get:
@@ -997,6 +1052,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Forbidden
       content:
         application/json:
           schema:
@@ -1484,8 +1545,6 @@ components:
     CreateDigitalProductBody:
       type: object
       properties:
-        listingId:
-          type: integer
         title:
           type: string
         description:
@@ -1500,7 +1559,15 @@ components:
           type: integer
         previewUrl:
           type: string
-      required: [listingId, title, category, priceInCents]
+        fileKey:
+          type: string
+        fileSize:
+          type: integer
+        fileType:
+          type: string
+        isPublished:
+          type: boolean
+      required: [title, category, priceInCents]
 
     UpdateDigitalProductBody:
       type: object
@@ -1521,6 +1588,12 @@ components:
           type: string
         isPublished:
           type: boolean
+        fileKey:
+          type: string
+        fileSize:
+          type: integer
+        fileType:
+          type: string
 
     # ── Booking ───────────────────────────────────────────────────────────────
     Booking:
@@ -1862,3 +1935,49 @@ components:
         dashboardUrl:
           type: string
       required: [dashboardUrl]
+
+    # ── Storage ────────────────────────────────────────────────────────────────
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Original file name.
+        size:
+          type: integer
+          minimum: 1
+          description: File size in bytes.
+        contentType:
+          type: string
+          minLength: 1
+          description: MIME type of the file.
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+          description: Presigned GCS URL for PUT upload.
+        objectPath:
+          type: string
+          description: Normalized object path (e.g. `/objects/uploads/uuid`). Store this in your database.
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # ── Download ───────────────────────────────────────────────────────────────
+    DownloadRedirectResponse:
+      type: object
+      required: [downloadUrl]
+      properties:
+        downloadUrl:
+          type: string
+          description: Signed download URL for the file.

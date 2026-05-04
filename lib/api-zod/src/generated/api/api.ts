@@ -972,7 +972,6 @@ export const ListDigitalProductsResponse = zod.object({
  * @summary Create a digital product listing
  */
 export const CreateDigitalProductBody = zod.object({
-  listingId: zod.number(),
   title: zod.string(),
   description: zod.string().optional(),
   category: zod.string(),
@@ -980,6 +979,10 @@ export const CreateDigitalProductBody = zod.object({
   difficulty: zod.string().optional(),
   priceInCents: zod.number(),
   previewUrl: zod.string().optional(),
+  fileKey: zod.string().optional(),
+  fileSize: zod.number().optional(),
+  fileType: zod.string().optional(),
+  isPublished: zod.boolean().optional(),
 });
 
 /**
@@ -1066,6 +1069,9 @@ export const UpdateDigitalProductBody = zod.object({
   priceInCents: zod.number().optional(),
   previewUrl: zod.string().optional(),
   isPublished: zod.boolean().optional(),
+  fileKey: zod.string().optional(),
+  fileSize: zod.number().optional(),
+  fileType: zod.string().optional(),
 });
 
 export const UpdateDigitalProductResponse = zod.object({
@@ -1464,6 +1470,43 @@ export const GetOrderResponse = zod.object({
   downloadCount: zod.number(),
   paidAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get a signed download URL for a purchased digital product
+ */
+export const GetOrderDownloadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetOrderDownloadResponse = zod.object({
+  downloadUrl: zod.string().describe("Signed download URL for the file."),
+});
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1).describe("Original file name."),
+  size: zod.number().min(1).describe("File size in bytes."),
+  contentType: zod.string().min(1).describe("MIME type of the file."),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string().url().describe("Presigned GCS URL for PUT upload."),
+  objectPath: zod
+    .string()
+    .describe(
+      "Normalized object path (e.g. `\/objects\/uploads\/uuid`). Store this in your database.",
+    ),
+  metadata: zod
+    .object({
+      name: zod.string().min(1).describe("Original file name."),
+      size: zod.number().min(1).describe("File size in bytes."),
+      contentType: zod.string().min(1).describe("MIME type of the file."),
+    })
+    .optional(),
 });
 
 /**

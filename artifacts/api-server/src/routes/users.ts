@@ -7,6 +7,54 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
+type ResolvedClerkData = {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: "teacher" | "student" | null;
+};
+
+async function resolveClerkData(
+  userId: string,
+  auth: ReturnType<typeof getAuth>
+): Promise<ResolvedClerkData> {
+  const claimsEmail = auth.sessionClaims?.email as string | undefined;
+  const claimsFirst = auth.sessionClaims?.firstName as string | undefined ?? null;
+  const claimsLast = auth.sessionClaims?.lastName as string | undefined ?? null;
+  const claimsRole = (auth.sessionClaims?.publicMetadata as Record<string, unknown> | undefined)
+    ?.role as "teacher" | "student" | null | undefined ?? null;
+
+  if (claimsEmail && claimsRole) {
+    return { email: claimsEmail, firstName: claimsFirst, lastName: claimsLast, role: claimsRole };
+  }
+
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const apiRole = (clerkUser.publicMetadata?.role as "teacher" | "student" | undefined) ?? null;
+    return {
+      email: claimsEmail || clerkUser.emailAddresses?.[0]?.emailAddress || `${userId}@placeholder.invalid`,
+      firstName: claimsFirst || clerkUser.firstName || null,
+      lastName: claimsLast || clerkUser.lastName || null,
+      role: claimsRole ?? apiRole,
+    };
+  } catch {
+    return {
+      email: claimsEmail || `${userId}@placeholder.invalid`,
+      firstName: claimsFirst,
+      lastName: claimsLast,
+      role: claimsRole,
+    };
+  }
+}
+
+async function ensureRoleProfile(userId: string, role: "teacher" | "student" | null): Promise<void> {
+  if (role === "teacher") {
+    await db.insert(teacherProfilesTable).values({ userId }).onConflictDoNothing();
+  } else if (role === "student") {
+    await db.insert(studentProfilesTable).values({ userId }).onConflictDoNothing();
+  }
+}
+
 router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
@@ -14,14 +62,15 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
   let [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
 
   if (!user) {
-    // Auto-create user record on first access
+    const clerkData = await resolveClerkData(userId, auth);
     const [newUser] = await db
       .insert(usersTable)
       .values({
         id: userId,
-        email: auth.sessionClaims?.email as string ?? "",
-        firstName: auth.sessionClaims?.firstName as string ?? null,
-        lastName: auth.sessionClaims?.lastName as string ?? null,
+        email: clerkData.email,
+        firstName: clerkData.firstName,
+        lastName: clerkData.lastName,
+        role: clerkData.role,
       })
       .onConflictDoUpdate({
         target: usersTable.id,
@@ -29,6 +78,18 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
       })
       .returning();
     user = newUser;
+    await ensureRoleProfile(userId, clerkData.role);
+  } else if (!user.role) {
+    const clerkData = await resolveClerkData(userId, auth);
+    if (clerkData.role) {
+      const [updated] = await db
+        .update(usersTable)
+        .set({ role: clerkData.role, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId))
+        .returning();
+      user = updated ?? user;
+      await ensureRoleProfile(userId, clerkData.role);
+    }
   }
 
   res.json(GetMeResponse.parse(user));
@@ -45,44 +106,36 @@ router.post("/users/me/onboard", requireAuth, async (req, res): Promise<void> =>
   }
 
   const { role, firstName, lastName } = parsed.data;
+  const clerkData = await resolveClerkData(userId, auth);
+
+  const resolvedFirst = firstName ?? clerkData.firstName;
+  const resolvedLast = lastName ?? clerkData.lastName;
 
   const [user] = await db
     .insert(usersTable)
     .values({
       id: userId,
-      email: auth.sessionClaims?.email as string ?? "",
-      firstName: firstName ?? (auth.sessionClaims?.firstName as string ?? null),
-      lastName: lastName ?? (auth.sessionClaims?.lastName as string ?? null),
+      email: clerkData.email,
+      firstName: resolvedFirst,
+      lastName: resolvedLast,
       role,
     })
     .onConflictDoUpdate({
       target: usersTable.id,
       set: {
         role,
-        firstName: firstName ?? (auth.sessionClaims?.firstName as string ?? null),
-        lastName: lastName ?? (auth.sessionClaims?.lastName as string ?? null),
+        firstName: resolvedFirst,
+        lastName: resolvedLast,
         updatedAt: new Date(),
       },
     })
     .returning();
 
-  // Sync role to Clerk publicMetadata so JWT session claims carry the role
   await clerkClient.users.updateUserMetadata(userId, {
     publicMetadata: { role },
   });
 
-  // Create role-specific profile
-  if (role === "teacher") {
-    await db
-      .insert(teacherProfilesTable)
-      .values({ userId })
-      .onConflictDoNothing();
-  } else if (role === "student") {
-    await db
-      .insert(studentProfilesTable)
-      .values({ userId })
-      .onConflictDoNothing();
-  }
+  await ensureRoleProfile(userId, role);
 
   res.json(OnboardUserResponse.parse(user));
 });

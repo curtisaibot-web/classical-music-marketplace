@@ -61,11 +61,38 @@ Base: `/api`
 | Students | `GET /students/me`, `PUT /students/me` |
 | Listings | CRUD `/listings`, `GET /listings/teacher/:userId` |
 | Masterclasses | CRUD `/masterclasses` |
-| Digital Products | CRUD `/digital-products` |
+| Digital Products | CRUD `/digital-products` (auto-creates listing on POST) |
 | Bookings | CRUD `/bookings` (auth-gated) |
 | Orders | CRUD `/orders` (auth-gated) |
 | Reviews | `GET /reviews/teacher/:userId`, `POST /reviews` |
 | Dashboard | `GET /dashboard/teacher`, `GET /dashboard/student` |
+| Storage | `POST /storage/uploads/request-url` — request presigned GCS upload URL (teacher-auth) |
+| Downloads | `GET /orders/:id/download` — returns signed GCS download URL (buyer-auth, 24h expiry) |
+
+## Object Storage (Digital Products)
+
+Replit object storage (GCS sidecar at `http://127.0.0.1:1106`). Env vars:
+- `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — bucket name
+- `PRIVATE_OBJECT_DIR` — private file prefix
+
+Upload flow (two-step presigned URL):
+1. Teacher calls `POST /api/storage/uploads/request-url` with `{name, size, contentType}`
+2. Server returns `{uploadURL, objectPath}` — teacher PUTs file directly to GCS
+3. Teacher saves `objectPath` as `fileKey` on the digital product
+
+Download flow:
+1. Buyer (confirmed paid order) calls `GET /api/orders/:id/download`
+2. Server validates expiry (`downloadExpiresAt`) and ownership
+3. Returns a 1-hour signed GCS URL the browser opens directly
+
+Key files:
+- `artifacts/api-server/src/lib/objectStorage.ts` — GCS signing via sidecar
+- `artifacts/api-server/src/routes/storage.ts` — presigned upload URL endpoint
+- `artifacts/api-server/src/routes/orders.ts` — download endpoint
+- `artifacts/api-server/src/webhookHandlers.ts` — `unlockDigitalDownload` sets 24h window on Stripe payment
+- `lib/object-storage-web/src/use-upload.ts` — frontend upload hook
+- `artifacts/marketplace/src/pages/teacher/digital-products.tsx` — teacher product management UI
+- `artifacts/marketplace/src/pages/student/orders.tsx` — student purchase history with download buttons
 
 ## Codegen
 
@@ -129,6 +156,5 @@ the Vite `BASE_URL` so local paths become e.g. `/marketplace/images/teachers/sof
 
 ## Pending Tasks
 
-- **Task #4**: Digital Products: Uploads & Secure Downloads
 - **Task #5**: Reviews, Search & Launch Polish
 - **Task #6**: Wire up event/wedding musician booking module

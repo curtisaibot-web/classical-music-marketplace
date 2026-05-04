@@ -182,9 +182,12 @@ async function unlockDigitalDownload(orderId: number): Promise<void> {
     return;
   }
 
-  const DOWNLOAD_TTL_HOURS = 48;
+  // The download link is the API endpoint that generates fresh signed URLs on each access.
+  // It expires after 24 hours — after that the buyer must contact the seller.
+  const DOWNLOAD_TTL_HOURS = 24;
   const expiresAt = new Date(Date.now() + DOWNLOAD_TTL_HOURS * 60 * 60 * 1000);
 
+  // Store the API download URL — the endpoint itself verifies auth and generates a short-lived GCS signed URL
   const downloadUrl = `/api/orders/${orderId}/download`;
 
   await db
@@ -194,11 +197,6 @@ async function unlockDigitalDownload(orderId: number): Promise<void> {
       downloadExpiresAt: expiresAt,
     })
     .where(eq(ordersTable.id, orderId));
-
-  await db
-    .update(digitalProductsTable)
-    .set({ downloadCount: (product.downloadCount ?? 0) + 1 })
-    .where(eq(digitalProductsTable.id, product.id));
 
   logger.info({ orderId, productId: product.id, expiresAt }, "Digital download unlocked");
 }

@@ -345,7 +345,6 @@ export interface DigitalProductListResponse {
 }
 
 export interface CreateDigitalProductBody {
-  listingId: number;
   title: string;
   description?: string;
   category: string;
@@ -353,6 +352,10 @@ export interface CreateDigitalProductBody {
   difficulty?: string;
   priceInCents: number;
   previewUrl?: string;
+  fileKey?: string;
+  fileSize?: number;
+  fileType?: string;
+  isPublished?: boolean;
 }
 
 export interface UpdateDigitalProductBody {
@@ -364,6 +367,9 @@ export interface UpdateDigitalProductBody {
   priceInCents?: number;
   previewUrl?: string;
   isPublished?: boolean;
+  fileKey?: string;
+  fileSize?: number;
+  fileType?: string;
 }
 
 export type BookingType = (typeof BookingType)[keyof typeof BookingType];
@@ -606,6 +612,41 @@ export interface DashboardUrlResponse {
   dashboardUrl: string;
 }
 
+export interface UploadUrlRequest {
+  /**
+   * Original file name.
+   * @minLength 1
+   */
+  name: string;
+  /**
+   * File size in bytes.
+   * @minimum 1
+   */
+  size: number;
+  /**
+   * MIME type of the file.
+   * @minLength 1
+   */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  /** Presigned GCS URL for PUT upload. */
+  uploadURL: string;
+  /** Normalized object path (e.g. `/objects/uploads/uuid`). Store this in your database. */
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface ErrorEnvelope {
+  error: string;
+}
+
+export interface DownloadRedirectResponse {
+  /** Signed download URL for the file. */
+  downloadUrl: string;
+}
+
 /**
  * Unauthorized
  */
@@ -620,6 +661,11 @@ export type BadRequestResponse = ErrorResponse;
  * Not found
  */
 export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Forbidden
+ */
+export type ForbiddenResponse = ErrorResponse;
 
 export type ListTeachersParams = {
   instrument?: string;

@@ -1,13 +1,18 @@
+import { useState } from "react";
 import { useListOrders } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Receipt, BookOpen, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Download, Receipt, BookOpen, Star, Loader2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export default function StudentOrders() {
   const { data: ordersData, isLoading } = useListOrders();
+  const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
+  const apiBase = import.meta.env.VITE_API_URL ?? "";
 
   const getIconForType = (type: string) => {
     switch(type) {
@@ -22,6 +27,63 @@ export default function StudentOrders() {
     return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  const handleDownload = async (orderId: number) => {
+    setDownloadingIds((s) => new Set(s).add(orderId));
+    try {
+      const resp = await fetch(`${apiBase}/api/orders/${orderId}/download`, {
+        credentials: "include",
+      });
+      if (resp.status === 410) {
+        toast.error("Download link has expired. Please contact the seller.");
+        return;
+      }
+      if (resp.status === 403) {
+        const data = await resp.json().catch(() => ({}));
+        toast.error(data.error ?? "Download limit reached for this purchase.");
+        return;
+      }
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        toast.error(data.error ?? "Failed to get download link");
+        return;
+      }
+      const { downloadUrl } = await resp.json() as { downloadUrl: string };
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Failed to get download link. Please try again.");
+    } finally {
+      setDownloadingIds((s) => {
+        const next = new Set(s);
+        next.delete(orderId);
+        return next;
+      });
+    }
+  };
+
+  const isDownloadAvailable = (order: {
+    type: string;
+    status: string;
+    downloadUrl?: string | null;
+    downloadExpiresAt?: string | Date | null;
+  }) => {
+    if (order.type !== "digital_product" || order.status !== "paid") return false;
+    if (!order.downloadUrl) return false;
+    if (order.downloadExpiresAt && new Date(order.downloadExpiresAt) < new Date()) return false;
+    return true;
+  };
+
+  const isExpired = (order: {
+    type: string;
+    status: string;
+    downloadUrl?: string | null;
+    downloadExpiresAt?: string | Date | null;
+  }) =>
+    order.type === "digital_product" &&
+    order.status === "paid" &&
+    order.downloadUrl &&
+    order.downloadExpiresAt &&
+    new Date(order.downloadExpiresAt) < new Date();
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
@@ -29,6 +91,7 @@ export default function StudentOrders() {
       <div className="bg-muted py-10 border-b border-border">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-serif font-bold text-foreground">Purchase History</h1>
+          <p className="text-muted-foreground mt-1">Download links are valid for 24 hours after purchase.</p>
         </div>
       </div>
 
@@ -68,23 +131,40 @@ export default function StudentOrders() {
                         <p className="text-sm text-muted-foreground">
                           Order #{order.id.toString().padStart(6, '0')} • {format(new Date(order.createdAt), 'MMM d, yyyy')}
                         </p>
+                        {order.downloadExpiresAt && order.type === 'digital_product' && order.status === 'paid' && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(order.downloadExpiresAt) > new Date()
+                              ? `Download available until ${format(new Date(order.downloadExpiresAt), 'MMM d, yyyy h:mm a')}`
+                              : "Download link expired"}
+                          </p>
+                        )}
                       </div>
                       
                       <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-4">
                         <div className="font-bold text-lg text-foreground">
                           ${(order.priceInCents / 100).toFixed(2)}
                         </div>
-                        {order.type === 'digital_product' && order.status === 'paid' && order.downloadUrl && (
-                          <a 
-                            href={order.downloadUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                        {isDownloadAvailable(order) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownload(order.id)}
+                            disabled={downloadingIds.has(order.id)}
+                            className="gap-1.5"
                           >
-                            <Download className="h-4 w-4" />
+                            {downloadingIds.has(order.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
                             Download
-                          </a>
-                        )}
+                          </Button>
+                        ) : isExpired(order) ? (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                            <span>Link expired</span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </CardContent>

@@ -1,11 +1,16 @@
 import { Link } from "wouter";
-import { Show, useClerk } from "@clerk/react";
+import { Show, useClerk, useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { useGetMe } from "@workspace/api-client-react";
 
 export function Navbar() {
   const { signOut } = useClerk();
-  const { data: user } = useGetMe();
+  const { data: dbUser } = useGetMe();
+  const { user: clerkUser } = useUser();
+
+  const role =
+    dbUser?.role ??
+    ((clerkUser?.publicMetadata?.role as string | undefined) || null);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,15 +35,17 @@ export function Navbar() {
           </Show>
           <Show when="signed-in">
             <nav className="flex items-center gap-4">
-              {user?.role === 'teacher' ? (
+              {role === 'teacher' ? (
                 <>
                   <Link href="/teacher-dashboard" className="text-sm font-medium hover:underline">Dashboard</Link>
                   <Link href="/listings" className="text-sm font-medium hover:underline hidden sm:inline-block">Listings</Link>
+                  <Link href="/digital-products" className="text-sm font-medium hover:underline hidden sm:inline-block">Products</Link>
                 </>
-              ) : user?.role === 'student' ? (
+              ) : role === 'student' ? (
                 <>
                   <Link href="/dashboard" className="text-sm font-medium hover:underline">Dashboard</Link>
                   <Link href="/bookings" className="text-sm font-medium hover:underline hidden sm:inline-block">Bookings</Link>
+                  <Link href="/orders" className="text-sm font-medium hover:underline hidden sm:inline-block">Downloads</Link>
                 </>
               ) : null}
               <Button variant="ghost" size="sm" onClick={() => signOut()}>Sign out</Button>
