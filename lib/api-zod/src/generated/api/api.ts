@@ -1952,6 +1952,18 @@ export const GetConnectStatusResponse = zod.object({
   isConnected: zod.boolean(),
   isOnboarded: zod.boolean(),
   stripeAccountId: zod.string().nullish(),
+  balanceAvailableInCents: zod
+    .number()
+    .optional()
+    .describe("Available balance in cents (USD) from Stripe Connect account"),
+  balancePendingInCents: zod
+    .number()
+    .optional()
+    .describe("Pending balance in cents (USD) from Stripe Connect account"),
+  currency: zod
+    .string()
+    .optional()
+    .describe("Currency code for balance amounts"),
 });
 
 /**

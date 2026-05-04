@@ -250,7 +250,10 @@ router.get("/stripe/connect/status", requireAuth, async (req, res): Promise<void
 
   try {
     const stripe = await getUncachableStripeClient();
-    const account = await stripe.accounts.retrieve(profile.stripeAccountId);
+    const [account, balance] = await Promise.all([
+      stripe.accounts.retrieve(profile.stripeAccountId),
+      stripe.balance.retrieve({}, { stripeAccount: profile.stripeAccountId }).catch(() => null),
+    ]);
     const isOnboarded =
       account.details_submitted &&
       !account.requirements?.currently_due?.length;
@@ -262,14 +265,20 @@ router.get("/stripe/connect/status", requireAuth, async (req, res): Promise<void
         .where(eq(teacherProfilesTable.userId, userId));
     }
 
+    const usdAvailable = balance?.available?.find(b => b.currency === "usd");
+    const usdPending = balance?.pending?.find(b => b.currency === "usd");
+
     res.json({
       isConnected: true,
       isOnboarded: !!isOnboarded,
       stripeAccountId: profile.stripeAccountId,
+      balanceAvailableInCents: usdAvailable?.amount ?? 0,
+      balancePendingInCents: usdPending?.amount ?? 0,
+      currency: "USD",
     });
   } catch (err) {
     logger.error({ err }, "Failed to retrieve Connect account status");
-    res.json({ isConnected: true, isOnboarded: profile.stripeOnboarded, stripeAccountId: profile.stripeAccountId });
+    res.json({ isConnected: true, isOnboarded: profile.stripeOnboarded, stripeAccountId: profile.stripeAccountId, balanceAvailableInCents: 0, balancePendingInCents: 0, currency: "USD" });
   }
 });
 

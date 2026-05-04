@@ -1845,6 +1845,15 @@ components:
           type: boolean
         stripeAccountId:
           type: ["string", "null"]
+        balanceAvailableInCents:
+          type: integer
+          description: Available balance in cents (USD) from Stripe Connect account
+        balancePendingInCents:
+          type: integer
+          description: Pending balance in cents (USD) from Stripe Connect account
+        currency:
+          type: string
+          description: Currency code for balance amounts
       required: [isConnected, isOnboarded]
 
     DashboardUrlResponse:

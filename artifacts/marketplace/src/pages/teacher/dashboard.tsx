@@ -226,6 +226,20 @@ export default function TeacherDashboard() {
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
                       <span className="font-medium">Stripe payouts active</span>
                     </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div className="rounded-lg bg-muted/50 border border-border p-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Available</p>
+                        <p className="text-base font-bold text-foreground">
+                          ${((connectStatus.balanceAvailableInCents ?? 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-muted/50 border border-border p-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-0.5">Pending</p>
+                        <p className="text-base font-bold text-foreground">
+                          ${((connectStatus.balancePendingInCents ?? 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       You receive 85% of each payment. The platform retains a 15% fee.
                     </p>

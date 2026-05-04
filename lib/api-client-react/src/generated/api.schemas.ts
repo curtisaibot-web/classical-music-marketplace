@@ -594,6 +594,12 @@ export interface ConnectStatusResponse {
   isOnboarded: boolean;
   /** @nullable */
   stripeAccountId?: string | null;
+  /** Available balance in cents (USD) from Stripe Connect account */
+  balanceAvailableInCents?: number;
+  /** Pending balance in cents (USD) from Stripe Connect account */
+  balancePendingInCents?: number;
+  /** Currency code for balance amounts */
+  currency?: string;
 }
 
 export interface DashboardUrlResponse {
