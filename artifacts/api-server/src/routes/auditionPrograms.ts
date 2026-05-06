@@ -495,6 +495,11 @@ router.post(
       return;
     }
 
+    if (sessionNumber < 1 || sessionNumber > program.sessionCount) {
+      res.status(400).json({ error: `Session number must be between 1 and ${program.sessionCount}` });
+      return;
+    }
+
     try {
       const storage = new ObjectStorageService();
       const { uploadUrl, fileKey } = await storage.getObjectEntityUploadURL(userId);
@@ -592,6 +597,13 @@ router.get("/audition-programs/:id", async (req, res): Promise<void> => {
 
   if (!row) { res.status(404).json({ error: "Program not found" }); return; }
 
+  // Hide inactive programs from public callers; owners may still view them
+  const requestingUserId = getAuth(req).userId ?? null;
+  if (!row.audition_programs.isActive && row.audition_programs.teacherId !== requestingUserId) {
+    res.status(404).json({ error: "Program not found" });
+    return;
+  }
+
   res.json({
     ...row.audition_programs,
     teacher: row.teacher_profiles
@@ -624,6 +636,16 @@ router.post("/audition-programs", requireAuth, requireRole("teacher"), async (re
   const validLevels = ["undergraduate", "postgrad", "professional_orchestra"];
   if (!validLevels.includes(targetLevel)) {
     res.status(400).json({ error: `targetLevel must be one of: ${validLevels.join(", ")}` });
+    return;
+  }
+
+  if (!Number.isInteger(sessionCount) || sessionCount < 1 || sessionCount > 100) {
+    res.status(400).json({ error: "sessionCount must be an integer between 1 and 100" });
+    return;
+  }
+
+  if (!Number.isInteger(priceCents) || priceCents < 100) {
+    res.status(400).json({ error: "priceCents must be an integer of at least 100 (i.e. $1.00)" });
     return;
   }
 
@@ -665,6 +687,16 @@ router.patch("/audition-programs/:id", requireAuth, requireRole("teacher"), asyn
       res.status(400).json({ error: `targetLevel must be one of: ${validLevels.join(", ")}` });
       return;
     }
+  }
+
+  if (sessionCount !== undefined && (!Number.isInteger(sessionCount) || sessionCount < 1 || sessionCount > 100)) {
+    res.status(400).json({ error: "sessionCount must be an integer between 1 and 100" });
+    return;
+  }
+
+  if (priceCents !== undefined && (!Number.isInteger(priceCents) || priceCents < 100)) {
+    res.status(400).json({ error: "priceCents must be an integer of at least 100 (i.e. $1.00)" });
+    return;
   }
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
