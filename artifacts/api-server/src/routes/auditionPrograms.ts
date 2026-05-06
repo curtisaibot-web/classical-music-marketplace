@@ -709,7 +709,7 @@ router.delete("/audition-programs/:id", requireAuth, requireRole("teacher"), asy
 });
 
 // ── Create enrollment (student) ───────────────────────────────────────────────
-router.post("/audition-programs/:id/enrollments", requireAuth, async (req, res): Promise<void> => {
+router.post("/audition-programs/:id/enrollments", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid program id" }); return; }

@@ -247,16 +247,6 @@ function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete
       </button>
       {expanded && (
         <div className="p-3 border-t border-border space-y-3 bg-muted/20">
-          <div>
-            <Label className="text-xs">Session Note</Label>
-            <Textarea
-              rows={3}
-              placeholder="Add notes for the student about this session..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="mt-1 text-sm"
-            />
-          </div>
           {(completedNote?.feedbackFileKey || !readOnly) && (
             <div>
               <Label className="text-xs">Feedback File (PDF or audio — optional)</Label>
@@ -281,14 +271,17 @@ function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete
               </div>
             </div>
           )}
-          <Textarea
-            rows={3}
-            placeholder="Add notes for the student about this session..."
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="mt-1 text-sm"
-            disabled={readOnly}
-          />
+          <div>
+            <Label className="text-xs">Session Note</Label>
+            <Textarea
+              rows={3}
+              placeholder="Add notes for the student about this session..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="mt-1 text-sm"
+              disabled={readOnly}
+            />
+          </div>
           {!readOnly && (
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : completedNote ? "Update" : "Mark Complete"}

@@ -185,10 +185,14 @@ async function handleCheckoutSessionCompleted(
         .from(auditionProgramsTable)
         .where(eq(auditionProgramsTable.id, existingEnrollment.programId));
 
-      // Create order record to integrate with existing order infrastructure
+      // Create order record — derive amounts from Stripe session for accuracy
       let orderId: number | undefined;
       if (program) {
-        const platformFee = Math.round(program.priceCents * 0.15);
+        // Prefer Stripe's authoritative session total; fall back to program price if absent
+        const priceInCents = (session.amount_total != null && session.amount_total > 0)
+          ? session.amount_total
+          : program.priceCents;
+        const platformFee = Math.round(priceInCents * 0.15);
         const [newOrder] = await db
           .insert(ordersTable)
           .values({
@@ -196,7 +200,7 @@ async function handleCheckoutSessionCompleted(
             sellerId: program.teacherId,
             type: "program_enrollment",
             status: "paid",
-            priceInCents: program.priceCents,
+            priceInCents,
             platformFeeInCents: platformFee,
             stripePaymentIntentId: paymentIntentId ?? null,
             stripeCheckoutSessionId: session.id,
