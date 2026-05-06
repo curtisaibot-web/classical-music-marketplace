@@ -202,11 +202,14 @@ function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete
           enrollmentId,
           sessionNumber,
         });
-        await fetch(uploadUrl, {
+        const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
           body: selectedFile,
           headers: { "Content-Type": selectedFile.type || "application/octet-stream" },
         });
+        if (!uploadRes.ok) {
+          throw new Error(`File upload failed (${uploadRes.status})`);
+        }
         fileKey = newKey;
         setUploadedFileKey(newKey);
         setSelectedFile(null);
