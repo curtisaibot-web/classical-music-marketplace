@@ -161,13 +161,31 @@ export async function generateInvoicePdf(
   let logoBuffer: Buffer | null = null;
   if (logoUrl) {
     try {
-      const resp = await fetch(logoUrl);
-      if (resp.ok) {
-        const ab = await resp.arrayBuffer();
-        logoBuffer = Buffer.from(ab);
+      const parsed = new URL(logoUrl);
+      const ALLOWED_HOSTS = [
+        "res.cloudinary.com",
+        "images.unsplash.com",
+        "lh3.googleusercontent.com",
+        "avatars.githubusercontent.com",
+        "storage.googleapis.com",
+        "s3.amazonaws.com",
+        "cdn.harmonia.app",
+        "replit.com",
+        "replit.dev",
+      ];
+      const isAllowed =
+        (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+        ALLOWED_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`));
+
+      if (isAllowed) {
+        const resp = await fetch(logoUrl, { signal: AbortSignal.timeout(5000) });
+        if (resp.ok) {
+          const ab = await resp.arrayBuffer();
+          logoBuffer = Buffer.from(ab);
+        }
       }
     } catch {
-      // logo fetch failed — proceed without it
+      // logo fetch failed or URL invalid — proceed without it
     }
   }
 

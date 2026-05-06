@@ -403,6 +403,8 @@ export const UpdateMyTeacherProfileBody = zod.object({
   profileImageUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   videoIntroUrl: zod.string().optional(),
+  cancellationPolicyHours: zod.number().int().min(1).max(336).optional(),
+  cancellationFeePercent: zod.number().int().min(0).max(100).optional(),
 });
 
 export const UpdateMyTeacherProfileResponse = zod.object({
