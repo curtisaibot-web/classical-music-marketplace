@@ -97,6 +97,19 @@ Key files:
 - `artifacts/marketplace/src/pages/teacher/digital-products.tsx` — teacher product management UI
 - `artifacts/marketplace/src/pages/student/orders.tsx` — student purchase history with download buttons
 
+## Public Musician Pages & OG Sharing
+
+Each teacher has a vanity slug (`profile_slug` on `teacher_profiles`). Public profiles are at `/musicians/:slug`.
+
+**Crawler OG prerendering architecture (not full SSR):**
+- `GET /api/og/musicians/:slug` — Express endpoint that returns OG-enriched HTML (og:title, og:description, og:url, og:image, twitter:*) built from DB data. Used as the authoritative social-share HTML source.
+- **Production** (`artifacts/marketplace/server.mjs`): tiny Node.js server replaces static file serving. Crawler UAs hitting `/musicians/:slug` are proxied to `/api/og/musicians/:slug`; all other requests receive `dist/public/index.html` (SPA). Static assets served directly with correct MIME types.
+- **Development** (`artifacts/marketplace/vite.config.ts` `ogRedirectPlugin`): Vite middleware 302-redirects crawler UAs from `/musicians/:slug` to `/api/og/musicians/:slug`.
+- Regular users always receive the SPA; Wouter handles client-side routing to the profile page.
+- `/musicians*` routing stays entirely within the marketplace service (API artifact paths unchanged).
+
+**Recordings:** `POST/DELETE /api/teachers/me/recordings` (auth-safe `/me/` pattern, not `/:teacherId/`). Max 5 per teacher enforced server-side. Embed types: YouTube, Vimeo, SoundCloud iframes, direct audio fallback (`lib/recording-embed.ts`).
+
 ## Codegen
 
 After editing `lib/api-spec/openapi.yaml`:
