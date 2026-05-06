@@ -144,6 +144,12 @@ router.get("/teachers/me", requireAuth, async (req, res): Promise<void> => {
   res.json(GetMyTeacherProfileResponse.parse({ ...result.teacher_profiles, user: result.users }));
 });
 
+function buildAutoSlug(firstName: string | null, lastName: string | null, userId: string): string {
+  const suffix = userId.slice(-6).toLowerCase().replace(/[^a-z0-9]/g, "x");
+  const base = `${firstName ?? ""} ${lastName ?? ""}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "musician";
+  return `${base}-${suffix}`;
+}
+
 router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
@@ -154,9 +160,20 @@ router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const existing = await db
+    .select({ profileSlug: teacherProfilesTable.profileSlug })
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, userId));
+
+  let autoSlug: string | undefined;
+  if (!existing[0]?.profileSlug) {
+    const [userRow] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId));
+    autoSlug = buildAutoSlug(userRow?.firstName ?? null, userRow?.lastName ?? null, userId);
+  }
+
   const [profile] = await db
     .update(teacherProfilesTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({ ...parsed.data, ...(autoSlug ? { profileSlug: autoSlug } : {}), updatedAt: new Date() })
     .where(eq(teacherProfilesTable.userId, userId))
     .returning();
 

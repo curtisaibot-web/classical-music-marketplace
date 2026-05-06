@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetMyTeacherProfile, useUpdateMyTeacherProfile } from "@workspace/api-client-react";
+import { useGetMyTeacherProfile, useUpdateMyTeacherProfile, useGetTeacherRecordings, useCreateTeacherRecording, useDeleteTeacherRecording, getGetTeacherRecordingsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,17 +17,18 @@ interface UploadState {
   error: string | null;
 }
 
-interface Recording {
-  id: number;
-  url: string;
-  title: string;
-  description: string | null;
-  sortOrder: number;
-}
-
 export default function TeacherProfileEdit() {
+  const queryClient = useQueryClient();
   const { data: profile, isLoading } = useGetMyTeacherProfile();
   const updateProfile = useUpdateMyTeacherProfile();
+
+  const teacherId = profile?.userId ?? "";
+  const { data: recordingsData } = useGetTeacherRecordings(teacherId, {
+    query: { enabled: !!teacherId, queryKey: getGetTeacherRecordingsQueryKey(teacherId) }
+  });
+  const recordings = recordingsData?.recordings ?? [];
+  const createRecording = useCreateTeacherRecording();
+  const deleteRecording = useDeleteTeacherRecording();
 
   const [formData, setFormData] = useState({
     bio: "",
@@ -42,8 +44,6 @@ export default function TeacherProfileEdit() {
   const [slugInput, setSlugInput] = useState("");
   const [slugLoading, setSlugLoading] = useState(false);
 
-  const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [recLoading, setRecLoading] = useState(false);
   const [newRecUrl, setNewRecUrl] = useState("");
   const [newRecTitle, setNewRecTitle] = useState("");
   const [newRecDesc, setNewRecDesc] = useState("");
@@ -69,21 +69,8 @@ export default function TeacherProfileEdit() {
         profileImageUrl: profile.profileImageUrl || "",
       });
       setSlugInput(profile.profileSlug || "");
-      fetchRecordings(profile.userId);
     }
   }, [profile]);
-
-  const fetchRecordings = async (teacherId: string) => {
-    try {
-      const res = await fetch(`${apiUrl}/api/teachers/${teacherId}/recordings`);
-      if (res.ok) {
-        const data = await res.json();
-        setRecordings(data.recordings ?? []);
-      }
-    } catch {
-      setRecordings([]);
-    }
-  };
 
   const handleSaveSlug = async () => {
     const slug = slugInput.trim().toLowerCase();
@@ -115,52 +102,40 @@ export default function TeacherProfileEdit() {
     }
   };
 
-  const handleAddRecording = async () => {
+  const handleAddRecording = () => {
     if (!newRecUrl.trim() || !newRecTitle.trim()) {
       toast.error("URL and title are required");
       return;
     }
-    setRecLoading(true);
-    try {
-      const res = await fetch(`${apiUrl}/api/teachers/me/recordings`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: newRecUrl.trim(), title: newRecTitle.trim(), description: newRecDesc.trim() || null }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast.error((err as { error?: string }).error ?? "Failed to add recording");
-      } else {
-        const rec = await res.json();
-        setRecordings(prev => [...prev, rec]);
-        setNewRecUrl("");
-        setNewRecTitle("");
-        setNewRecDesc("");
-        toast.success("Recording added!");
+    createRecording.mutate(
+      { data: { url: newRecUrl.trim(), title: newRecTitle.trim(), description: newRecDesc.trim() || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTeacherRecordingsQueryKey(teacherId) });
+          setNewRecUrl("");
+          setNewRecTitle("");
+          setNewRecDesc("");
+          toast.success("Recording added!");
+        },
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+          toast.error(msg ?? "Failed to add recording");
+        },
       }
-    } catch {
-      toast.error("Network error adding recording");
-    } finally {
-      setRecLoading(false);
-    }
+    );
   };
 
-  const handleDeleteRecording = async (id: number) => {
-    try {
-      const res = await fetch(`${apiUrl}/api/teachers/me/recordings/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        toast.error("Failed to delete recording");
-      } else {
-        setRecordings(prev => prev.filter(r => r.id !== id));
-        toast.success("Recording removed");
+  const handleDeleteRecording = (id: number) => {
+    deleteRecording.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTeacherRecordingsQueryKey(teacherId) });
+          toast.success("Recording removed");
+        },
+        onError: () => toast.error("Failed to delete recording"),
       }
-    } catch {
-      toast.error("Network error deleting recording");
-    }
+    );
   };
 
   const handleFileSelected = (file: File) => {
@@ -519,7 +494,7 @@ export default function TeacherProfileEdit() {
             <Card className="border-border">
               <CardHeader>
                 <CardTitle className="font-serif">Recordings</CardTitle>
-                <CardDescription>Share up to 5 audio recordings on your public profile. Link directly to audio files (MP3, WAV, etc.).</CardDescription>
+                <CardDescription>Share up to 5 recordings on your public profile. Paste a YouTube, SoundCloud, or Vimeo link — or a direct audio file URL.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {recordings.length > 0 && (
@@ -555,7 +530,7 @@ export default function TeacherProfileEdit() {
                         onChange={(e) => setNewRecTitle(e.target.value)}
                       />
                       <Input
-                        placeholder="Audio URL (direct link to MP3, WAV, or audio file)"
+                        placeholder="YouTube, SoundCloud, Vimeo, or direct audio URL"
                         value={newRecUrl}
                         onChange={(e) => setNewRecUrl(e.target.value)}
                       />
@@ -570,9 +545,9 @@ export default function TeacherProfileEdit() {
                       variant="outline"
                       size="sm"
                       onClick={handleAddRecording}
-                      disabled={recLoading || !newRecUrl.trim() || !newRecTitle.trim()}
+                      disabled={createRecording.isPending || !newRecUrl.trim() || !newRecTitle.trim()}
                     >
-                      {recLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                      {createRecording.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                       Add Recording
                     </Button>
                   </div>

@@ -5,6 +5,7 @@ interface PageMetaOptions {
   description?: string;
   imageUrl?: string;
   type?: string;
+  canonicalUrl?: string;
 }
 
 function setMetaTag(property: string, content: string, isName = false) {
@@ -18,7 +19,7 @@ function setMetaTag(property: string, content: string, isName = false) {
   el.setAttribute("content", content);
 }
 
-export function usePageMeta({ title, description, imageUrl, type = "website" }: PageMetaOptions) {
+export function usePageMeta({ title, description, imageUrl, type = "website", canonicalUrl }: PageMetaOptions) {
   useEffect(() => {
     const siteTitle = "Classical Music Marketplace";
     const fullTitle = title ? `${title} | ${siteTitle}` : siteTitle;
@@ -34,9 +35,12 @@ export function usePageMeta({ title, description, imageUrl, type = "website" }: 
     if (imageUrl) {
       setMetaTag("og:image", imageUrl);
     }
+    if (canonicalUrl) {
+      setMetaTag("og:url", canonicalUrl);
+    }
 
     return () => {
       document.title = siteTitle;
     };
-  }, [title, description, imageUrl, type]);
+  }, [title, description, imageUrl, type, canonicalUrl]);
 }

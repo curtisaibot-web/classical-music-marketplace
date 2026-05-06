@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "wouter";
-import { useGetTeacherBySlug, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, getGetTeacherBySlugQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useGetTeacherBySlug, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, useGetTeacherRecordings, getGetTeacherBySlugQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, getGetTeacherRecordingsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, MapPin, GraduationCap, CalendarDays, CheckCircle, Mic2, BookOpen, Music2, Sparkles, Clock, Globe, Award, Volume2, VolumeX, Music } from "lucide-react";
+import { Star, MapPin, GraduationCap, CheckCircle, BookOpen, Music2, Sparkles, Clock, Globe, Award, Volume2, VolumeX, Music, Mic2, CalendarDays } from "lucide-react";
+import { getEmbedInfo } from "@/lib/recording-embed";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 import { resolveImageUrl } from "@/lib/image-url";
@@ -47,16 +48,6 @@ function StarRating({ rating, max = 5, size = "sm" }: { rating: number; max?: nu
   );
 }
 
-interface TeacherRecording {
-  id: number;
-  teacherId: string;
-  url: string;
-  title: string;
-  description?: string | null;
-  sortOrder: number;
-  createdAt: string;
-}
-
 export default function MusicianPublicProfile() {
   const { slug } = useParams<{ slug: string }>();
   const { user, isLoaded } = useUser();
@@ -87,8 +78,6 @@ export default function MusicianPublicProfile() {
   const [eventNotes, setEventNotes] = useState("");
   const [eventSuccess, setEventSuccess] = useState(false);
 
-  const [recordings, setRecordings] = useState<TeacherRecording[] | null>(null);
-
   const { data: teacher, isLoading: isLoadingTeacher, isError } = useGetTeacherBySlug(slug, {
     query: {
       enabled: !!slug,
@@ -96,17 +85,9 @@ export default function MusicianPublicProfile() {
     }
   });
 
-  const apiUrl = import.meta.env.VITE_API_URL ?? "";
-
-  useEffect(() => {
-    if (!teacher?.userId) return;
-    let cancelled = false;
-    fetch(`${apiUrl}/api/teachers/${teacher.userId}/recordings`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (!cancelled && data) setRecordings(data.recordings ?? []); })
-      .catch(() => { if (!cancelled) setRecordings([]); });
-    return () => { cancelled = true; };
-  }, [teacher?.userId]);
+  const { data: recordingsData } = useGetTeacherRecordings(teacher?.userId ?? "", {
+    query: { enabled: !!teacher?.userId, queryKey: getGetTeacherRecordingsQueryKey(teacher?.userId ?? "") }
+  });
 
   const { data: listingsData } = useGetTeacherListings(teacher?.userId ?? "", {
     query: { enabled: !!teacher?.userId, queryKey: getGetTeacherListingsQueryKey(teacher?.userId ?? "") }
@@ -128,6 +109,9 @@ export default function MusicianPublicProfile() {
     description: teacher?.bio ?? `Classical musician specializing in ${teacher?.instruments.join(", ")}. Based in ${teacher?.city || "Online"}.`,
     imageUrl: teacher?.profileImageUrl ?? undefined,
     type: "profile",
+    canonicalUrl: teacher?.profileSlug
+      ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/musicians/${teacher.profileSlug}`
+      : undefined,
   });
 
   const createBooking = useCreateBooking();
@@ -385,31 +369,41 @@ export default function MusicianPublicProfile() {
             )}
 
             {/* Recordings */}
-            {recordings && recordings.length > 0 && (
+            {recordingsData && recordingsData.recordings.length > 0 && (
               <section>
                 <h2 className="text-xl font-serif font-semibold mb-4 text-foreground flex items-center gap-2">
                   <Music className="h-5 w-5 text-primary" />
                   Recordings
                 </h2>
-                <div className="space-y-4">
-                  {recordings.map((rec) => (
-                    <Card key={rec.id} className="border-border">
-                      <CardContent className="p-4">
-                        <div className="mb-2">
-                          <h4 className="font-semibold text-foreground">{rec.title}</h4>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  {recordingsData.recordings.map((rec) => {
+                    const embed = getEmbedInfo(rec.url);
+                    return (
+                      <Card key={rec.id} className="border-border overflow-hidden">
+                        {embed.type !== "audio" && embed.embedUrl ? (
+                          <div className="relative w-full" style={{ paddingBottom: embed.type === "soundcloud" ? "166px" : "56.25%" }}>
+                            <iframe
+                              src={embed.embedUrl}
+                              title={rec.title}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                              allowFullScreen
+                              className="absolute inset-0 w-full h-full border-0"
+                            />
+                          </div>
+                        ) : (
+                          <div className="p-4 pb-2">
+                            <audio controls src={rec.url} className="w-full h-10" preload="metadata" />
+                          </div>
+                        )}
+                        <CardContent className="p-4 pt-3">
+                          <h4 className="font-semibold text-foreground text-sm">{rec.title}</h4>
                           {rec.description && (
-                            <p className="text-sm text-muted-foreground mt-0.5">{rec.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{rec.description}</p>
                           )}
-                        </div>
-                        <audio
-                          controls
-                          src={rec.url}
-                          className="w-full h-10"
-                          preload="metadata"
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </section>
             )}

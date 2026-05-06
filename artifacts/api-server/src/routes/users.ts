@@ -47,9 +47,21 @@ async function resolveClerkData(
   }
 }
 
-async function ensureRoleProfile(userId: string, role: "teacher" | "student" | null): Promise<void> {
+function generateSlug(firstName: string | null, lastName: string | null, suffix: string): string {
+  const base = `${firstName ?? ""} ${lastName ?? ""}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "musician";
+  return `${base}-${suffix}`;
+}
+
+async function ensureRoleProfile(
+  userId: string,
+  role: "teacher" | "student" | null,
+  firstName?: string | null,
+  lastName?: string | null
+): Promise<void> {
   if (role === "teacher") {
-    await db.insert(teacherProfilesTable).values({ userId }).onConflictDoNothing();
+    const suffix = userId.slice(-6).toLowerCase().replace(/[^a-z0-9]/g, "x");
+    const slug = generateSlug(firstName ?? null, lastName ?? null, suffix);
+    await db.insert(teacherProfilesTable).values({ userId, profileSlug: slug }).onConflictDoNothing();
   } else if (role === "student") {
     await db.insert(studentProfilesTable).values({ userId }).onConflictDoNothing();
   }
@@ -78,7 +90,7 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
       })
       .returning();
     user = newUser;
-    await ensureRoleProfile(userId, clerkData.role);
+    await ensureRoleProfile(userId, clerkData.role, clerkData.firstName, clerkData.lastName);
   } else if (!user.role) {
     const clerkData = await resolveClerkData(userId, auth);
     if (clerkData.role) {
@@ -88,7 +100,7 @@ router.get("/users/me", requireAuth, async (req, res): Promise<void> => {
         .where(eq(usersTable.id, userId))
         .returning();
       user = updated ?? user;
-      await ensureRoleProfile(userId, clerkData.role);
+      await ensureRoleProfile(userId, clerkData.role, clerkData.firstName, clerkData.lastName);
     }
   }
 
@@ -135,7 +147,7 @@ router.post("/users/me/onboard", requireAuth, async (req, res): Promise<void> =>
     publicMetadata: { role },
   });
 
-  await ensureRoleProfile(userId, role);
+  await ensureRoleProfile(userId, role, resolvedFirst, resolvedLast);
 
   res.json(OnboardUserResponse.parse(user));
 });
