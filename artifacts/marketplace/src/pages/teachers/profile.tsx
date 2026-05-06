@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams } from "wouter";
-import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, useListAuditionPrograms, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, getListAuditionProgramsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -91,6 +91,11 @@ export default function TeacherProfile() {
   const { data: reel } = useGetUserReel(userId, {
     query: { enabled: !!userId, queryKey: getGetUserReelQueryKey(userId) }
   });
+
+  const { data: auditionProgramsData } = useListAuditionPrograms(
+    { teacherId: userId },
+    { query: { enabled: !!userId, queryKey: getListAuditionProgramsQueryKey({ teacherId: userId }) } },
+  );
 
   const [reelMuted, setReelMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -479,6 +484,66 @@ export default function TeacherProfile() {
                     ))}
                   </div>
                 )}
+              </section>
+            )}
+
+            {/* Audition Prep Programs */}
+            {!!auditionProgramsData?.programs.length && (
+              <section>
+                <h2 className="text-xl font-serif font-semibold mb-4 text-foreground flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  Audition Prep Programs
+                </h2>
+                <div className="grid gap-4">
+                  {auditionProgramsData.programs.map((program) => {
+                    const levelLabels: Record<string, string> = {
+                      undergraduate: "Undergraduate",
+                      postgrad: "Postgraduate",
+                      professional_orchestra: "Professional Orchestra",
+                    };
+                    const levelColors: Record<string, string> = {
+                      undergraduate: "bg-blue-100 text-blue-800",
+                      postgrad: "bg-purple-100 text-purple-800",
+                      professional_orchestra: "bg-amber-100 text-amber-800",
+                    };
+                    return (
+                      <Card key={program.id} className="border-border hover:border-primary/30 transition-colors">
+                        <CardContent className="p-5 flex gap-4 items-start">
+                          <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                            <GraduationCap className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-foreground mb-1">{program.title}</h4>
+                            {program.syllabusText && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{program.syllabusText}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                              <Badge className={`text-xs font-medium ${levelColors[program.targetLevel] ?? ""}`}>
+                                {levelLabels[program.targetLevel] ?? program.targetLevel}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">{program.instrument}</Badge>
+                              <Badge variant="secondary" className="text-xs">{program.sessionCount} sessions</Badge>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right flex flex-col items-end gap-2">
+                            <div>
+                              <div className="text-lg font-bold text-foreground">
+                                ${(program.priceCents / 100).toFixed(0)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">full package</div>
+                            </div>
+                            <Button
+                              size="sm"
+                              asChild
+                            >
+                              <a href={`${import.meta.env.BASE_URL}audition-prep/${program.id}`}>View Program</a>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </section>
             )}
 

@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable } from "@workspace/db";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -171,22 +171,54 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Invalid enrollment_id in session metadata: ${metadata.enrollment_id}`);
     }
 
-    const updatedEnrollments = await db
-      .update(programEnrollmentsTable)
-      .set({
-        status: "active",
-        stripeCheckoutSessionId: session.id,
-        stripePaymentIntentId: paymentIntentId,
-        paidAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.status, "pending")))
-      .returning({ id: programEnrollmentsTable.id });
+    // Idempotency check
+    const [existingEnrollment] = await db
+      .select()
+      .from(programEnrollmentsTable)
+      .where(eq(programEnrollmentsTable.id, enrollmentId));
 
-    if (updatedEnrollments.length > 0) {
-      logger.info({ enrollmentId, sessionId: session.id, eventId }, "Program enrollment activated via checkout.session.completed");
-    } else {
+    if (existingEnrollment && existingEnrollment.status !== "pending") {
       logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — skipping idempotent update");
+    } else if (existingEnrollment) {
+      const [program] = await db
+        .select()
+        .from(auditionProgramsTable)
+        .where(eq(auditionProgramsTable.id, existingEnrollment.programId));
+
+      // Create order record to integrate with existing order infrastructure
+      let orderId: number | undefined;
+      if (program) {
+        const platformFee = Math.round(program.priceCents * 0.15);
+        const [newOrder] = await db
+          .insert(ordersTable)
+          .values({
+            buyerId: existingEnrollment.studentId,
+            sellerId: program.teacherId,
+            type: "program_enrollment",
+            status: "paid",
+            priceInCents: program.priceCents,
+            platformFeeInCents: platformFee,
+            stripePaymentIntentId: paymentIntentId ?? null,
+            stripeCheckoutSessionId: session.id,
+            paidAt: new Date(),
+          })
+          .returning({ id: ordersTable.id });
+        orderId = newOrder?.id;
+      }
+
+      await db
+        .update(programEnrollmentsTable)
+        .set({
+          status: "active",
+          orderId: orderId ?? null,
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+          paidAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(programEnrollmentsTable.id, enrollmentId));
+
+      logger.info({ enrollmentId, orderId, sessionId: session.id, eventId }, "Program enrollment activated and order created");
     }
   }
 

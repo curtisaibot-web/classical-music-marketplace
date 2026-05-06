@@ -1,4 +1,4 @@
-import { useListMyEnrollments, downloadCertificate } from "@workspace/api-client-react";
+import { useListMyEnrollments, downloadCertificate, downloadSessionFeedback } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -197,6 +197,27 @@ export default function StudentPrograms() {
                                     <p className="text-xs text-muted-foreground italic">Session completed — no note added</p>
                                   ) : (
                                     <p className="text-xs text-muted-foreground italic">Not yet completed</p>
+                                  )}
+                                  {note?.feedbackFileKey && (
+                                    <button
+                                      className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                                      onClick={async () => {
+                                        try {
+                                          const blob = await downloadSessionFeedback(enrollment.id, sessionNum);
+                                          const url = URL.createObjectURL(blob as Blob);
+                                          const a = document.createElement("a");
+                                          a.href = url;
+                                          a.download = `session-${sessionNum}-feedback`;
+                                          a.click();
+                                          URL.revokeObjectURL(url);
+                                        } catch {
+                                          toast.error("Failed to download feedback file");
+                                        }
+                                      }}
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      Download feedback
+                                    </button>
                                   )}
                                 </div>
                               </div>

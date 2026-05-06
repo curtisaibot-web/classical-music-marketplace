@@ -3332,6 +3332,7 @@ export const ListAuditionProgramsQueryParams = zod.object({
   targetLevel: zod
     .enum(["undergraduate", "postgrad", "professional_orchestra"])
     .optional(),
+  teacherId: zod.coerce.string().optional(),
   limit: zod.coerce.number().default(listAuditionProgramsQueryLimitDefault),
   offset: zod.coerce.number().default(listAuditionProgramsQueryOffsetDefault),
 });
@@ -3706,6 +3707,27 @@ export const CompleteSessionResponse = zod.object({
       completedAt: zod.coerce.date(),
     }),
   ),
+});
+
+/**
+ * @summary Get a presigned URL to upload session feedback (teacher only)
+ */
+export const GetSessionFeedbackUploadUrlParams = zod.object({
+  enrollmentId: zod.coerce.number(),
+  sessionNumber: zod.coerce.number(),
+});
+
+export const GetSessionFeedbackUploadUrlResponse = zod.object({
+  uploadUrl: zod.string(),
+  fileKey: zod.string(),
+});
+
+/**
+ * @summary Download session feedback file (student or teacher)
+ */
+export const DownloadSessionFeedbackParams = zod.object({
+  enrollmentId: zod.coerce.number(),
+  sessionNumber: zod.coerce.number(),
 });
 
 /**

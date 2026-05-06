@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, desc } from "drizzle-orm";
+import { Readable } from "stream";
 import {
   db,
   auditionProgramsTable,
@@ -13,6 +14,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole } from "../middlewares/requireRole";
 import { logger } from "../lib/logger";
 import PDFDocument from "pdfkit";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
@@ -70,6 +72,7 @@ async function buildEnrollmentDetail(enrollmentId: number, userId?: string) {
 router.get("/audition-programs", async (req, res): Promise<void> => {
   const instrument = typeof req.query.instrument === "string" ? req.query.instrument : undefined;
   const targetLevel = typeof req.query.targetLevel === "string" ? req.query.targetLevel : undefined;
+  const teacherId = typeof req.query.teacherId === "string" ? req.query.teacherId : undefined;
   const limit = parseInt(String(req.query.limit ?? "20"), 10) || 20;
   const offset = parseInt(String(req.query.offset ?? "0"), 10) || 0;
 
@@ -81,6 +84,9 @@ router.get("/audition-programs", async (req, res): Promise<void> => {
   if (targetLevel) {
     const { sql } = await import("drizzle-orm");
     conditions.push(sql`${auditionProgramsTable.targetLevel} = ${targetLevel}`);
+  }
+  if (teacherId) {
+    conditions.push(eq(auditionProgramsTable.teacherId, teacherId));
   }
 
   const { and: andFn, count } = await import("drizzle-orm");
@@ -455,6 +461,118 @@ router.get("/audition-programs/enrollments/:enrollmentId/certificate", requireAu
     }
   }
 });
+
+// ── Session feedback upload URL (teacher) ─────────────────────────────────────
+router.post(
+  "/audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/feedback-upload-url",
+  requireAuth,
+  requireRole("teacher"),
+  async (req, res): Promise<void> => {
+    const userId = getAuth(req).userId!;
+    const enrollmentId = parseId(req.params.enrollmentId);
+    const sessionNumber = parseId(req.params.sessionNumber);
+    if (!enrollmentId || !sessionNumber) {
+      res.status(400).json({ error: "Invalid ids" });
+      return;
+    }
+
+    const [enrollment] = await db
+      .select()
+      .from(programEnrollmentsTable)
+      .where(eq(programEnrollmentsTable.id, enrollmentId));
+    if (!enrollment) { res.status(404).json({ error: "Enrollment not found" }); return; }
+
+    const [program] = await db
+      .select()
+      .from(auditionProgramsTable)
+      .where(eq(auditionProgramsTable.id, enrollment.programId));
+    if (!program || program.teacherId !== userId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    try {
+      const storage = new ObjectStorageService();
+      const { uploadUrl, fileKey } = await storage.getObjectEntityUploadURL(userId);
+      res.json({ uploadUrl, fileKey });
+    } catch (err) {
+      logger.error({ err }, "Failed to generate feedback upload URL");
+      res.status(500).json({ error: "Failed to generate upload URL. Object storage may not be configured." });
+    }
+  },
+);
+
+// ── Session feedback download (student or teacher) ─────────────────────────────
+router.get(
+  "/audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/feedback",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId = getAuth(req).userId!;
+    const enrollmentId = parseId(req.params.enrollmentId);
+    const sessionNumber = parseId(req.params.sessionNumber);
+    if (!enrollmentId || !sessionNumber) {
+      res.status(400).json({ error: "Invalid ids" });
+      return;
+    }
+
+    const [enrollment] = await db
+      .select()
+      .from(programEnrollmentsTable)
+      .where(eq(programEnrollmentsTable.id, enrollmentId));
+    if (!enrollment) { res.status(404).json({ error: "Enrollment not found" }); return; }
+
+    const [program] = await db
+      .select()
+      .from(auditionProgramsTable)
+      .where(eq(auditionProgramsTable.id, enrollment.programId));
+
+    if (enrollment.studentId !== userId && program?.teacherId !== userId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const [note] = await db
+      .select()
+      .from(programSessionNotesTable)
+      .where(
+        and(
+          eq(programSessionNotesTable.enrollmentId, enrollmentId),
+          eq(programSessionNotesTable.sessionNumber, sessionNumber),
+        ),
+      );
+
+    if (!note?.feedbackFileKey) {
+      res.status(404).json({ error: "No feedback file for this session" });
+      return;
+    }
+
+    try {
+      const storage = new ObjectStorageService();
+      const file = await storage.getObjectEntityFile(note.feedbackFileKey);
+      const response = await storage.downloadObject(file);
+
+      res.status(response.status);
+      response.headers.forEach((value, key) => {
+        if (key.toLowerCase() !== "content-disposition") res.setHeader(key, value);
+      });
+      res.setHeader("Content-Disposition", `attachment; filename="feedback-session-${sessionNumber}"`);
+
+      if (response.body) {
+        const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+        nodeStream.pipe(res);
+      } else {
+        res.end();
+      }
+    } catch (err) {
+      if (err instanceof ObjectNotFoundError) {
+        res.status(404).json({ error: "Feedback file not found" });
+      } else {
+        logger.error({ err }, "Failed to download feedback file");
+        res.status(500).json({ error: "Failed to download feedback file" });
+      }
+    }
+  },
+);
 
 // ── Get single program ────────────────────────────────────────────────────────
 router.get("/audition-programs/:id", async (req, res): Promise<void> => {

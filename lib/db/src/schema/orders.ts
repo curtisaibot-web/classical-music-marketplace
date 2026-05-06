@@ -12,7 +12,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "failed",
 ]);
 
-export const orderTypeEnum = pgEnum("order_type", ["digital_product", "masterclass_performer", "masterclass_observer"]);
+export const orderTypeEnum = pgEnum("order_type", ["digital_product", "masterclass_performer", "masterclass_observer", "program_enrollment"]);
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),

@@ -65,6 +65,7 @@ import type {
   ExpenseListResponse,
   ExpenseResponse,
   ForbiddenResponse,
+  GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
   InvoiceListResponse,
@@ -8438,6 +8439,216 @@ export const useCompleteSession = <
 > => {
   return useMutation(getCompleteSessionMutationOptions(options));
 };
+
+/**
+ * @summary Get a presigned URL to upload session feedback (teacher only)
+ */
+export const getGetSessionFeedbackUploadUrlUrl = (
+  enrollmentId: number,
+  sessionNumber: number,
+) => {
+  return `/api/audition-programs/enrollments/${enrollmentId}/sessions/${sessionNumber}/feedback-upload-url`;
+};
+
+export const getSessionFeedbackUploadUrl = async (
+  enrollmentId: number,
+  sessionNumber: number,
+  options?: RequestInit,
+): Promise<GetSessionFeedbackUploadUrl200> => {
+  return customFetch<GetSessionFeedbackUploadUrl200>(
+    getGetSessionFeedbackUploadUrlUrl(enrollmentId, sessionNumber),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getGetSessionFeedbackUploadUrlMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>,
+    TError,
+    { enrollmentId: number; sessionNumber: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>,
+  TError,
+  { enrollmentId: number; sessionNumber: number },
+  TContext
+> => {
+  const mutationKey = ["getSessionFeedbackUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>,
+    { enrollmentId: number; sessionNumber: number }
+  > = (props) => {
+    const { enrollmentId, sessionNumber } = props ?? {};
+
+    return getSessionFeedbackUploadUrl(
+      enrollmentId,
+      sessionNumber,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetSessionFeedbackUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>
+>;
+
+export type GetSessionFeedbackUploadUrlMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get a presigned URL to upload session feedback (teacher only)
+ */
+export const useGetSessionFeedbackUploadUrl = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>,
+    TError,
+    { enrollmentId: number; sessionNumber: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getSessionFeedbackUploadUrl>>,
+  TError,
+  { enrollmentId: number; sessionNumber: number },
+  TContext
+> => {
+  return useMutation(getGetSessionFeedbackUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Download session feedback file (student or teacher)
+ */
+export const getDownloadSessionFeedbackUrl = (
+  enrollmentId: number,
+  sessionNumber: number,
+) => {
+  return `/api/audition-programs/enrollments/${enrollmentId}/sessions/${sessionNumber}/feedback`;
+};
+
+export const downloadSessionFeedback = async (
+  enrollmentId: number,
+  sessionNumber: number,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(
+    getDownloadSessionFeedbackUrl(enrollmentId, sessionNumber),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getDownloadSessionFeedbackQueryKey = (
+  enrollmentId: number,
+  sessionNumber: number,
+) => {
+  return [
+    `/api/audition-programs/enrollments/${enrollmentId}/sessions/${sessionNumber}/feedback`,
+  ] as const;
+};
+
+export const getDownloadSessionFeedbackQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadSessionFeedback>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  enrollmentId: number,
+  sessionNumber: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadSessionFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getDownloadSessionFeedbackQueryKey(enrollmentId, sessionNumber);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadSessionFeedback>>
+  > = ({ signal }) =>
+    downloadSessionFeedback(enrollmentId, sessionNumber, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(enrollmentId && sessionNumber),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadSessionFeedback>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadSessionFeedbackQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadSessionFeedback>>
+>;
+export type DownloadSessionFeedbackQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Download session feedback file (student or teacher)
+ */
+
+export function useDownloadSessionFeedback<
+  TData = Awaited<ReturnType<typeof downloadSessionFeedback>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  enrollmentId: number,
+  sessionNumber: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadSessionFeedback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadSessionFeedbackQueryOptions(
+    enrollmentId,
+    sessionNumber,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Download completion certificate PDF

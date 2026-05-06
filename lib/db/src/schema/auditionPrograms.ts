@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, integer, serial, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { ordersTable } from "./orders";
 
 export const targetLevelEnum = pgEnum("target_level", [
   "undergraduate",
@@ -34,6 +35,7 @@ export const programEnrollmentsTable = pgTable("program_enrollments", {
   studentId: text("student_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   sessionsCompleted: integer("sessions_completed").notNull().default(0),
   status: enrollmentStatusEnum("status").notNull().default("pending"),
+  orderId: integer("order_id").references(() => ordersTable.id, { onDelete: "set null" }),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   paidAt: timestamp("paid_at", { withTimezone: true }),

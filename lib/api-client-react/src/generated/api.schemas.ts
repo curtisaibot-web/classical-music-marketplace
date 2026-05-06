@@ -1630,6 +1630,7 @@ export type ListExpensesParams = {
 export type ListAuditionProgramsParams = {
   instrument?: string;
   targetLevel?: ListAuditionProgramsTargetLevel;
+  teacherId?: string;
   limit?: number;
   offset?: number;
 };
@@ -1642,3 +1643,8 @@ export const ListAuditionProgramsTargetLevel = {
   postgrad: "postgrad",
   professional_orchestra: "professional_orchestra",
 } as const;
+
+export type GetSessionFeedbackUploadUrl200 = {
+  uploadUrl: string;
+  fileKey: string;
+};

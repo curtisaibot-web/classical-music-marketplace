@@ -2118,6 +2118,10 @@ paths:
           schema:
             type: string
             enum: [undergraduate, postgrad, professional_orchestra]
+        - name: teacherId
+          in: query
+          schema:
+            type: string
         - name: limit
           in: query
           schema:
@@ -2344,6 +2348,71 @@ paths:
                 $ref: "#/components/schemas/ProgramEnrollmentDetail"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/enrollments/{enrollmentId}/sessions/{sessionNumber}/feedback-upload-url:
+    post:
+      operationId: getSessionFeedbackUploadUrl
+      tags: [audition-programs]
+      summary: Get a presigned URL to upload session feedback (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sessionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  fileKey:
+                    type: string
+                required: [uploadUrl, fileKey]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/enrollments/{enrollmentId}/sessions/{sessionNumber}/feedback:
+    get:
+      operationId: downloadSessionFeedback
+      tags: [audition-programs]
+      summary: Download session feedback file (student or teacher)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sessionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Feedback file (PDF or audio)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":

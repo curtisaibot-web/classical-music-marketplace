@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListMyAuditionPrograms, useListTeacherEnrollments, useCreateAuditionProgram, useUpdateAuditionProgram, useCompleteSession } from "@workspace/api-client-react";
+import { useListMyAuditionPrograms, useListTeacherEnrollments, useCreateAuditionProgram, useUpdateAuditionProgram, useCompleteSession, useGetSessionFeedbackUploadUrl } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { GraduationCap, Plus, ChevronDown, ChevronUp, CheckCircle2, Clock, Users, BookOpen } from "lucide-react";
+import { GraduationCap, Plus, ChevronDown, ChevronUp, CheckCircle2, Clock, Users, BookOpen, Upload, Paperclip } from "lucide-react";
 import { format } from "date-fns";
 import { usePageMeta } from "@/hooks/use-page-meta";
 
@@ -182,15 +182,36 @@ interface SessionRowProps {
   onMarkComplete: (note: string, fileKey?: string) => Promise<void>;
 }
 
-function SessionRow({ sessionNumber, completedNote, onMarkComplete }: SessionRowProps) {
+function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete }: SessionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState(completedNote?.teacherNote ?? "");
   const [saving, setSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedFileKey, setUploadedFileKey] = useState<string | null>(completedNote?.feedbackFileKey ?? null);
+
+  const getFeedbackUploadUrl = useGetSessionFeedbackUploadUrl();
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onMarkComplete(note);
+      let fileKey = uploadedFileKey;
+
+      if (selectedFile) {
+        const { uploadUrl, fileKey: newKey } = await getFeedbackUploadUrl.mutateAsync({
+          enrollmentId,
+          sessionNumber,
+        });
+        await fetch(uploadUrl, {
+          method: "PUT",
+          body: selectedFile,
+          headers: { "Content-Type": selectedFile.type || "application/octet-stream" },
+        });
+        fileKey = newKey;
+        setUploadedFileKey(newKey);
+        setSelectedFile(null);
+      }
+
+      await onMarkComplete(note, fileKey ?? undefined);
       toast.success(`Session ${sessionNumber} saved!`);
     } catch {
       toast.error("Failed to save session.");
@@ -217,6 +238,9 @@ function SessionRow({ sessionNumber, completedNote, onMarkComplete }: SessionRow
               Completed {format(new Date(completedNote.completedAt), "MMM d, yyyy")}
             </span>
           )}
+          {(uploadedFileKey || completedNote?.feedbackFileKey) && (
+            <Paperclip className="h-3.5 w-3.5 text-primary" />
+          )}
         </div>
         {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
       </button>
@@ -232,8 +256,28 @@ function SessionRow({ sessionNumber, completedNote, onMarkComplete }: SessionRow
               className="mt-1 text-sm"
             />
           </div>
+          <div>
+            <Label className="text-xs">Feedback File (PDF or audio — optional)</Label>
+            <div className="mt-1 flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs border border-border rounded px-3 py-1.5 cursor-pointer hover:bg-muted transition-colors">
+                <Upload className="h-3.5 w-3.5" />
+                {selectedFile ? selectedFile.name : (completedNote?.feedbackFileKey ? "Replace file" : "Choose file")}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.mp3,.wav,.m4a,.aac,.ogg"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {(uploadedFileKey || completedNote?.feedbackFileKey) && !selectedFile && (
+                <span className="text-xs text-green-700 flex items-center gap-1">
+                  <Paperclip className="h-3 w-3" /> File attached
+                </span>
+              )}
+            </div>
+          </div>
           <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : completedNote ? "Update Note" : "Mark Complete"}
+            {saving ? "Saving..." : completedNote ? "Update" : "Mark Complete"}
           </Button>
         </div>
       )}
@@ -259,11 +303,11 @@ function EnrollmentCard({ enrollment, totalSessions, refetchEnrollments }: {
 
   const completedSet = new Map(enrollment.sessionNotes.map((n) => [n.sessionNumber, n]));
 
-  const handleMarkComplete = async (sessionNumber: number, note: string) => {
+  const handleMarkComplete = async (sessionNumber: number, note: string, fileKey?: string) => {
     await completeSession.mutateAsync({
       enrollmentId: enrollment.id,
       sessionNumber,
-      data: { teacherNote: note },
+      data: { teacherNote: note, feedbackFileKey: fileKey },
     });
     refetchEnrollments();
   };
@@ -311,7 +355,7 @@ function EnrollmentCard({ enrollment, totalSessions, refetchEnrollments }: {
                 sessionNumber={sessionNum}
                 totalSessions={totalSessions}
                 completedNote={completedSet.get(sessionNum) ?? null}
-                onMarkComplete={(note) => handleMarkComplete(sessionNum, note)}
+                onMarkComplete={(note, fileKey) => handleMarkComplete(sessionNum, note, fileKey)}
               />
             ))}
           </div>
