@@ -10,7 +10,9 @@ import { sendEmail } from "../lib/email";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 
-const MAX_CAMPAIGN_DAYS = 60;
+// Keep campaigns within Stripe's authorization validity window (~7 days on most networks).
+// Manual-capture PaymentIntents are authorized at checkout; captured on success.
+const MAX_CAMPAIGN_DAYS = 7;
 const PLATFORM_FEE_RATE = 0.08;
 
 const router: IRouter = Router();
@@ -23,9 +25,9 @@ async function getCampaignTicketCount(campaignId: number): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
-// Atomically claim a campaign status transition FROM active.
-// Uses UPDATE...WHERE status='active' RETURNING (single atomic DB round-trip).
-// Returns true only if this caller won; false if already transitioned.
+// Atomically claim a campaign status transition FROM "active".
+// Uses UPDATE...WHERE status='active' RETURNING — single atomic DB round-trip.
+// Returns true only if this caller won the transition; false if already transitioned.
 async function atomicTransitionFromActive(
   campaignId: number,
   newStatus: "settling" | "failed" | "cancelled",
@@ -38,29 +40,30 @@ async function atomicTransitionFromActive(
   return !!row;
 }
 
-// Classify Stripe errors: card declines are permanent failures for this ticket.
-// Transient errors (network, Stripe outage) should be retried.
-function isStripeCardDecline(err: unknown): boolean {
-  if (err && typeof err === "object" && "type" in err) {
-    const e = err as { type: string };
-    return e.type === "StripeCardError";
-  }
-  return false;
+// Classify Stripe errors: permanent (card decline, invalid request) vs transient (network).
+// Permanent failures are cancelled immediately; transient ones are left for sweep retry.
+function isCapturePermanentFailure(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { type?: string };
+  // StripeCardError: insufficient funds, card blocked, authentication required, etc.
+  // StripeInvalidRequestError: auth expired, PI in wrong state (e.g., already captured/cancelled)
+  return e.type === "StripeCardError" || e.type === "StripeInvalidRequestError";
 }
 
 // ─── Campaign success processing ──────────────────────────────────────────────
 //
-// Flow (SetupIntent / off-session):
-//  1. Active + goal met  → atomically transition to "settling" (prevents concurrent double-entry)
-//  2. Already settling   → proceed directly to settlement (retry path from sweep)
-//  3. For each "authorised" ticket: create+confirm off-session PaymentIntent
-//     - Idempotency key per ticket makes this safe to retry without double-charging
-//     - Card decline  → ticket cancelled (permanent; no retry)
-//     - Transient err → ticket left "authorised" for next sweep retry
+// Manual-capture flow:
+//  1. Active + goal met → atomically transition to "settling" (prevents concurrent double-entry)
+//  2. Already "settling" → proceed directly (retry path from hourly sweep)
+//  3. For each "authorised" ticket:
+//     - Capture PI using per-ticket idempotency key (Stripe returns same result on retry)
+//     - Capture succeeds → mark ticket "captured"
+//     - Permanent failure (card decline, expired auth) → cancel PI, mark ticket "cancelled"
+//     - Transient error (network/Stripe outage) → leave "authorised" for next sweep retry
 //  4. When zero "authorised" tickets remain → transition settling → succeeded
-//     - Stores all captured PI IDs on the campaign record
+//     - Stores all captured PI IDs on campaign for audit
 //     - Sends QR confirmation emails for captured tickets
-//  5. If "authorised" tickets still remain → logged; sweep will retry
+//  5. If "authorised" tickets still remain → logged; next sweep will retry
 
 export async function processCampaignSuccess(campaignId: number): Promise<void> {
   const [campaign] = await db
@@ -76,101 +79,107 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
     const ticketsSold = await getCampaignTicketCount(campaignId);
     if (ticketsSold < campaign.goalCount) return;
 
-    // Atomically claim the settling transition — only one concurrent processor wins
+    // Atomically claim settling — concurrent processors (webhook + sweep) both attempt this;
+    // only one wins. The loser exits immediately with no Stripe calls made.
     const won = await atomicTransitionFromActive(campaignId, "settling");
     if (!won) {
-      logger.info({ campaignId }, "Campaign transition to settling already claimed — skipping");
+      logger.info({ campaignId }, "Campaign settling transition already claimed — skipping");
       return;
     }
-    logger.info({ campaignId, ticketsSold, goalCount: campaign.goalCount }, "Campaign transitioning to settling — beginning settlement");
+    logger.info({ campaignId, goalCount: campaign.goalCount }, "Campaign transitioning to settling — capturing authorizations");
   } else {
-    logger.info({ campaignId }, "Campaign already settling — resuming settlement (retry path)");
+    logger.info({ campaignId }, "Campaign already settling — resuming capture (retry path)");
   }
 
-  const tickets = await db.select().from(campaignTicketsTable).where(
-    and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "authorised")),
-  );
+  const tickets = await db
+    .select()
+    .from(campaignTicketsTable)
+    .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "authorised")));
 
   const stripe = await getUncachableStripeClient();
-  let settledCount = 0;
-  let declinedCount = 0;
+  let capturedCount = 0;
+  let permanentFailures = 0;
   let transientFailures = 0;
 
   for (const ticket of tickets) {
-    if (!ticket.stripePaymentMethodId || !ticket.stripeCustomerId) {
-      logger.error({ campaignId, ticketId: ticket.id }, "Ticket missing payment method or customer ID — cannot charge; marking cancelled");
-      await db.update(campaignTicketsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
-      declinedCount++;
+    if (!ticket.stripePaymentIntentId) {
+      // Data integrity gap — no PI ID; leave authorised for manual reconciliation
+      logger.error({ campaignId, ticketId: ticket.id }, "Ticket has no PaymentIntent ID — skipping; manual reconciliation required");
+      transientFailures++;
       continue;
     }
 
     try {
-      // Idempotency key: safe to retry — Stripe returns same PI for duplicate key
-      const pi = await stripe.paymentIntents.create(
-        {
-          amount: ticket.totalPriceCents,
-          currency: "usd",
-          customer: ticket.stripeCustomerId,
-          payment_method: ticket.stripePaymentMethodId,
-          off_session: true,
-          confirm: true,
-          metadata: {
-            ticket_id: String(ticket.id),
-            campaign_id: String(campaignId),
-          },
-        },
-        { idempotencyKey: `campaign_settle_${campaignId}_${ticket.id}` },
+      // Idempotency key: safe to retry — Stripe returns cached result for duplicate key
+      await stripe.paymentIntents.capture(
+        ticket.stripePaymentIntentId,
+        {},
+        { idempotencyKey: `campaign_capture_${campaignId}_${ticket.id}` },
       );
-
       await db.update(campaignTicketsTable)
-        .set({ status: "captured", stripePaymentIntentId: pi.id, updatedAt: new Date() })
+        .set({ status: "captured", updatedAt: new Date() })
         .where(eq(campaignTicketsTable.id, ticket.id));
-      settledCount++;
-    } catch (err) {
-      if (isStripeCardDecline(err)) {
-        declinedCount++;
-        logger.warn({ campaignId, ticketId: ticket.id }, "Card declined during settlement — ticket cancelled (no retry)");
+      capturedCount++;
+    } catch (captureErr) {
+      if (isCapturePermanentFailure(captureErr)) {
+        // Permanent failure — release the auth hold and mark ticket cancelled
+        permanentFailures++;
+        logger.warn({ captureErr, campaignId, ticketId: ticket.id, piId: ticket.stripePaymentIntentId },
+          "Capture permanently failed — cancelling authorization and marking ticket cancelled");
+        try {
+          await stripe.paymentIntents.cancel(
+            ticket.stripePaymentIntentId,
+            {},
+            { idempotencyKey: `campaign_capture_cancel_${campaignId}_${ticket.id}` },
+          );
+        } catch (cancelErr) {
+          logger.error({ cancelErr, ticketId: ticket.id }, "Failed to cancel PI after permanent capture failure — manual action required");
+        }
         await db.update(campaignTicketsTable)
           .set({ status: "cancelled", updatedAt: new Date() })
           .where(eq(campaignTicketsTable.id, ticket.id));
       } else {
+        // Transient error — leave "authorised" so next sweep retry can attempt capture again
         transientFailures++;
-        logger.error({ err, campaignId, ticketId: ticket.id }, "Transient error during settlement — ticket left authorised for next retry");
+        logger.error({ captureErr, campaignId, ticketId: ticket.id },
+          "Transient error during capture — ticket left authorised for next sweep retry");
       }
     }
   }
 
-  // Check if all tickets are now terminal (captured or cancelled)
+  // Check if all tickets are now terminal (no more "authorised" rows)
   const [{ remaining }] = await db
     .select({ remaining: count() })
     .from(campaignTicketsTable)
     .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "authorised")));
 
   if (Number(remaining) > 0) {
-    logger.warn({ campaignId, remaining: Number(remaining), settledCount, declinedCount, transientFailures },
-      "Settlement incomplete — authorised tickets remain; will retry on next sweep");
+    logger.warn({ campaignId, remaining: Number(remaining), capturedCount, permanentFailures, transientFailures },
+      "Settlement incomplete — authorised tickets remain; sweep will retry");
     return;
   }
 
-  // Collect all captured PI IDs (including any from previous retry runs)
+  // Collect all captured PI IDs across all settlement runs (idempotent retries may have added more)
   const capturedRows = await db
-    .select({ piId: campaignTicketsTable.stripePaymentIntentId, ticketId: campaignTicketsTable.id })
+    .select({ piId: campaignTicketsTable.stripePaymentIntentId })
     .from(campaignTicketsTable)
     .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "captured")));
-
   const allPiIds = capturedRows.map((r) => r.piId).filter(Boolean) as string[];
 
+  // Transition settling → succeeded (idempotent — only updates if still settling)
   await db.update(concertCampaignsTable)
     .set({ status: "succeeded", stripePaymentIntentIds: allPiIds, updatedAt: new Date() })
     .where(and(eq(concertCampaignsTable.id, campaignId), eq(concertCampaignsTable.status, "settling")));
 
-  logger.info({ campaignId, captured: settledCount, declined: declinedCount, totalPiIds: allPiIds.length },
+  logger.info({ campaignId, captured: capturedCount, declined: permanentFailures, totalPiIds: allPiIds.length },
     "Campaign succeeded — all payments settled");
 
   // Send confirmation emails for captured tickets
-  const capturedTickets = await db.select().from(campaignTicketsTable).where(
-    and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "captured")),
-  );
+  const capturedTickets = await db
+    .select()
+    .from(campaignTicketsTable)
+    .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "captured")));
+
   for (const ticket of capturedTickets) {
     if (!ticket.buyerEmail) continue;
     try {
@@ -194,8 +203,8 @@ ${campaign.venueName ? `<p><strong>Venue:</strong> ${campaign.venueName}</p>` : 
 }
 
 // ─── Campaign failure processing ──────────────────────────────────────────────
-// Atomically locks active → failed, then detaches all saved payment methods
-// (no PaymentIntent exists to cancel — SetupIntent flow charges only on success).
+// Atomically transitions active → failed, then cancels all authorization holds
+// so fans' cards are released immediately.
 
 export async function processCampaignFailure(campaignId: number): Promise<void> {
   const won = await atomicTransitionFromActive(campaignId, "failed");
@@ -204,33 +213,43 @@ export async function processCampaignFailure(campaignId: number): Promise<void> 
     return;
   }
 
-  const tickets = await db.select().from(campaignTicketsTable).where(
-    and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "authorised")),
-  );
+  const tickets = await db
+    .select()
+    .from(campaignTicketsTable)
+    .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "authorised")));
 
   const stripe = await getUncachableStripeClient();
-  const [campaign] = await db.select({ title: concertCampaignsTable.title }).from(concertCampaignsTable).where(eq(concertCampaignsTable.id, campaignId));
+  const [campaign] = await db
+    .select({ title: concertCampaignsTable.title })
+    .from(concertCampaignsTable)
+    .where(eq(concertCampaignsTable.id, campaignId));
 
   for (const ticket of tickets) {
     try {
-      if (ticket.stripePaymentMethodId && ticket.stripeCustomerId) {
-        await stripe.paymentMethods.detach(ticket.stripePaymentMethodId);
+      if (ticket.stripePaymentIntentId) {
+        await stripe.paymentIntents.cancel(
+          ticket.stripePaymentIntentId,
+          {},
+          { idempotencyKey: `campaign_cancel_${campaignId}_${ticket.id}` },
+        );
       }
-      await db.update(campaignTicketsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
+      await db.update(campaignTicketsTable)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(campaignTicketsTable.id, ticket.id));
       if (ticket.buyerEmail) {
         await sendEmail({
           to: ticket.buyerEmail,
           subject: `Campaign update — ${campaign?.title ?? "your campaign"}`,
           html: `<p>Hi ${ticket.buyerName ?? "there"},</p>
-<p>The crowdfunding campaign for <strong>${campaign?.title ?? "the concert"}</strong> did not reach its goal. Your saved payment method has been removed — no charge was ever made.</p>
+<p>The crowdfunding campaign for <strong>${campaign?.title ?? "the concert"}</strong> did not reach its goal. Your card authorization has been cancelled — no charge was made.</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
         }).catch((e) => logger.error({ e, ticketId: ticket.id }, "Failed to send failure email"));
       }
     } catch (err) {
-      logger.error({ err, ticketId: ticket.id }, "Failed to detach payment method for failed campaign");
+      logger.error({ err, ticketId: ticket.id }, "Failed to cancel PI for failed campaign — manual action required");
     }
   }
-  logger.info({ campaignId }, "Campaign failed — payment methods detached");
+  logger.info({ campaignId }, "Campaign failed — authorization holds cancelled");
 }
 
 // ─── Public routes ─────────────────────────────────────────────────────────────
@@ -274,20 +293,32 @@ router.get("/campaigns", async (req, res): Promise<void> => {
   }
 });
 
-// /campaigns/my before /campaigns/:id — prevents Express treating "my" as a numeric ID
+// /campaigns/my must be before /campaigns/:id — prevents Express treating "my" as a numeric ID
 router.get("/campaigns/my", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
   try {
-    const campaigns = await db.select().from(concertCampaignsTable).where(eq(concertCampaignsTable.teacherId, userId)).orderBy(concertCampaignsTable.createdAt);
+    const campaigns = await db
+      .select()
+      .from(concertCampaignsTable)
+      .where(eq(concertCampaignsTable.teacherId, userId))
+      .orderBy(concertCampaignsTable.createdAt);
 
     const withStats = await Promise.all(campaigns.map(async (c) => {
       const ticketsSold = await getCampaignTicketCount(c.id);
-      const [backerRow] = await db.select({ count: count() }).from(campaignTicketsTable).where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
+      const [backerRow] = await db.select({ count: count() }).from(campaignTicketsTable)
+        .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
       const grossRaisedCents = ticketsSold * c.ticketPriceCents;
       const platformFeeCents = Math.round(grossRaisedCents * PLATFORM_FEE_RATE);
-      return { ...c, ticketsSold, backerCount: Number(backerRow?.count ?? 0), grossRaisedCents, platformFeeCents, netRaisedCents: grossRaisedCents - platformFeeCents };
+      return {
+        ...c,
+        ticketsSold,
+        backerCount: Number(backerRow?.count ?? 0),
+        grossRaisedCents,
+        platformFeeCents,
+        netRaisedCents: grossRaisedCents - platformFeeCents,
+      };
     }));
 
     res.json({ campaigns: withStats });
@@ -328,7 +359,8 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
     if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
     const ticketsSold = await getCampaignTicketCount(id);
-    const [backerRow] = await db.select({ count: count() }).from(campaignTicketsTable).where(and(eq(campaignTicketsTable.campaignId, id), ne(campaignTicketsTable.status, "cancelled")));
+    const [backerRow] = await db.select({ count: count() }).from(campaignTicketsTable)
+      .where(and(eq(campaignTicketsTable.campaignId, id), ne(campaignTicketsTable.status, "cancelled")));
 
     res.json({ ...campaign, ticketsSold, backerCount: Number(backerRow?.count ?? 0) });
   } catch (err) {
@@ -368,7 +400,9 @@ router.post("/campaigns", requireAuth, requireRole("teacher"), async (req, res):
       .insert(concertCampaignsTable)
       .values({ teacherId: userId, title, description, coverImageUrl, scheduledDate, venueName, ticketPriceCents, goalCount, deadlineAt: deadline })
       .returning();
-    res.status(201).json({ campaign: { ...campaign, ticketsSold: 0, backerCount: 0, grossRaisedCents: 0, platformFeeCents: 0, netRaisedCents: 0 } });
+    res.status(201).json({
+      campaign: { ...campaign, ticketsSold: 0, backerCount: 0, grossRaisedCents: 0, platformFeeCents: 0, netRaisedCents: 0 },
+    });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign");
     res.status(500).json({ error: "Failed to create campaign" });
@@ -381,14 +415,21 @@ router.patch("/campaigns/:id", requireAuth, requireRole("teacher"), async (req, 
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
 
-  const [campaign] = await db.select().from(concertCampaignsTable).where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
+  const [campaign] = await db.select().from(concertCampaignsTable)
+    .where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
   if (campaign.status !== "active") { res.status(400).json({ error: "Only active campaigns can be updated" }); return; }
 
   const { title, description, coverImageUrl, scheduledDate, venueName } = req.body as Record<string, string>;
-  const [updated] = await db
-    .update(concertCampaignsTable)
-    .set({ title: title ?? campaign.title, description: description ?? campaign.description, coverImageUrl: coverImageUrl ?? campaign.coverImageUrl, scheduledDate: scheduledDate ?? campaign.scheduledDate, venueName: venueName ?? campaign.venueName, updatedAt: new Date() })
+  const [updated] = await db.update(concertCampaignsTable)
+    .set({
+      title: title ?? campaign.title,
+      description: description ?? campaign.description,
+      coverImageUrl: coverImageUrl ?? campaign.coverImageUrl,
+      scheduledDate: scheduledDate ?? campaign.scheduledDate,
+      venueName: venueName ?? campaign.venueName,
+      updatedAt: new Date(),
+    })
     .where(eq(concertCampaignsTable.id, id))
     .returning();
 
@@ -404,7 +445,8 @@ router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async 
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
 
-  const [campaign] = await db.select().from(concertCampaignsTable).where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
+  const [campaign] = await db.select().from(concertCampaignsTable)
+    .where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
   if (campaign.status !== "active") { res.status(400).json({ error: "Only active campaigns can be cancelled" }); return; }
 
@@ -412,27 +454,33 @@ router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async 
     const won = await atomicTransitionFromActive(id, "cancelled");
     if (!won) { res.status(409).json({ error: "Campaign already transitioned" }); return; }
 
-    const tickets = await db.select().from(campaignTicketsTable).where(
-      and(eq(campaignTicketsTable.campaignId, id), eq(campaignTicketsTable.status, "authorised")),
-    );
+    const tickets = await db.select().from(campaignTicketsTable)
+      .where(and(eq(campaignTicketsTable.campaignId, id), eq(campaignTicketsTable.status, "authorised")));
     const stripe = await getUncachableStripeClient();
+
     for (const ticket of tickets) {
       try {
-        if (ticket.stripePaymentMethodId) {
-          await stripe.paymentMethods.detach(ticket.stripePaymentMethodId);
+        if (ticket.stripePaymentIntentId) {
+          await stripe.paymentIntents.cancel(
+            ticket.stripePaymentIntentId,
+            {},
+            { idempotencyKey: `campaign_cancel_${id}_${ticket.id}` },
+          );
         }
-        await db.update(campaignTicketsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
+        await db.update(campaignTicketsTable)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(eq(campaignTicketsTable.id, ticket.id));
         if (ticket.buyerEmail) {
           await sendEmail({
             to: ticket.buyerEmail,
             subject: `Campaign cancelled — ${campaign.title}`,
             html: `<p>Hi ${ticket.buyerName ?? "there"},</p>
-<p>The campaign for <strong>${campaign.title}</strong> was cancelled by the organizer. Your saved payment method has been removed — no charge was made.</p>
+<p>The campaign for <strong>${campaign.title}</strong> was cancelled. Your card authorization has been cancelled — no charge was made.</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
           }).catch((e) => logger.error({ e, ticketId: ticket.id }, "Failed to send cancel email"));
         }
       } catch (err) {
-        logger.error({ err, ticketId: ticket.id }, "Failed to detach PM during cancellation");
+        logger.error({ err, ticketId: ticket.id }, "Failed to cancel PI during campaign cancellation");
       }
     }
     res.json({ success: true });
@@ -448,27 +496,25 @@ router.get("/campaigns/:id/tickets", requireAuth, requireRole("teacher"), async 
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
 
-  const [campaign] = await db.select().from(concertCampaignsTable).where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
+  const [campaign] = await db.select().from(concertCampaignsTable)
+    .where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
   if (!campaign) { res.status(404).json({ error: "Campaign not found or access denied" }); return; }
 
-  const tickets = await db
-    .select()
-    .from(campaignTicketsTable)
+  const tickets = await db.select().from(campaignTicketsTable)
     .where(and(eq(campaignTicketsTable.campaignId, id), ne(campaignTicketsTable.status, "cancelled")))
     .orderBy(campaignTicketsTable.createdAt);
 
   res.json({ tickets });
 });
 
-// ─── Fan checkout (SetupIntent — save card now, charge on success) ────────────
+// ─── Fan checkout (manual-capture PaymentIntent) ──────────────────────────────
 //
-// The fan's card is saved at checkout via Stripe SetupIntent. No charge occurs
-// at purchase. On campaign success, we create+confirm an off-session PaymentIntent
-// per ticket using the stored payment method. On failure, the PM is detached.
+// Card is authorized (held) at checkout with capture_method:"manual".
+// No funds are moved at purchase time. On campaign success, the PI is captured
+// (funds transferred). On failure/cancel, the PI is cancelled (authorization released).
 //
-// This model supports campaigns up to 60 days without authorization expiry risk,
-// since SetupIntents have no time limit — only the off-session PI at success time
-// has the 7-day auth window, which is irrelevant here (we create+confirm immediately).
+// Campaign deadline is capped at MAX_CAMPAIGN_DAYS (7) days so authorizations
+// remain valid through the entire campaign window before capture is attempted.
 
 router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -496,13 +542,6 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
   try {
     const stripe = await getUncachableStripeClient();
 
-    // Create a Stripe Customer so the saved payment method is attached to an identity
-    const customer = await stripe.customers.create({
-      email: buyerEmail || undefined,
-      name: buyerName || undefined,
-      metadata: { buyer_id: userId },
-    });
-
     const meta: Record<string, string> = {
       type: "campaign_ticket",
       campaign_id: String(id),
@@ -513,18 +552,32 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
       buyer_name: buyerName,
       total_price_cents: String(totalPriceCents),
       platform_fee_cents: String(platformFeeCents),
-      stripe_customer_id: customer.id,
     };
 
     const session = await stripe.checkout.sessions.create({
-      mode: "setup",
-      customer: customer.id,
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `${campaign.title} — Crowdfunding Ticket${quantity > 1 ? ` (×${quantity})` : ""}`,
+            description: `Authorized now, only charged if the campaign reaches ${campaign.goalCount} tickets by deadline. Authorization released if goal is not met.`,
+          },
+          unit_amount: campaign.ticketPriceCents,
+        },
+        quantity,
+      }],
+      payment_intent_data: {
+        capture_method: "manual",
+        metadata: meta,
+      },
       metadata: meta,
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
 
-    logger.info({ campaignId: id, sessionId: session.id, quantity, totalPriceCents, platformFeeCents }, "Campaign checkout session created (SetupIntent)");
+    logger.info({ campaignId: id, sessionId: session.id, quantity, totalPriceCents }, "Campaign checkout session created (manual-capture authorization)");
     res.json({ checkoutUrl: session.url });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign checkout");
@@ -533,13 +586,12 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
 });
 
 // ─── Deadline sweep ───────────────────────────────────────────────────────────
-// Called periodically (e.g., hourly cron). Processes:
-// 1. Active campaigns past their deadline — succeed or fail them
-// 2. Settling campaigns — retry settlement for tickets with transient errors
+// Runs periodically (e.g., hourly). Two passes:
+//  1. Active campaigns past deadline → succeed or fail
+//  2. Settling campaigns → retry captures for tickets with transient errors
 
 export async function expireDeadlinedCampaigns(): Promise<void> {
   try {
-    // Process active campaigns that missed their deadline
     const deadlined = await db
       .select({ id: concertCampaignsTable.id, goalCount: concertCampaignsTable.goalCount })
       .from(concertCampaignsTable)
@@ -565,7 +617,7 @@ export async function expireDeadlinedCampaigns(): Promise<void> {
       logger.info({ deadlined: deadlined.length, retried: settling.length }, "Campaign sweep completed");
     }
   } catch (err) {
-    logger.error({ err }, "Failed to process deadlined campaigns");
+    logger.error({ err }, "Failed to sweep campaigns");
   }
 }
 
