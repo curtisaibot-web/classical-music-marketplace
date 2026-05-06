@@ -15,6 +15,7 @@ export interface EventTeacher {
   reviewCount: number;
   isVerified: boolean;
   profileImageUrl: string | null;
+  lastMinuteAvailable?: boolean;
   user?: {
     firstName: string | null;
     lastName: string | null;
@@ -66,6 +67,7 @@ export interface ListEventsParams {
   instrument?: string;
   city?: string;
   eventType?: string;
+  lastMinute?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -82,8 +84,44 @@ export interface CreateEventBookingRequestBody {
   instrument?: string;
 }
 
+export interface EventBookingResponse {
+  id: number;
+  studentId: string;
+  teacherId: string;
+  listingId: number | null;
+  type: string;
+  status: string;
+  priceInCents: number;
+  platformFeeInCents: number;
+  surgePercent: number | null;
+  surgeAmountInCents: number | null;
+  expiresAt: string | null;
+  currency: string;
+  eventType: string | null;
+  eventDate: string | null;
+  eventLocation: string | null;
+  headcount: number | null;
+  durationMinutes: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface AvailabilityResponse {
   bookedDates: Date[];
+}
+
+export interface LastMinuteAvailabilityBody {
+  lastMinuteAvailable: boolean;
+  lastMinuteFromDate?: string | null;
+  lastMinuteToDate?: string | null;
+  minNoticeHours?: number;
+}
+
+export interface LastMinuteAvailabilityResponse {
+  lastMinuteAvailable: boolean;
+  lastMinuteFromDate: string | null;
+  lastMinuteToDate: string | null;
+  minNoticeHours: number;
 }
 
 export const getListEventsQueryKey = (params?: ListEventsParams) =>
@@ -94,6 +132,9 @@ export const getGetEventQueryKey = (id: number) =>
 
 export const getEventAvailabilityQueryKey = (teacherId: string) =>
   ["event-availability", teacherId] as const;
+
+export const getLastMinuteAvailabilityQueryKey = () =>
+  ["last-minute-availability"] as const;
 
 function buildQueryString(params?: Record<string, unknown>): string {
   if (!params) return "";
@@ -143,13 +184,39 @@ export function useCreateEventBookingRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateEventBookingRequestBody) =>
-      customFetch("/api/event-booking-requests", {
+      customFetch<EventBookingResponse>("/api/event-booking-requests", {
         method: "POST",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
+    },
+  });
+}
+
+export function useGetLastMinuteAvailability(
+  options?: Partial<UseQueryOptions<LastMinuteAvailabilityResponse>>
+) {
+  return useQuery<LastMinuteAvailabilityResponse>({
+    queryKey: getLastMinuteAvailabilityQueryKey(),
+    queryFn: () =>
+      customFetch<LastMinuteAvailabilityResponse>("/api/teachers/me/last-minute"),
+    ...options,
+  });
+}
+
+export function useUpdateLastMinuteAvailability() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: LastMinuteAvailabilityBody) =>
+      customFetch<LastMinuteAvailabilityResponse>("/api/teachers/me/last-minute", {
+        method: "PUT",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getLastMinuteAvailabilityQueryKey() });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, or, ilike, inArray, count } from "drizzle-orm";
+import { eq, and, or, ilike, inArray, count, lte, gte, isNull } from "drizzle-orm";
 import {
   db,
   bookingsTable,
@@ -14,6 +14,10 @@ import { requireAuth } from "../middlewares/requireAuth";
 const router: IRouter = Router();
 
 const PLATFORM_FEE_RATE = 0.15;
+const LAST_MINUTE_PLATFORM_FEE_RATE = 0.20;
+const LAST_MINUTE_THRESHOLD_HOURS = 72;
+const LAST_MINUTE_SURGE_PERCENT = 25;
+const ACCEPTANCE_WINDOW_HOURS = 2;
 
 function parseIntOrUndefined(val: unknown): number | undefined {
   if (val === undefined || val === null || val === "") return undefined;
@@ -72,6 +76,7 @@ function buildEventListing(
           reviewCount: profile.reviewCount,
           isVerified: profile.isVerified,
           profileImageUrl: profile.profileImageUrl,
+          lastMinuteAvailable: profile.lastMinuteAvailable,
           user: user
             ? {
                 firstName: user.firstName,
@@ -100,8 +105,9 @@ router.get("/events", async (req, res): Promise<void> => {
     typeof req.query.eventType === "string" && req.query.eventType
       ? req.query.eventType
       : undefined;
+  const lastMinute = req.query.lastMinute === "true";
 
-  const conditions: ReturnType<typeof eq>[] = [
+  const conditions = [
     eq(listingsTable.type, "event"),
     eq(listingsTable.status, "active"),
   ];
@@ -109,10 +115,31 @@ router.get("/events", async (req, res): Promise<void> => {
   if (instrument) conditions.push(ilike(listingsTable.instrument, `%${instrument}%`));
   if (city) conditions.push(ilike(listingsTable.city, `%${city}%`));
 
+  if (lastMinute) {
+    const now = new Date();
+    conditions.push(eq(teacherProfilesTable.lastMinuteAvailable, true));
+    conditions.push(
+      or(
+        isNull(teacherProfilesTable.lastMinuteFromDate),
+        lte(teacherProfilesTable.lastMinuteFromDate, now),
+      )!,
+    );
+    conditions.push(
+      or(
+        isNull(teacherProfilesTable.lastMinuteToDate),
+        gte(teacherProfilesTable.lastMinuteToDate, now),
+      )!,
+    );
+  }
+
   const where = and(...conditions);
 
   const [totalRow, rows] = await Promise.all([
-    db.select({ count: count() }).from(listingsTable).where(where),
+    db
+      .select({ count: count() })
+      .from(listingsTable)
+      .leftJoin(teacherProfilesTable, eq(listingsTable.teacherId, teacherProfilesTable.userId))
+      .where(where),
     db
       .select()
       .from(listingsTable)
@@ -262,7 +289,7 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
     : typeof body.listingId === "string" ? parseInt(body.listingId, 10)
     : undefined;
 
-  let priceInCents = 0;
+  let basePriceInCents = 0;
   if (listingId && !isNaN(listingId)) {
     const [listing] = await db
       .select()
@@ -276,10 +303,31 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
       res.status(400).json({ error: "Invalid listingId: listing does not belong to the specified teacher" });
       return;
     }
-    priceInCents = listing.priceInCents;
+    basePriceInCents = listing.priceInCents;
   }
 
-  const platformFeeInCents = Math.round(priceInCents * PLATFORM_FEE_RATE);
+  // Determine if this is a last-minute booking (event within 72 hours)
+  const now = new Date();
+  const hoursUntilEvent = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const isLastMinute = hoursUntilEvent < LAST_MINUTE_THRESHOLD_HOURS;
+
+  let surgePercent: number | null = null;
+  let surgeAmountInCents: number | null = null;
+  let expiresAt: Date | null = null;
+  let platformFeeRate = PLATFORM_FEE_RATE;
+
+  if (isLastMinute) {
+    surgePercent = LAST_MINUTE_SURGE_PERCENT;
+    surgeAmountInCents = Math.round(basePriceInCents * (surgePercent / 100));
+    expiresAt = new Date(now.getTime() + ACCEPTANCE_WINDOW_HOURS * 60 * 60 * 1000);
+    platformFeeRate = LAST_MINUTE_PLATFORM_FEE_RATE;
+
+    // Email notification placeholder — swap with real provider when configured
+    console.log(`[NOTIFICATION][last-minute] Teacher ${body.teacherId as string} has a new last-minute booking request for ${eventDate.toISOString()}. Acceptance window until ${expiresAt.toISOString()}.`);
+  }
+
+  const priceInCents = basePriceInCents + (surgeAmountInCents ?? 0);
+  const platformFeeInCents = Math.round(priceInCents * platformFeeRate);
 
   const [booking] = await db
     .insert(bookingsTable)
@@ -291,6 +339,9 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
       status: "pending",
       priceInCents,
       platformFeeInCents,
+      surgePercent,
+      surgeAmountInCents,
+      expiresAt,
       eventType: body.eventType as string,
       eventDate,
       eventLocation: body.eventLocation as string,

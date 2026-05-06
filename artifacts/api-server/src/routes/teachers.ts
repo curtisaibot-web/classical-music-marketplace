@@ -269,6 +269,102 @@ router.put("/teachers/me/slug", requireAuth, async (req, res): Promise<void> => 
   res.json(GetMyTeacherProfileResponse.parse({ ...result!.teacher_profiles, user: result!.users }));
 });
 
+router.get("/teachers/me/last-minute", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const [profile] = await db
+    .select({
+      lastMinuteAvailable: teacherProfilesTable.lastMinuteAvailable,
+      lastMinuteFromDate: teacherProfilesTable.lastMinuteFromDate,
+      lastMinuteToDate: teacherProfilesTable.lastMinuteToDate,
+      minNoticeHours: teacherProfilesTable.minNoticeHours,
+    })
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, userId));
+
+  if (!profile) {
+    res.status(404).json({ error: "Teacher profile not found" });
+    return;
+  }
+
+  res.json({
+    lastMinuteAvailable: profile.lastMinuteAvailable,
+    lastMinuteFromDate: profile.lastMinuteFromDate?.toISOString() ?? null,
+    lastMinuteToDate: profile.lastMinuteToDate?.toISOString() ?? null,
+    minNoticeHours: profile.minNoticeHours,
+  });
+});
+
+router.put("/teachers/me/last-minute", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const body = req.body as {
+    lastMinuteAvailable?: unknown;
+    lastMinuteFromDate?: unknown;
+    lastMinuteToDate?: unknown;
+    minNoticeHours?: unknown;
+  };
+
+  if (typeof body.lastMinuteAvailable !== "boolean") {
+    res.status(400).json({ error: "lastMinuteAvailable (boolean) is required" });
+    return;
+  }
+
+  const lastMinuteFromDate =
+    typeof body.lastMinuteFromDate === "string" && body.lastMinuteFromDate
+      ? new Date(body.lastMinuteFromDate)
+      : null;
+  const lastMinuteToDate =
+    typeof body.lastMinuteToDate === "string" && body.lastMinuteToDate
+      ? new Date(body.lastMinuteToDate)
+      : null;
+
+  if (lastMinuteFromDate && isNaN(lastMinuteFromDate.getTime())) {
+    res.status(400).json({ error: "lastMinuteFromDate must be a valid date" });
+    return;
+  }
+  if (lastMinuteToDate && isNaN(lastMinuteToDate.getTime())) {
+    res.status(400).json({ error: "lastMinuteToDate must be a valid date" });
+    return;
+  }
+
+  const minNoticeHours =
+    typeof body.minNoticeHours === "number" && body.minNoticeHours > 0
+      ? Math.round(body.minNoticeHours)
+      : 72;
+
+  const [updated] = await db
+    .update(teacherProfilesTable)
+    .set({
+      lastMinuteAvailable: body.lastMinuteAvailable as boolean,
+      lastMinuteFromDate,
+      lastMinuteToDate,
+      minNoticeHours,
+      updatedAt: new Date(),
+    })
+    .where(eq(teacherProfilesTable.userId, userId))
+    .returning({
+      lastMinuteAvailable: teacherProfilesTable.lastMinuteAvailable,
+      lastMinuteFromDate: teacherProfilesTable.lastMinuteFromDate,
+      lastMinuteToDate: teacherProfilesTable.lastMinuteToDate,
+      minNoticeHours: teacherProfilesTable.minNoticeHours,
+    });
+
+  if (!updated) {
+    res.status(404).json({ error: "Teacher profile not found" });
+    return;
+  }
+
+  res.json({
+    lastMinuteAvailable: updated.lastMinuteAvailable,
+    lastMinuteFromDate: updated.lastMinuteFromDate?.toISOString() ?? null,
+    lastMinuteToDate: updated.lastMinuteToDate?.toISOString() ?? null,
+    minNoticeHours: updated.minNoticeHours,
+  });
+});
+
 router.get("/teachers/:userId", async (req, res): Promise<void> => {
   const rawId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
 

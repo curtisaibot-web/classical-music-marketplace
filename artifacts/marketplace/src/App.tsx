@@ -28,6 +28,7 @@ import TeacherProfileEdit from "@/pages/teacher/profile-edit";
 import BrowseListings from "@/pages/browse";
 import Events from "@/pages/events";
 import EventDetail from "@/pages/events/detail";
+import Gigs from "@/pages/gigs";
 import MusicianProfile from "@/pages/musicians/slug";
 import PaymentSuccess from "@/pages/payment/success";
 import PaymentCancel from "@/pages/payment/cancel";
@@ -207,6 +208,7 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/events" component={Events} />
           <Route path="/events/:id" component={EventDetail} />
+          <Route path="/gigs" component={Gigs} />
 
           <Route path="/store" component={Store} />
           <Route path="/store/:id" component={StoreDetail} />

@@ -141,6 +141,10 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.status === "completed") {
     extra.completedAt = new Date();
   }
+  if (parsed.data.status === "expired") {
+    // Log notification to client — replace with real email when provider is configured
+    console.log(`[NOTIFICATION][expired] Booking ${id} has expired. Client should be notified.`);
+  }
 
   const [booking] = await db
     .update(bookingsTable)

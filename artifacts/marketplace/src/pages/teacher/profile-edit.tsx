@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetMyTeacherProfile, useUpdateMyTeacherProfile, useUpdateMyTeacherSlug, getGetMyTeacherProfileQueryKey, useGetTeacherRecordings, useCreateTeacherRecording, useDeleteTeacherRecording, getGetTeacherRecordingsQueryKey } from "@workspace/api-client-react";
+import { useGetMyTeacherProfile, useUpdateMyTeacherProfile, useUpdateMyTeacherSlug, getGetMyTeacherProfileQueryKey, useGetTeacherRecordings, useCreateTeacherRecording, useDeleteTeacherRecording, getGetTeacherRecordingsQueryKey, useGetLastMinuteAvailability, useUpdateLastMinuteAvailability, getLastMinuteAvailabilityQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageCropModal } from "@/components/ui/image-crop-modal";
-import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon } from "lucide-react";
+import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 interface UploadState {
@@ -22,6 +22,8 @@ export default function TeacherProfileEdit() {
   const { data: profile, isLoading } = useGetMyTeacherProfile();
   const updateProfile = useUpdateMyTeacherProfile();
   const updateSlug = useUpdateMyTeacherSlug();
+  const { data: lastMinuteData } = useGetLastMinuteAvailability();
+  const updateLastMinute = useUpdateLastMinuteAvailability();
 
   const teacherId = profile?.userId ?? "";
   const { data: recordingsData } = useGetTeacherRecordings(teacherId, {
@@ -43,6 +45,13 @@ export default function TeacherProfileEdit() {
   });
 
   const [slugInput, setSlugInput] = useState("");
+
+  const [lastMinuteForm, setLastMinuteForm] = useState({
+    lastMinuteAvailable: false,
+    lastMinuteFromDate: "",
+    lastMinuteToDate: "",
+    minNoticeHours: 72,
+  });
 
   const [newRecUrl, setNewRecUrl] = useState("");
   const [newRecTitle, setNewRecTitle] = useState("");
@@ -70,6 +79,39 @@ export default function TeacherProfileEdit() {
       setSlugInput(profile.profileSlug || "");
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (lastMinuteData) {
+      setLastMinuteForm({
+        lastMinuteAvailable: lastMinuteData.lastMinuteAvailable,
+        lastMinuteFromDate: lastMinuteData.lastMinuteFromDate
+          ? lastMinuteData.lastMinuteFromDate.slice(0, 10)
+          : "",
+        lastMinuteToDate: lastMinuteData.lastMinuteToDate
+          ? lastMinuteData.lastMinuteToDate.slice(0, 10)
+          : "",
+        minNoticeHours: lastMinuteData.minNoticeHours,
+      });
+    }
+  }, [lastMinuteData]);
+
+  const handleSaveLastMinute = () => {
+    updateLastMinute.mutate(
+      {
+        lastMinuteAvailable: lastMinuteForm.lastMinuteAvailable,
+        lastMinuteFromDate: lastMinuteForm.lastMinuteFromDate || null,
+        lastMinuteToDate: lastMinuteForm.lastMinuteToDate || null,
+        minNoticeHours: lastMinuteForm.minNoticeHours,
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getLastMinuteAvailabilityQueryKey() });
+          toast.success("Last-minute availability saved!");
+        },
+        onError: () => toast.error("Failed to save last-minute availability"),
+      },
+    );
+  };
 
   const handleSaveSlug = () => {
     const slug = slugInput.trim().toLowerCase();
@@ -485,6 +527,103 @@ export default function TeacherProfileEdit() {
                 </div>
               </div>
             </form>
+
+            {/* Last-Minute Availability */}
+            <Card className="border-border">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-green-600" />
+                  <CardTitle className="font-serif">Last-Minute Availability</CardTitle>
+                </div>
+                <CardDescription>
+                  Let event organisers know you're open to short-notice bookings. When enabled, your listings appear in the Instant Gig Marketplace with an "Available Now" badge. Last-minute bookings (within 72 h) include a 25% surge premium and a 2-hour acceptance window.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-muted/30">
+                  <div>
+                    <p className="font-medium text-sm text-foreground">Available for last-minute bookings</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Appear in the Instant Gig Marketplace</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={lastMinuteForm.lastMinuteAvailable}
+                    onClick={() =>
+                      setLastMinuteForm((f) => ({ ...f, lastMinuteAvailable: !f.lastMinuteAvailable }))
+                    }
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      lastMinuteForm.lastMinuteAvailable ? "bg-green-500" : "bg-muted-foreground/30"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                        lastMinuteForm.lastMinuteAvailable ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {lastMinuteForm.lastMinuteAvailable && (
+                  <div className="space-y-4 pl-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="lastMinuteFromDate">Available from (optional)</Label>
+                        <Input
+                          id="lastMinuteFromDate"
+                          type="date"
+                          value={lastMinuteForm.lastMinuteFromDate}
+                          onChange={(e) =>
+                            setLastMinuteForm((f) => ({ ...f, lastMinuteFromDate: e.target.value }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">Leave blank to start immediately</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastMinuteToDate">Available until (optional)</Label>
+                        <Input
+                          id="lastMinuteToDate"
+                          type="date"
+                          value={lastMinuteForm.lastMinuteToDate}
+                          onChange={(e) =>
+                            setLastMinuteForm((f) => ({ ...f, lastMinuteToDate: e.target.value }))
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">Leave blank for open-ended availability</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 max-w-xs">
+                      <Label htmlFor="minNoticeHours">Minimum notice (hours)</Label>
+                      <Input
+                        id="minNoticeHours"
+                        type="number"
+                        min="1"
+                        max="72"
+                        value={lastMinuteForm.minNoticeHours}
+                        onChange={(e) =>
+                          setLastMinuteForm((f) => ({ ...f, minNoticeHours: Number(e.target.value) }))
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Minimum hours before the event you can accept. Default is 72 h (last-minute threshold).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveLastMinute}
+                    disabled={updateLastMinute.isPending}
+                  >
+                    {updateLastMinute.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Save Availability
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Recordings — managed independently from the main form */}
             <Card className="border-border">

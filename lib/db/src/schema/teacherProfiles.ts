@@ -25,6 +25,10 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   profileImageUrl: text("profile_image_url"),
   websiteUrl: text("website_url"),
   videoIntroUrl: text("video_intro_url"),
+  lastMinuteAvailable: boolean("last_minute_available").notNull().default(false),
+  lastMinuteFromDate: timestamp("last_minute_from_date", { withTimezone: true }),
+  lastMinuteToDate: timestamp("last_minute_to_date", { withTimezone: true }),
+  minNoticeHours: integer("min_notice_hours").notNull().default(72),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -2000,7 +2000,7 @@ components:
       properties:
         status:
           type: string
-          enum: [confirmed, cancelled, completed]
+          enum: [confirmed, cancelled, completed, expired]
         meetingUrl:
           type: string
         cancelReason:

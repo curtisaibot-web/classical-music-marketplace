@@ -10,6 +10,7 @@ export const bookingStatusEnum = pgEnum("booking_status", [
   "cancelled",
   "completed",
   "refunded",
+  "expired",
 ]);
 
 export const bookingTypeEnum = pgEnum("booking_type", ["lesson", "event"]);
@@ -35,6 +36,9 @@ export const bookingsTable = pgTable("bookings", {
   eventDate: timestamp("event_date", { withTimezone: true }),
   eventLocation: text("event_location"),
   headcount: integer("headcount"), // expected guest count for event bookings
+  surgePercent: integer("surge_percent"),
+  surgeAmountInCents: integer("surge_amount_in_cents"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelReason: text("cancel_reason"),
   completedAt: timestamp("completed_at", { withTimezone: true }),

@@ -1589,7 +1589,7 @@ export const UpdateBookingParams = zod.object({
 });
 
 export const UpdateBookingBody = zod.object({
-  status: zod.enum(["confirmed", "cancelled", "completed"]).optional(),
+  status: zod.enum(["confirmed", "cancelled", "completed", "expired"]).optional(),
   meetingUrl: zod.string().optional(),
   cancelReason: zod.string().optional(),
   scheduledAt: zod.coerce.date().optional(),
