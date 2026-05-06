@@ -1,6 +1,6 @@
 # Classical Music Marketplace (Harmonia)
 
-A full-stack marketplace connecting classical musicians, teachers, students, and fans across seven modules: lesson booking, event/wedding musician booking, live masterclass ticketing, digital products store, fan-funded concert crowdfunding, original score marketplace with tiered licensing, and career coaching from industry insiders.
+A full-stack marketplace connecting classical musicians, teachers, students, and fans across eight modules: lesson booking, event/wedding musician booking, live masterclass ticketing, digital products store, fan-funded concert crowdfunding, original score marketplace with tiered licensing, career coaching from industry insiders, and practice partner matching.
 
 ## Run & Operate
 
@@ -43,8 +43,9 @@ artifacts/api-server/src/
 artifacts/marketplace/src/
   pages/scores/    — /scores browse + /scores/:id detail
   pages/coaching/  — /coaching browse, /coaching/:userId profile, /coaching/apply
-  pages/teacher/dashboard.tsx — includes ComposerRoyaltyCard + CoachingCard
+  pages/teacher/dashboard.tsx — includes ComposerRoyaltyCard + CoachingCard + PracticePartnersCard
   pages/student/score-licenses.tsx — /my-score-licenses
+  pages/practice-partners/index.tsx — /practice-partners browse + matching + session scheduling
 
 lib/db/src/schema/ — source-of-truth for all DB tables
 lib/api-spec/openapi.yaml — source-of-truth for API contract
@@ -69,6 +70,7 @@ lib/api-client-react/src/generated/api.ts — generated React Query hooks
 - `/store` — digital products (sheet music, lesson plans, recordings)
 - `/scores` — original score marketplace with 3-tier licensing (personal/performance/sync)
 - `/coaching` — career coaching from industry insiders; `/coaching/apply` — coach application form
+- `/practice-partners` — practice partner matching: profile setup, browse matches by instrument/format, send/accept requests, schedule sessions with Zoom links, mark complete; AI-ranked "why we matched" blurbs for Business Suite subscribers
 - `/concerts` — fan-funded concert crowdfunding (all-or-nothing, Stripe manual capture)
 - `/audition-prep` — audition coaching programs with session tracking
 - `/schools/join` + `/org-admin` — music school white-label organisations

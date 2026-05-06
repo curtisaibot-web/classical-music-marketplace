@@ -4908,3 +4908,416 @@ export const CreateScoreLicenseCheckoutBody = zod.object({
 export const CreateScoreLicenseCheckoutResponse = zod.object({
   checkoutUrl: zod.string().nullable(),
 });
+
+/**
+ * @summary Get the current user's practice profile
+ */
+export const GetMyPracticeProfileResponse = zod
+  .object({
+    id: zod.number(),
+    userId: zod.string(),
+    instruments: zod.array(zod.string()),
+    skillLevel: zod.enum([
+      "beginner",
+      "intermediate",
+      "advanced",
+      "professional",
+    ]),
+    goals: zod.array(zod.string()),
+    availabilitySlots: zod.array(
+      zod.object({
+        day: zod.string(),
+        time: zod.string(),
+      }),
+    ),
+    sessionFormat: zod.enum(["video-call", "in-person", "either"]),
+    bio: zod.string().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      user: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          profileImageUrl: zod.string().nullish(),
+        })
+        .nullish(),
+      matchScore: zod.number().optional(),
+      matchReason: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Create a new practice profile
+ */
+export const CreatePracticeProfileBody = zod.object({
+  instruments: zod.array(zod.string()).optional(),
+  skillLevel: zod
+    .enum(["beginner", "intermediate", "advanced", "professional"])
+    .optional(),
+  goals: zod.array(zod.string()).optional(),
+  availabilitySlots: zod
+    .array(
+      zod.object({
+        day: zod.string().optional(),
+        time: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  sessionFormat: zod.enum(["video-call", "in-person", "either"]).optional(),
+  bio: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Create or update the current user's practice profile
+ */
+export const UpsertPracticeProfileBody = zod.object({
+  instruments: zod.array(zod.string()).optional(),
+  skillLevel: zod
+    .enum(["beginner", "intermediate", "advanced", "professional"])
+    .optional(),
+  goals: zod.array(zod.string()).optional(),
+  availabilitySlots: zod
+    .array(
+      zod.object({
+        day: zod.string().optional(),
+        time: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  sessionFormat: zod.enum(["video-call", "in-person", "either"]).optional(),
+  bio: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpsertPracticeProfileResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  instruments: zod.array(zod.string()),
+  skillLevel: zod.enum([
+    "beginner",
+    "intermediate",
+    "advanced",
+    "professional",
+  ]),
+  goals: zod.array(zod.string()),
+  availabilitySlots: zod.array(
+    zod.object({
+      day: zod.string(),
+      time: zod.string(),
+    }),
+  ),
+  sessionFormat: zod.enum(["video-call", "in-person", "either"]),
+  bio: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get a user's public practice profile
+ */
+export const GetPracticeProfileParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const GetPracticeProfileResponse = zod
+  .object({
+    id: zod.number(),
+    userId: zod.string(),
+    instruments: zod.array(zod.string()),
+    skillLevel: zod.enum([
+      "beginner",
+      "intermediate",
+      "advanced",
+      "professional",
+    ]),
+    goals: zod.array(zod.string()),
+    availabilitySlots: zod.array(
+      zod.object({
+        day: zod.string(),
+        time: zod.string(),
+      }),
+    ),
+    sessionFormat: zod.enum(["video-call", "in-person", "either"]),
+    bio: zod.string().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      user: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          profileImageUrl: zod.string().nullish(),
+        })
+        .nullish(),
+      matchScore: zod.number().optional(),
+      matchReason: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Browse compatible practice partner matches
+ */
+export const listPracticeMatchesQueryLimitDefault = 20;
+
+export const ListPracticeMatchesQueryParams = zod.object({
+  instrument: zod.coerce.string().optional(),
+  format: zod.enum(["video-call", "in-person", "either"]).optional(),
+  limit: zod.coerce.number().default(listPracticeMatchesQueryLimitDefault),
+});
+
+export const ListPracticeMatchesResponse = zod.object({
+  matches: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        userId: zod.string(),
+        instruments: zod.array(zod.string()),
+        skillLevel: zod.enum([
+          "beginner",
+          "intermediate",
+          "advanced",
+          "professional",
+        ]),
+        goals: zod.array(zod.string()),
+        availabilitySlots: zod.array(
+          zod.object({
+            day: zod.string(),
+            time: zod.string(),
+          }),
+        ),
+        sessionFormat: zod.enum(["video-call", "in-person", "either"]),
+        bio: zod.string().nullish(),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          user: zod
+            .object({
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              profileImageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+          matchScore: zod.number().optional(),
+          matchReason: zod.string().nullish(),
+        }),
+      ),
+  ),
+  hasProfile: zod.boolean(),
+  isPremium: zod.boolean(),
+});
+
+/**
+ * @summary Send a practice partner request to a user
+ */
+export const SendPracticeRequestParams = zod.object({
+  recipientId: zod.coerce.string(),
+});
+
+/**
+ * @summary List all partnerships (pending and active) for the current user
+ */
+export const ListMyPracticePartnershipsResponse = zod.object({
+  partnerships: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        requesterId: zod.string(),
+        recipientId: zod.string(),
+        status: zod.enum(["pending", "active", "dissolved"]),
+        matchScore: zod.number(),
+        matchReason: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          partner: zod
+            .object({
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              profileImageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+          partnerProfile: zod
+            .object({
+              instruments: zod.array(zod.string()).optional(),
+              skillLevel: zod.string().optional(),
+              sessionFormat: zod.string().optional(),
+            })
+            .nullish(),
+          isRequester: zod.boolean().optional(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary Accept an incoming practice request
+ */
+export const AcceptPracticeRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AcceptPracticeRequestResponse = zod.object({
+  id: zod.number(),
+  requesterId: zod.string(),
+  recipientId: zod.string(),
+  status: zod.enum(["pending", "active", "dissolved"]),
+  matchScore: zod.number(),
+  matchReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Decline or cancel a practice request
+ */
+export const DeclinePracticeRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeclinePracticeRequestResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Dissolve an active practice partnership
+ */
+export const DissolvePracticePartnershipParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DissolvePracticePartnershipResponse = zod.object({
+  id: zod.number(),
+  requesterId: zod.string(),
+  recipientId: zod.string(),
+  status: zod.enum(["pending", "active", "dissolved"]),
+  matchScore: zod.number(),
+  matchReason: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Propose a new practice session
+ */
+export const ProposePracticeSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ProposePracticeSessionBody = zod.object({
+  proposedAt: zod.coerce.date(),
+  joinLink: zod.string().optional(),
+});
+
+/**
+ * @summary List sessions for a partnership
+ */
+export const ListPartnershipSessionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListPartnershipSessionsResponse = zod.object({
+  sessions: zod.array(
+    zod.object({
+      id: zod.number(),
+      partnershipId: zod.number(),
+      proposedById: zod.string(),
+      proposedAt: zod.coerce.date(),
+      confirmedAt: zod.coerce.date().nullish(),
+      completedAt: zod.coerce.date().nullish(),
+      joinLink: zod.string().nullish(),
+      status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+      notes: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Confirm a proposed practice session
+ */
+export const ConfirmPracticeSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ConfirmPracticeSessionBody = zod.object({
+  joinLink: zod.string().optional(),
+});
+
+export const ConfirmPracticeSessionResponse = zod.object({
+  id: zod.number(),
+  partnershipId: zod.number(),
+  proposedById: zod.string(),
+  proposedAt: zod.coerce.date(),
+  confirmedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  joinLink: zod.string().nullish(),
+  status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Mark a practice session as complete
+ */
+export const CompletePracticeSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CompletePracticeSessionBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const CompletePracticeSessionResponse = zod.object({
+  id: zod.number(),
+  partnershipId: zod.number(),
+  proposedById: zod.string(),
+  proposedAt: zod.coerce.date(),
+  confirmedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  joinLink: zod.string().nullish(),
+  status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update the Zoom/Meet join link for a session
+ */
+export const UpdateSessionJoinLinkParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSessionJoinLinkBody = zod.object({
+  joinLink: zod.string(),
+});
+
+export const UpdateSessionJoinLinkResponse = zod.object({
+  id: zod.number(),
+  partnershipId: zod.number(),
+  proposedById: zod.string(),
+  proposedAt: zod.coerce.date(),
+  confirmedAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  joinLink: zod.string().nullish(),
+  status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});

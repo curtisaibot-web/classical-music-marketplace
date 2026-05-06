@@ -50,6 +50,7 @@ import MyScores from "@/pages/teacher/my-scores";
 import CoachingBrowse from "@/pages/coaching/index";
 import CoachProfile from "@/pages/coaching/profile";
 import CoachApply from "@/pages/coaching/apply";
+import PracticePartners from "@/pages/practice-partners/index";
 
 const queryClient = new QueryClient();
 
@@ -242,6 +243,8 @@ function ClerkProviderWithRoutes() {
           <Route path="/coaching" component={CoachingBrowse} />
           <Route path="/coaching/apply" component={CoachApply} />
           <Route path="/coaching/:userId" component={CoachProfile} />
+
+          <Route path="/practice-partners" component={PracticePartners} />
           
           <Route path="/dashboard" component={StudentDashboard} />
           <Route path="/bookings" component={StudentBookings} />

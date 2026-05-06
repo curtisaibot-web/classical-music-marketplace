@@ -48,6 +48,7 @@ export function Navbar() {
               <Link href="/scores" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Scores</Link>
               <Link href="/coaching" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Coaching</Link>
               <Link href="/audition-prep" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Audition Prep</Link>
+              <Link href="/practice-partners" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Practice Partners</Link>
             </>}
             {orgSlug && (
               <Link href={`/org-admin${orgSuffix}`} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Admin</Link>

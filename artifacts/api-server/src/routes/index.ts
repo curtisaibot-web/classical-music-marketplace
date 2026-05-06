@@ -25,6 +25,7 @@ import auditionProgramsRouter from "./auditionPrograms";
 import orgsRouter from "./orgs";
 import scoresRouter from "./scores";
 import coachesRouter from "./coaches";
+import practiceRouter from "./practice";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(auditionProgramsRouter);
 router.use(orgsRouter);
 router.use(scoresRouter);
 router.use(coachesRouter);
+router.use(practiceRouter);
 
 export default router;

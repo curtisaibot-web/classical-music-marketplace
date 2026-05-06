@@ -49,6 +49,8 @@ tags:
     description: Music school & studio white-label organisations
   - name: scores
     description: Original score marketplace — composer listing and buyer licensing
+  - name: practice
+    description: Practice partner matching — profiles, requests, sessions
 
 paths:
   /healthz:
@@ -3138,6 +3140,411 @@ paths:
                     type: ["string", "null"]
                 required: [checkoutUrl]
 
+  # ── Practice Partners ──────────────────────────────────────────────────────
+  /practice/profile/me:
+    get:
+      operationId: getMyPracticeProfile
+      tags: [practice]
+      summary: Get the current user's practice profile
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Practice profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeProfileWithUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/profile:
+    post:
+      operationId: createPracticeProfile
+      tags: [practice]
+      summary: Create a new practice profile
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertPracticeProfileBody"
+      responses:
+        "201":
+          description: Created practice profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Profile already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: upsertPracticeProfile
+      tags: [practice]
+      summary: Create or update the current user's practice profile
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertPracticeProfileBody"
+      responses:
+        "200":
+          description: Upserted practice profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /practice/profile/{userId}:
+    get:
+      operationId: getPracticeProfile
+      tags: [practice]
+      summary: Get a user's public practice profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Practice profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeProfileWithUser"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/matches:
+    get:
+      operationId: listPracticeMatches
+      tags: [practice]
+      summary: Browse compatible practice partner matches
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [video-call, in-person, either]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of matches with scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeMatchListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /practice/request/{recipientId}:
+    post:
+      operationId: sendPracticeRequest
+      tags: [practice]
+      summary: Send a practice partner request to a user
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: recipientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created partnership request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticePartnership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Request already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /practice/partnerships:
+    get:
+      operationId: listMyPracticePartnerships
+      tags: [practice]
+      summary: List all partnerships (pending and active) for the current user
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: List of partnerships with partner info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticePartnershipListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /practice/partnerships/{id}/accept:
+    post:
+      operationId: acceptPracticeRequest
+      tags: [practice]
+      summary: Accept an incoming practice request
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticePartnership"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/partnerships/{id}/decline:
+    post:
+      operationId: declinePracticeRequest
+      tags: [practice]
+      summary: Decline or cancel a practice request
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request declined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/partnerships/{id}/dissolve:
+    post:
+      operationId: dissolvePracticePartnership
+      tags: [practice]
+      summary: Dissolve an active practice partnership
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticePartnership"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/partnerships/{id}/sessions:
+    post:
+      operationId: proposePracticeSession
+      tags: [practice]
+      summary: Propose a new practice session
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposePracticeSessionBody"
+      responses:
+        "201":
+          description: Proposed session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      operationId: listPartnershipSessions
+      tags: [practice]
+      summary: List sessions for a partnership
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PracticeSession"
+                required: [sessions]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/sessions/{id}/confirm:
+    post:
+      operationId: confirmPracticeSession
+      tags: [practice]
+      summary: Confirm a proposed practice session
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                joinLink:
+                  type: string
+      responses:
+        "200":
+          description: Confirmed session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/sessions/{id}/complete:
+    post:
+      operationId: completePracticeSession
+      tags: [practice]
+      summary: Mark a practice session as complete
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes:
+                  type: string
+      responses:
+        "200":
+          description: Completed session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /practice/sessions/{id}/join-link:
+    put:
+      operationId: updateSessionJoinLink
+      tags: [practice]
+      summary: Update the Zoom/Meet join link for a session
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                joinLink:
+                  type: string
+              required: [joinLink]
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -5821,3 +6228,214 @@ components:
         cancelUrl:
           type: string
       required: [licenseId, successUrl, cancelUrl]
+
+    # ── Practice Partner Schemas ───────────────────────────────────────────────
+    PracticeProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        skillLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, professional]
+        goals:
+          type: array
+          items:
+            type: string
+        availabilitySlots:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              time:
+                type: string
+            required: [day, time]
+        sessionFormat:
+          type: string
+          enum: [video-call, in-person, either]
+        bio:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, instruments, skillLevel, goals, availabilitySlots, sessionFormat, isActive, createdAt, updatedAt]
+
+    PracticeProfileWithUser:
+      allOf:
+        - $ref: "#/components/schemas/PracticeProfile"
+        - type: object
+          properties:
+            user:
+              type: ["object", "null"]
+              properties:
+                firstName:
+                  type: ["string", "null"]
+                lastName:
+                  type: ["string", "null"]
+                profileImageUrl:
+                  type: ["string", "null"]
+            matchScore:
+              type: integer
+            matchReason:
+              type: ["string", "null"]
+
+    PracticePartnership:
+      type: object
+      properties:
+        id:
+          type: integer
+        requesterId:
+          type: string
+        recipientId:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, dissolved]
+        matchScore:
+          type: integer
+        matchReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, requesterId, recipientId, status, matchScore, createdAt, updatedAt]
+
+    PracticePartnershipWithPartner:
+      allOf:
+        - $ref: "#/components/schemas/PracticePartnership"
+        - type: object
+          properties:
+            partner:
+              type: ["object", "null"]
+              properties:
+                firstName:
+                  type: ["string", "null"]
+                lastName:
+                  type: ["string", "null"]
+                profileImageUrl:
+                  type: ["string", "null"]
+            partnerProfile:
+              type: ["object", "null"]
+              properties:
+                instruments:
+                  type: array
+                  items:
+                    type: string
+                skillLevel:
+                  type: string
+                sessionFormat:
+                  type: string
+            isRequester:
+              type: boolean
+
+    PracticeSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        proposedById:
+          type: string
+        proposedAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        joinLink:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [proposed, confirmed, completed, cancelled]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, partnershipId, proposedById, proposedAt, status, createdAt, updatedAt]
+
+    PracticeMatchListResponse:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticeProfileWithUser"
+        hasProfile:
+          type: boolean
+        isPremium:
+          type: boolean
+      required: [matches, hasProfile, isPremium]
+
+    PracticePartnershipListResponse:
+      type: object
+      properties:
+        partnerships:
+          type: array
+          items:
+            $ref: "#/components/schemas/PracticePartnershipWithPartner"
+      required: [partnerships]
+
+    UpsertPracticeProfileBody:
+      type: object
+      properties:
+        instruments:
+          type: array
+          items:
+            type: string
+        skillLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, professional]
+        goals:
+          type: array
+          items:
+            type: string
+        availabilitySlots:
+          type: array
+          items:
+            type: object
+            properties:
+              day:
+                type: string
+              time:
+                type: string
+        sessionFormat:
+          type: string
+          enum: [video-call, in-person, either]
+        bio:
+          type: string
+        isActive:
+          type: boolean
+
+    ProposePracticeSessionBody:
+      type: object
+      properties:
+        proposedAt:
+          type: string
+          format: date-time
+        joinLink:
+          type: string
+      required: [proposedAt]

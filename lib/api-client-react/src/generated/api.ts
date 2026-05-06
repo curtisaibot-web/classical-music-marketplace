@@ -36,8 +36,10 @@ import type {
   CoachApplyBody,
   CoachProfile,
   CoachWithUserAndListings,
+  CompletePracticeSessionBody,
   CompleteSessionBody,
   ComposerRoyaltyResponse,
+  ConfirmPracticeSessionBody,
   ConnectStatusResponse,
   ContractListResponse,
   ContractResponse,
@@ -65,6 +67,7 @@ import type {
   CreateSubscriptionCheckoutBody,
   CreateTeacherRecordingBody,
   DashboardUrlResponse,
+  DeclinePracticeRequest200,
   DigitalProduct,
   DigitalProductListResponse,
   DownloadRedirectResponse,
@@ -92,6 +95,8 @@ import type {
   ListListingsParams,
   ListMasterclassesParams,
   ListOrdersParams,
+  ListPartnershipSessions200,
+  ListPracticeMatchesParams,
   ListScoresParams,
   ListTeachersParams,
   Listing,
@@ -110,10 +115,17 @@ import type {
   OrgMembersResponse,
   OrgResponse,
   OrgSubscribeResponse,
+  PracticeMatchListResponse,
+  PracticePartnership,
+  PracticePartnershipListResponse,
+  PracticeProfile,
+  PracticeProfileWithUser,
+  PracticeSession,
   ProgramEnrollment,
   ProgramEnrollmentCheckoutBody,
   ProgramEnrollmentCheckoutResponse,
   ProgramEnrollmentDetail,
+  ProposePracticeSessionBody,
   PurchasedLicenseListResponse,
   ReelCallbackAck,
   ReelCallbackBody,
@@ -151,12 +163,14 @@ import type {
   UpdateMasterclassBody,
   UpdateOrgBody,
   UpdateScoreBody,
+  UpdateSessionJoinLinkBody,
   UpdateStudentProfileBody,
   UpdateTeacherProfileBody,
   UpdateTeacherSlugBody,
   UploadReelBody,
   UploadUrlRequest,
   UploadUrlResponse,
+  UpsertPracticeProfileBody,
   User,
   VideoReelOwner,
   VideoReelOwnerOrNull,
@@ -11211,4 +11225,1351 @@ export const useCreateScoreLicenseCheckout = <
   TContext
 > => {
   return useMutation(getCreateScoreLicenseCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Get the current user's practice profile
+ */
+export const getGetMyPracticeProfileUrl = () => {
+  return `/api/practice/profile/me`;
+};
+
+export const getMyPracticeProfile = async (
+  options?: RequestInit,
+): Promise<PracticeProfileWithUser> => {
+  return customFetch<PracticeProfileWithUser>(getGetMyPracticeProfileUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyPracticeProfileQueryKey = () => {
+  return [`/api/practice/profile/me`] as const;
+};
+
+export const getGetMyPracticeProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyPracticeProfile>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyPracticeProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyPracticeProfileQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyPracticeProfile>>
+  > = ({ signal }) => getMyPracticeProfile({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyPracticeProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyPracticeProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyPracticeProfile>>
+>;
+export type GetMyPracticeProfileQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get the current user's practice profile
+ */
+
+export function useGetMyPracticeProfile<
+  TData = Awaited<ReturnType<typeof getMyPracticeProfile>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyPracticeProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyPracticeProfileQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new practice profile
+ */
+export const getCreatePracticeProfileUrl = () => {
+  return `/api/practice/profile`;
+};
+
+export const createPracticeProfile = async (
+  upsertPracticeProfileBody: UpsertPracticeProfileBody,
+  options?: RequestInit,
+): Promise<PracticeProfile> => {
+  return customFetch<PracticeProfile>(getCreatePracticeProfileUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertPracticeProfileBody),
+  });
+};
+
+export const getCreatePracticeProfileMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPracticeProfile>>,
+    TError,
+    { data: BodyType<UpsertPracticeProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPracticeProfile>>,
+  TError,
+  { data: BodyType<UpsertPracticeProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["createPracticeProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPracticeProfile>>,
+    { data: BodyType<UpsertPracticeProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createPracticeProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePracticeProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPracticeProfile>>
+>;
+export type CreatePracticeProfileMutationBody =
+  BodyType<UpsertPracticeProfileBody>;
+export type CreatePracticeProfileMutationError = ErrorType<
+  UnauthorizedResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Create a new practice profile
+ */
+export const useCreatePracticeProfile = <
+  TError = ErrorType<UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPracticeProfile>>,
+    TError,
+    { data: BodyType<UpsertPracticeProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPracticeProfile>>,
+  TError,
+  { data: BodyType<UpsertPracticeProfileBody> },
+  TContext
+> => {
+  return useMutation(getCreatePracticeProfileMutationOptions(options));
+};
+
+/**
+ * @summary Create or update the current user's practice profile
+ */
+export const getUpsertPracticeProfileUrl = () => {
+  return `/api/practice/profile`;
+};
+
+export const upsertPracticeProfile = async (
+  upsertPracticeProfileBody: UpsertPracticeProfileBody,
+  options?: RequestInit,
+): Promise<PracticeProfile> => {
+  return customFetch<PracticeProfile>(getUpsertPracticeProfileUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(upsertPracticeProfileBody),
+  });
+};
+
+export const getUpsertPracticeProfileMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPracticeProfile>>,
+    TError,
+    { data: BodyType<UpsertPracticeProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertPracticeProfile>>,
+  TError,
+  { data: BodyType<UpsertPracticeProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["upsertPracticeProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertPracticeProfile>>,
+    { data: BodyType<UpsertPracticeProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return upsertPracticeProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertPracticeProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertPracticeProfile>>
+>;
+export type UpsertPracticeProfileMutationBody =
+  BodyType<UpsertPracticeProfileBody>;
+export type UpsertPracticeProfileMutationError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Create or update the current user's practice profile
+ */
+export const useUpsertPracticeProfile = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertPracticeProfile>>,
+    TError,
+    { data: BodyType<UpsertPracticeProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertPracticeProfile>>,
+  TError,
+  { data: BodyType<UpsertPracticeProfileBody> },
+  TContext
+> => {
+  return useMutation(getUpsertPracticeProfileMutationOptions(options));
+};
+
+/**
+ * @summary Get a user's public practice profile
+ */
+export const getGetPracticeProfileUrl = (userId: string) => {
+  return `/api/practice/profile/${userId}`;
+};
+
+export const getPracticeProfile = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<PracticeProfileWithUser> => {
+  return customFetch<PracticeProfileWithUser>(
+    getGetPracticeProfileUrl(userId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPracticeProfileQueryKey = (userId: string) => {
+  return [`/api/practice/profile/${userId}`] as const;
+};
+
+export const getGetPracticeProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPracticeProfile>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPracticeProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPracticeProfileQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPracticeProfile>>
+  > = ({ signal }) => getPracticeProfile(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPracticeProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPracticeProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPracticeProfile>>
+>;
+export type GetPracticeProfileQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a user's public practice profile
+ */
+
+export function useGetPracticeProfile<
+  TData = Awaited<ReturnType<typeof getPracticeProfile>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPracticeProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPracticeProfileQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Browse compatible practice partner matches
+ */
+export const getListPracticeMatchesUrl = (
+  params?: ListPracticeMatchesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/practice/matches?${stringifiedParams}`
+    : `/api/practice/matches`;
+};
+
+export const listPracticeMatches = async (
+  params?: ListPracticeMatchesParams,
+  options?: RequestInit,
+): Promise<PracticeMatchListResponse> => {
+  return customFetch<PracticeMatchListResponse>(
+    getListPracticeMatchesUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPracticeMatchesQueryKey = (
+  params?: ListPracticeMatchesParams,
+) => {
+  return [`/api/practice/matches`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPracticeMatchesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPracticeMatches>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  params?: ListPracticeMatchesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPracticeMatches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPracticeMatchesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPracticeMatches>>
+  > = ({ signal }) =>
+    listPracticeMatches(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPracticeMatches>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPracticeMatchesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPracticeMatches>>
+>;
+export type ListPracticeMatchesQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Browse compatible practice partner matches
+ */
+
+export function useListPracticeMatches<
+  TData = Awaited<ReturnType<typeof listPracticeMatches>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  params?: ListPracticeMatchesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPracticeMatches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPracticeMatchesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Send a practice partner request to a user
+ */
+export const getSendPracticeRequestUrl = (recipientId: string) => {
+  return `/api/practice/request/${recipientId}`;
+};
+
+export const sendPracticeRequest = async (
+  recipientId: string,
+  options?: RequestInit,
+): Promise<PracticePartnership> => {
+  return customFetch<PracticePartnership>(
+    getSendPracticeRequestUrl(recipientId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSendPracticeRequestMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPracticeRequest>>,
+    TError,
+    { recipientId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendPracticeRequest>>,
+  TError,
+  { recipientId: string },
+  TContext
+> => {
+  const mutationKey = ["sendPracticeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendPracticeRequest>>,
+    { recipientId: string }
+  > = (props) => {
+    const { recipientId } = props ?? {};
+
+    return sendPracticeRequest(recipientId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendPracticeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendPracticeRequest>>
+>;
+
+export type SendPracticeRequestMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Send a practice partner request to a user
+ */
+export const useSendPracticeRequest = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendPracticeRequest>>,
+    TError,
+    { recipientId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendPracticeRequest>>,
+  TError,
+  { recipientId: string },
+  TContext
+> => {
+  return useMutation(getSendPracticeRequestMutationOptions(options));
+};
+
+/**
+ * @summary List all partnerships (pending and active) for the current user
+ */
+export const getListMyPracticePartnershipsUrl = () => {
+  return `/api/practice/partnerships`;
+};
+
+export const listMyPracticePartnerships = async (
+  options?: RequestInit,
+): Promise<PracticePartnershipListResponse> => {
+  return customFetch<PracticePartnershipListResponse>(
+    getListMyPracticePartnershipsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMyPracticePartnershipsQueryKey = () => {
+  return [`/api/practice/partnerships`] as const;
+};
+
+export const getListMyPracticePartnershipsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyPracticePartnerships>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyPracticePartnerships>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyPracticePartnershipsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyPracticePartnerships>>
+  > = ({ signal }) => listMyPracticePartnerships({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyPracticePartnerships>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyPracticePartnershipsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyPracticePartnerships>>
+>;
+export type ListMyPracticePartnershipsQueryError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List all partnerships (pending and active) for the current user
+ */
+
+export function useListMyPracticePartnerships<
+  TData = Awaited<ReturnType<typeof listMyPracticePartnerships>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyPracticePartnerships>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyPracticePartnershipsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Accept an incoming practice request
+ */
+export const getAcceptPracticeRequestUrl = (id: number) => {
+  return `/api/practice/partnerships/${id}/accept`;
+};
+
+export const acceptPracticeRequest = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PracticePartnership> => {
+  return customFetch<PracticePartnership>(getAcceptPracticeRequestUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAcceptPracticeRequestMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptPracticeRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptPracticeRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["acceptPracticeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptPracticeRequest>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return acceptPracticeRequest(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptPracticeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptPracticeRequest>>
+>;
+
+export type AcceptPracticeRequestMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Accept an incoming practice request
+ */
+export const useAcceptPracticeRequest = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptPracticeRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptPracticeRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAcceptPracticeRequestMutationOptions(options));
+};
+
+/**
+ * @summary Decline or cancel a practice request
+ */
+export const getDeclinePracticeRequestUrl = (id: number) => {
+  return `/api/practice/partnerships/${id}/decline`;
+};
+
+export const declinePracticeRequest = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeclinePracticeRequest200> => {
+  return customFetch<DeclinePracticeRequest200>(
+    getDeclinePracticeRequestUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDeclinePracticeRequestMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declinePracticeRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof declinePracticeRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["declinePracticeRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof declinePracticeRequest>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return declinePracticeRequest(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeclinePracticeRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof declinePracticeRequest>>
+>;
+
+export type DeclinePracticeRequestMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Decline or cancel a practice request
+ */
+export const useDeclinePracticeRequest = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof declinePracticeRequest>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof declinePracticeRequest>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeclinePracticeRequestMutationOptions(options));
+};
+
+/**
+ * @summary Dissolve an active practice partnership
+ */
+export const getDissolvePracticePartnershipUrl = (id: number) => {
+  return `/api/practice/partnerships/${id}/dissolve`;
+};
+
+export const dissolvePracticePartnership = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PracticePartnership> => {
+  return customFetch<PracticePartnership>(
+    getDissolvePracticePartnershipUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDissolvePracticePartnershipMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dissolvePracticePartnership>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dissolvePracticePartnership>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["dissolvePracticePartnership"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dissolvePracticePartnership>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return dissolvePracticePartnership(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DissolvePracticePartnershipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dissolvePracticePartnership>>
+>;
+
+export type DissolvePracticePartnershipMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Dissolve an active practice partnership
+ */
+export const useDissolvePracticePartnership = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dissolvePracticePartnership>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dissolvePracticePartnership>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDissolvePracticePartnershipMutationOptions(options));
+};
+
+/**
+ * @summary Propose a new practice session
+ */
+export const getProposePracticeSessionUrl = (id: number) => {
+  return `/api/practice/partnerships/${id}/sessions`;
+};
+
+export const proposePracticeSession = async (
+  id: number,
+  proposePracticeSessionBody: ProposePracticeSessionBody,
+  options?: RequestInit,
+): Promise<PracticeSession> => {
+  return customFetch<PracticeSession>(getProposePracticeSessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(proposePracticeSessionBody),
+  });
+};
+
+export const getProposePracticeSessionMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof proposePracticeSession>>,
+    TError,
+    { id: number; data: BodyType<ProposePracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof proposePracticeSession>>,
+  TError,
+  { id: number; data: BodyType<ProposePracticeSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["proposePracticeSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof proposePracticeSession>>,
+    { id: number; data: BodyType<ProposePracticeSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return proposePracticeSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProposePracticeSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof proposePracticeSession>>
+>;
+export type ProposePracticeSessionMutationBody =
+  BodyType<ProposePracticeSessionBody>;
+export type ProposePracticeSessionMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Propose a new practice session
+ */
+export const useProposePracticeSession = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof proposePracticeSession>>,
+    TError,
+    { id: number; data: BodyType<ProposePracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof proposePracticeSession>>,
+  TError,
+  { id: number; data: BodyType<ProposePracticeSessionBody> },
+  TContext
+> => {
+  return useMutation(getProposePracticeSessionMutationOptions(options));
+};
+
+/**
+ * @summary List sessions for a partnership
+ */
+export const getListPartnershipSessionsUrl = (id: number) => {
+  return `/api/practice/partnerships/${id}/sessions`;
+};
+
+export const listPartnershipSessions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ListPartnershipSessions200> => {
+  return customFetch<ListPartnershipSessions200>(
+    getListPartnershipSessionsUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPartnershipSessionsQueryKey = (id: number) => {
+  return [`/api/practice/partnerships/${id}/sessions`] as const;
+};
+
+export const getListPartnershipSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPartnershipSessions>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPartnershipSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPartnershipSessionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPartnershipSessions>>
+  > = ({ signal }) =>
+    listPartnershipSessions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPartnershipSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPartnershipSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPartnershipSessions>>
+>;
+export type ListPartnershipSessionsQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary List sessions for a partnership
+ */
+
+export function useListPartnershipSessions<
+  TData = Awaited<ReturnType<typeof listPartnershipSessions>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPartnershipSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPartnershipSessionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Confirm a proposed practice session
+ */
+export const getConfirmPracticeSessionUrl = (id: number) => {
+  return `/api/practice/sessions/${id}/confirm`;
+};
+
+export const confirmPracticeSession = async (
+  id: number,
+  confirmPracticeSessionBody?: ConfirmPracticeSessionBody,
+  options?: RequestInit,
+): Promise<PracticeSession> => {
+  return customFetch<PracticeSession>(getConfirmPracticeSessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmPracticeSessionBody),
+  });
+};
+
+export const getConfirmPracticeSessionMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPracticeSession>>,
+    TError,
+    { id: number; data: BodyType<ConfirmPracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmPracticeSession>>,
+  TError,
+  { id: number; data: BodyType<ConfirmPracticeSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmPracticeSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmPracticeSession>>,
+    { id: number; data: BodyType<ConfirmPracticeSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return confirmPracticeSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmPracticeSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmPracticeSession>>
+>;
+export type ConfirmPracticeSessionMutationBody =
+  BodyType<ConfirmPracticeSessionBody>;
+export type ConfirmPracticeSessionMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Confirm a proposed practice session
+ */
+export const useConfirmPracticeSession = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPracticeSession>>,
+    TError,
+    { id: number; data: BodyType<ConfirmPracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmPracticeSession>>,
+  TError,
+  { id: number; data: BodyType<ConfirmPracticeSessionBody> },
+  TContext
+> => {
+  return useMutation(getConfirmPracticeSessionMutationOptions(options));
+};
+
+/**
+ * @summary Mark a practice session as complete
+ */
+export const getCompletePracticeSessionUrl = (id: number) => {
+  return `/api/practice/sessions/${id}/complete`;
+};
+
+export const completePracticeSession = async (
+  id: number,
+  completePracticeSessionBody?: CompletePracticeSessionBody,
+  options?: RequestInit,
+): Promise<PracticeSession> => {
+  return customFetch<PracticeSession>(getCompletePracticeSessionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completePracticeSessionBody),
+  });
+};
+
+export const getCompletePracticeSessionMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completePracticeSession>>,
+    TError,
+    { id: number; data: BodyType<CompletePracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completePracticeSession>>,
+  TError,
+  { id: number; data: BodyType<CompletePracticeSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["completePracticeSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completePracticeSession>>,
+    { id: number; data: BodyType<CompletePracticeSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return completePracticeSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompletePracticeSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completePracticeSession>>
+>;
+export type CompletePracticeSessionMutationBody =
+  BodyType<CompletePracticeSessionBody>;
+export type CompletePracticeSessionMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Mark a practice session as complete
+ */
+export const useCompletePracticeSession = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completePracticeSession>>,
+    TError,
+    { id: number; data: BodyType<CompletePracticeSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completePracticeSession>>,
+  TError,
+  { id: number; data: BodyType<CompletePracticeSessionBody> },
+  TContext
+> => {
+  return useMutation(getCompletePracticeSessionMutationOptions(options));
+};
+
+/**
+ * @summary Update the Zoom/Meet join link for a session
+ */
+export const getUpdateSessionJoinLinkUrl = (id: number) => {
+  return `/api/practice/sessions/${id}/join-link`;
+};
+
+export const updateSessionJoinLink = async (
+  id: number,
+  updateSessionJoinLinkBody: UpdateSessionJoinLinkBody,
+  options?: RequestInit,
+): Promise<PracticeSession> => {
+  return customFetch<PracticeSession>(getUpdateSessionJoinLinkUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSessionJoinLinkBody),
+  });
+};
+
+export const getUpdateSessionJoinLinkMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSessionJoinLink>>,
+    TError,
+    { id: number; data: BodyType<UpdateSessionJoinLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSessionJoinLink>>,
+  TError,
+  { id: number; data: BodyType<UpdateSessionJoinLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSessionJoinLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSessionJoinLink>>,
+    { id: number; data: BodyType<UpdateSessionJoinLinkBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSessionJoinLink(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSessionJoinLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSessionJoinLink>>
+>;
+export type UpdateSessionJoinLinkMutationBody =
+  BodyType<UpdateSessionJoinLinkBody>;
+export type UpdateSessionJoinLinkMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update the Zoom/Meet join link for a session
+ */
+export const useUpdateSessionJoinLink = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSessionJoinLink>>,
+    TError,
+    { id: number; data: BodyType<UpdateSessionJoinLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSessionJoinLink>>,
+  TError,
+  { id: number; data: BodyType<UpdateSessionJoinLinkBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSessionJoinLinkMutationOptions(options));
 };

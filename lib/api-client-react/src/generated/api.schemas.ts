@@ -1860,6 +1860,192 @@ export interface ScoreLicenseCheckoutBody {
   cancelUrl: string;
 }
 
+export type PracticeProfileSkillLevel =
+  (typeof PracticeProfileSkillLevel)[keyof typeof PracticeProfileSkillLevel];
+
+export const PracticeProfileSkillLevel = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+  professional: "professional",
+} as const;
+
+export type PracticeProfileAvailabilitySlotsItem = {
+  day: string;
+  time: string;
+};
+
+export type PracticeProfileSessionFormat =
+  (typeof PracticeProfileSessionFormat)[keyof typeof PracticeProfileSessionFormat];
+
+export const PracticeProfileSessionFormat = {
+  "video-call": "video-call",
+  "in-person": "in-person",
+  either: "either",
+} as const;
+
+export interface PracticeProfile {
+  id: number;
+  userId: string;
+  instruments: string[];
+  skillLevel: PracticeProfileSkillLevel;
+  goals: string[];
+  availabilitySlots: PracticeProfileAvailabilitySlotsItem[];
+  sessionFormat: PracticeProfileSessionFormat;
+  /** @nullable */
+  bio?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type PracticeProfileWithUserUser = {
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
+} | null;
+
+export type PracticeProfileWithUser = PracticeProfile & {
+  /** @nullable */
+  user?: PracticeProfileWithUserUser;
+  matchScore?: number;
+  /** @nullable */
+  matchReason?: string | null;
+};
+
+export type PracticePartnershipStatus =
+  (typeof PracticePartnershipStatus)[keyof typeof PracticePartnershipStatus];
+
+export const PracticePartnershipStatus = {
+  pending: "pending",
+  active: "active",
+  dissolved: "dissolved",
+} as const;
+
+export interface PracticePartnership {
+  id: number;
+  requesterId: string;
+  recipientId: string;
+  status: PracticePartnershipStatus;
+  matchScore: number;
+  /** @nullable */
+  matchReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type PracticePartnershipWithPartnerPartner = {
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
+} | null;
+
+/**
+ * @nullable
+ */
+export type PracticePartnershipWithPartnerPartnerProfile = {
+  instruments?: string[];
+  skillLevel?: string;
+  sessionFormat?: string;
+} | null;
+
+export type PracticePartnershipWithPartner = PracticePartnership & {
+  /** @nullable */
+  partner?: PracticePartnershipWithPartnerPartner;
+  /** @nullable */
+  partnerProfile?: PracticePartnershipWithPartnerPartnerProfile;
+  isRequester?: boolean;
+};
+
+export type PracticeSessionStatus =
+  (typeof PracticeSessionStatus)[keyof typeof PracticeSessionStatus];
+
+export const PracticeSessionStatus = {
+  proposed: "proposed",
+  confirmed: "confirmed",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface PracticeSession {
+  id: number;
+  partnershipId: number;
+  proposedById: string;
+  proposedAt: string;
+  /** @nullable */
+  confirmedAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  joinLink?: string | null;
+  status: PracticeSessionStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PracticeMatchListResponse {
+  matches: PracticeProfileWithUser[];
+  hasProfile: boolean;
+  isPremium: boolean;
+}
+
+export interface PracticePartnershipListResponse {
+  partnerships: PracticePartnershipWithPartner[];
+}
+
+export type UpsertPracticeProfileBodySkillLevel =
+  (typeof UpsertPracticeProfileBodySkillLevel)[keyof typeof UpsertPracticeProfileBodySkillLevel];
+
+export const UpsertPracticeProfileBodySkillLevel = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+  professional: "professional",
+} as const;
+
+export type UpsertPracticeProfileBodyAvailabilitySlotsItem = {
+  day?: string;
+  time?: string;
+};
+
+export type UpsertPracticeProfileBodySessionFormat =
+  (typeof UpsertPracticeProfileBodySessionFormat)[keyof typeof UpsertPracticeProfileBodySessionFormat];
+
+export const UpsertPracticeProfileBodySessionFormat = {
+  "video-call": "video-call",
+  "in-person": "in-person",
+  either: "either",
+} as const;
+
+export interface UpsertPracticeProfileBody {
+  instruments?: string[];
+  skillLevel?: UpsertPracticeProfileBodySkillLevel;
+  goals?: string[];
+  availabilitySlots?: UpsertPracticeProfileBodyAvailabilitySlotsItem[];
+  sessionFormat?: UpsertPracticeProfileBodySessionFormat;
+  bio?: string;
+  isActive?: boolean;
+}
+
+export interface ProposePracticeSessionBody {
+  proposedAt: string;
+  joinLink?: string;
+}
+
 /**
  * Unauthorized
  */
@@ -2088,4 +2274,39 @@ export type SetCoachMeetingUrlBody = {
 export type CreateScoreLicenseCheckout200 = {
   /** @nullable */
   checkoutUrl: string | null;
+};
+
+export type ListPracticeMatchesParams = {
+  instrument?: string;
+  format?: ListPracticeMatchesFormat;
+  limit?: number;
+};
+
+export type ListPracticeMatchesFormat =
+  (typeof ListPracticeMatchesFormat)[keyof typeof ListPracticeMatchesFormat];
+
+export const ListPracticeMatchesFormat = {
+  "video-call": "video-call",
+  "in-person": "in-person",
+  either: "either",
+} as const;
+
+export type DeclinePracticeRequest200 = {
+  ok: boolean;
+};
+
+export type ListPartnershipSessions200 = {
+  sessions: PracticeSession[];
+};
+
+export type ConfirmPracticeSessionBody = {
+  joinLink?: string;
+};
+
+export type CompletePracticeSessionBody = {
+  notes?: string;
+};
+
+export type UpdateSessionJoinLinkBody = {
+  joinLink: string;
 };

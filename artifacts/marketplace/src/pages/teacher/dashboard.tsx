@@ -10,6 +10,81 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+
+const _TEACHER_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+function _teacherApiFetch(path: string) {
+  return fetch(`${_TEACHER_BASE}/api${path}`, { credentials: "include" });
+}
+
+function PracticePartnersCard() {
+  const { data } = useQuery({
+    queryKey: ["practice", "partnerships"],
+    queryFn: async () => {
+      const res = await _teacherApiFetch("/practice/partnerships");
+      if (!res.ok) return null;
+      return res.json() as Promise<{ partnerships: Array<{ id: number; status: string; isRequester: boolean; partner: { firstName: string | null; lastName: string | null } | null }> }>;
+    },
+  });
+  const { data: profileData } = useQuery({
+    queryKey: ["practice", "profile", "me"],
+    queryFn: async () => {
+      const res = await _teacherApiFetch("/practice/profile/me");
+      if (res.status === 404) return null;
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const partnerships = data?.partnerships ?? [];
+  const pending = partnerships.filter((p) => p.status === "pending" && !p.isRequester);
+  const active = partnerships.filter((p) => p.status === "active");
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif text-lg">Practice Partners</CardTitle>
+        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+          <Link href="/practice-partners">View all</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {pending.length > 0 && (
+          <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
+            <Users className="h-4 w-4 text-primary shrink-0" />
+            <span className="font-medium text-foreground">{pending.length} incoming {pending.length === 1 ? "request" : "requests"}</span>
+            <Button size="sm" asChild className="ml-auto h-7 text-xs">
+              <Link href="/practice-partners">Review</Link>
+            </Button>
+          </div>
+        )}
+        {active.length > 0 ? (
+          <div className="space-y-2">
+            {active.slice(0, 3).map((p) => {
+              const name = [p.partner?.firstName, p.partner?.lastName].filter(Boolean).join(" ") || "Musician";
+              return (
+                <div key={p.id} className="flex items-center gap-2 text-sm">
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="h-3 w-3 text-primary" />
+                  </div>
+                  <span className="text-foreground flex-1 truncate">{name}</span>
+                  <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Active</Badge>
+                </div>
+              );
+            })}
+          </div>
+        ) : !profileData ? (
+          <p className="text-sm text-muted-foreground">Practice with other musicians to sharpen your skills and repertoire.</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">No active partners yet. Browse matches to find compatible musicians.</p>
+        )}
+        <Button size="sm" variant={active.length > 0 || profileData ? "outline" : "default"} className="w-full" asChild>
+          <Link href="/practice-partners">{profileData ? "Find Partners" : "Get Started"}</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 const REEL_STATUS_LABELS: Record<string, string> = {
   uploading: "Uploading…",
@@ -1015,6 +1090,7 @@ export default function TeacherDashboard() {
 
             <CoachingCard />
 
+            <PracticePartnersCard />
 
             <Card className="border-border shadow-sm">
               <CardHeader>
