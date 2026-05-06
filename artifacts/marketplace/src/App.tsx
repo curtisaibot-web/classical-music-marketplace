@@ -153,6 +153,10 @@ function HomeRedirect() {
   );
 }
 
+function AdminRedirect() {
+  return <Redirect to={`/org-admin${window.location.search}`} />;
+}
+
 function AuthRouter() {
   const { data: user, isLoading } = useGetMe();
   
@@ -246,7 +250,7 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/schools/join" component={SchoolsJoin} />
           <Route path="/org-admin" component={OrgAdmin} />
-          <Route path="/admin">{() => { const [loc] = useLocation(); void loc; return <Redirect to={`/org-admin${window.location.search}`} />; }}</Route>
+          <Route path="/admin" component={AdminRedirect} />
 
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/cancel" component={PaymentCancel} />
