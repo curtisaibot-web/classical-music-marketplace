@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "wouter";
 import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, useListAuditionPrograms, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, getListAuditionProgramsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -214,15 +214,17 @@ export default function TeacherProfile() {
     return tabListings[tab].length;
   };
 
-  // Once data has loaded, jump to the first tab that has content if the default "lessons" tab is empty
-  const [tabInitialized, setTabInitialized] = useState(false);
-  if (!tabInitialized && listingsData && auditionProgramsData) {
-    const firstPopulated = TABS.find((t) => tabCount(t) > 0);
-    if (firstPopulated && firstPopulated !== activeTab) {
-      setActiveTab(firstPopulated);
-    }
-    setTabInitialized(true);
-  }
+  // Auto-select the first populated tab once data loads (avoids misleading empty lessons panel)
+  useEffect(() => {
+    if (!listingsData || !auditionProgramsData) return;
+    setActiveTab((current) => {
+      if (current !== "lessons") return current; // user already changed tab — don't override
+      const firstPopulated = TABS.find((t) => tabCount(t) > 0);
+      return firstPopulated ?? current;
+    });
+  // tabCount is stable within a render; listingsData/auditionProgramsData are the triggers
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listingsData, auditionProgramsData]);
 
   if (isLoadingTeacher) {
     return (

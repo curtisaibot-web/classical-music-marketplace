@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { eq, and, or } from "drizzle-orm";
 import { db, bookingsTable, ordersTable, teacherProfilesTable, auditionProgramsTable, programEnrollmentsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
 
@@ -197,7 +198,7 @@ router.post("/stripe/checkout/order", requireAuth, async (req, res): Promise<voi
   }
 });
 
-router.post("/stripe/checkout/program-enrollment", requireAuth, async (req, res): Promise<void> => {
+router.post("/stripe/checkout/program-enrollment", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
