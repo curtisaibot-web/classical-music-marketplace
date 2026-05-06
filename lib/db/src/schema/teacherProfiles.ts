@@ -21,6 +21,7 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   averageRating: integer("average_rating").notNull().default(0), // stored as integer * 100 (e.g. 450 = 4.5)
   reviewCount: integer("review_count").notNull().default(0),
   isVerified: boolean("is_verified").notNull().default(false),
+  profileSlug: text("profile_slug").unique(),
   profileImageUrl: text("profile_image_url"),
   websiteUrl: text("website_url"),
   videoIntroUrl: text("video_intro_url"),

@@ -175,6 +175,120 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /teachers/by-slug/{slug}:
+    get:
+      operationId: getTeacherBySlug
+      tags: [teachers]
+      summary: Get a teacher profile by vanity slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /teachers/me/slug:
+    put:
+      operationId: updateMyTeacherSlug
+      tags: [teachers]
+      summary: Set or update the teacher's vanity URL slug
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeacherSlugBody"
+      responses:
+        "200":
+          description: Updated teacher profile with new slug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Slug already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /teachers/{teacherId}/recordings:
+    get:
+      operationId: getTeacherRecordings
+      tags: [teachers]
+      summary: Get recordings for a teacher
+      parameters:
+        - name: teacherId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of recordings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherRecordingListResponse"
+
+  /teachers/me/recordings:
+    post:
+      operationId: createTeacherRecording
+      tags: [teachers]
+      summary: Add a recording to the teacher's profile (max 5)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeacherRecordingBody"
+      responses:
+        "201":
+          description: Created recording
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherRecording"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /teachers/me/recordings/{id}:
+    delete:
+      operationId: deleteTeacherRecording
+      tags: [teachers]
+      summary: Remove a recording from the teacher's profile
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /teachers/me:
     get:
       operationId: getMyTeacherProfile
@@ -1291,6 +1405,8 @@ components:
           type: ["string", "null"]
         videoIntroUrl:
           type: ["string", "null"]
+        profileSlug:
+          type: ["string", "null"]
         stripeOnboarded:
           type: boolean
         user:
@@ -1310,6 +1426,58 @@ components:
         total:
           type: integer
       required: [teachers, total]
+
+    UpdateTeacherSlugBody:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: "^[a-z0-9-]+$"
+      required: [slug]
+
+    TeacherRecording:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, url, title, sortOrder, createdAt]
+
+    TeacherRecordingListResponse:
+      type: object
+      properties:
+        recordings:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherRecording"
+      required: [recordings]
+
+    CreateTeacherRecordingBody:
+      type: object
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+      required: [url, title]
 
     UpdateTeacherProfileBody:
       type: object

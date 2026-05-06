@@ -80,6 +80,8 @@ export interface TeacherProfile {
   websiteUrl?: string | null;
   /** @nullable */
   videoIntroUrl?: string | null;
+  /** @nullable */
+  profileSlug?: string | null;
   stripeOnboarded: boolean;
   user?: User;
   createdAt: string;
@@ -88,6 +90,37 @@ export interface TeacherProfile {
 export interface TeacherListResponse {
   teachers: TeacherProfile[];
   total: number;
+}
+
+export interface UpdateTeacherSlugBody {
+  /**
+   * @minLength 3
+   * @maxLength 64
+   * @pattern ^[a-z0-9-]+$
+   */
+  slug: string;
+}
+
+export interface TeacherRecording {
+  id: number;
+  teacherId: string;
+  url: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface TeacherRecordingListResponse {
+  recordings: TeacherRecording[];
+}
+
+export interface CreateTeacherRecordingBody {
+  url: string;
+  title: string;
+  description?: string;
+  sortOrder?: number;
 }
 
 export interface UpdateTeacherProfileBody {

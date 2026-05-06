@@ -38,7 +38,7 @@ Proxy path: `/api/__clerk`
 | Table | Description |
 |---|---|
 | `users` | Clerk user ID as PK. Roles: `teacher` / `student` |
-| `teacher_profiles` | Teacher bio, instruments, rates, Stripe onboarding |
+| `teacher_profiles` | Teacher bio, instruments, rates, Stripe onboarding, `profile_slug` (unique vanity URL) |
 | `student_profiles` | Student goals, skill level, instruments |
 | `listings` | Polymorphic: lesson / event / masterclass / digital_product |
 | `masterclass_events` | Live masterclass scheduling with performer/observer tiers |
@@ -47,6 +47,7 @@ Proxy path: `/api/__clerk`
 | `bookings` | Lesson + event bookings (status machine) with event-specific fields: eventType, eventDate, eventLocation |
 | `orders` | Digital product + masterclass ticket purchases |
 | `reviews` | Ratings linked to bookings |
+| `teacher_recordings` | Up to 5 audio recordings per teacher (url, title, description, sort_order) |
 
 Platform fee: **15%** on all bookings and orders.
 
@@ -58,7 +59,7 @@ Base: `/api`
 |---|---|
 | Health | `GET /healthz` |
 | Users | `GET /users/me`, `POST /users/me/onboard` |
-| Teachers | `GET /teachers`, `GET /teachers/me`, `PUT /teachers/me`, `GET /teachers/:userId` |
+| Teachers | `GET /teachers`, `GET /teachers/me`, `PUT /teachers/me`, `GET /teachers/:userId`, `GET /teachers/by-slug/:slug`, `PUT /teachers/me/slug`, `GET /teachers/:teacherId/recordings`, `POST /teachers/me/recordings`, `DELETE /teachers/me/recordings/:id` |
 | Students | `GET /students/me`, `PUT /students/me` |
 | Listings | CRUD `/listings`, `GET /listings/teacher/:userId` |
 | Masterclasses | CRUD `/masterclasses` |

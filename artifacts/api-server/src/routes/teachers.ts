@@ -11,6 +11,8 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
+const SLUG_RE = /^[a-z0-9-]{3,64}$/;
+
 const router: IRouter = Router();
 
 router.get("/teachers", async (req, res): Promise<void> => {
@@ -159,6 +161,68 @@ router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
     .returning();
 
   if (!profile) {
+    res.status(404).json({ error: "Teacher profile not found" });
+    return;
+  }
+
+  const [result] = await db
+    .select()
+    .from(teacherProfilesTable)
+    .leftJoin(usersTable, eq(teacherProfilesTable.userId, usersTable.id))
+    .where(eq(teacherProfilesTable.userId, userId));
+
+  res.json(GetMyTeacherProfileResponse.parse({ ...result!.teacher_profiles, user: result!.users }));
+});
+
+router.get("/teachers/by-slug/:slug", async (req, res): Promise<void> => {
+  const slug = req.params.slug;
+  const [result] = await db
+    .select()
+    .from(teacherProfilesTable)
+    .leftJoin(usersTable, eq(teacherProfilesTable.userId, usersTable.id))
+    .where(eq(teacherProfilesTable.profileSlug, slug));
+
+  if (!result) {
+    res.status(404).json({ error: "Teacher not found" });
+    return;
+  }
+
+  res.json(GetTeacherResponse.parse({ ...result.teacher_profiles, user: result.users }));
+});
+
+router.put("/teachers/me/slug", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const slug = typeof req.body?.slug === "string" ? req.body.slug : "";
+  if (!SLUG_RE.test(slug)) {
+    res.status(400).json({ error: "Slug must be 3–64 characters, lowercase letters, numbers and hyphens only" });
+    return;
+  }
+
+  const existing = await db
+    .select({ id: teacherProfilesTable.id })
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.profileSlug, slug));
+
+  if (existing.length > 0) {
+    const myProfile = await db
+      .select({ id: teacherProfilesTable.id })
+      .from(teacherProfilesTable)
+      .where(eq(teacherProfilesTable.userId, userId));
+    if (myProfile.length === 0 || existing[0].id !== myProfile[0].id) {
+      res.status(409).json({ error: "This URL handle is already taken" });
+      return;
+    }
+  }
+
+  const [updated] = await db
+    .update(teacherProfilesTable)
+    .set({ profileSlug: slug, updatedAt: new Date() })
+    .where(eq(teacherProfilesTable.userId, userId))
+    .returning();
+
+  if (!updated) {
     res.status(404).json({ error: "Teacher profile not found" });
     return;
   }

@@ -1,12 +1,12 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useUploadReel, getGetMyReelQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -221,9 +221,24 @@ function BookingReelCard() {
 export default function TeacherDashboard() {
   const { data: dashboard, isLoading } = useGetTeacherDashboard();
   const { data: connectStatus } = useGetConnectStatus();
+  const { data: myProfile } = useGetMyTeacherProfile();
   const createOnboarding = useCreateConnectOnboarding();
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleShareProfile = () => {
+    const slug = myProfile?.profileSlug;
+    if (!slug) {
+      toast.error("Set a public URL handle in your profile settings first.");
+      return;
+    }
+    const url = `${window.location.origin}${basePath}/musicians/${slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Profile link copied to clipboard!");
+    }).catch(() => {
+      toast.error("Could not copy to clipboard. Your profile URL: " + url);
+    });
+  };
 
   const handleSetupPayouts = () => {
     const returnUrl = `${window.location.origin}${basePath}/teacher-dashboard`;
@@ -279,9 +294,15 @@ export default function TeacherDashboard() {
       <main className="flex-1 container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h1 className="text-3xl font-serif font-bold text-foreground">Teacher Dashboard</h1>
-          <Button asChild>
-            <Link href="/profile/edit">Edit Profile</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleShareProfile}>
+              <Share2 className="h-4 w-4 mr-2" />
+              Share Profile
+            </Button>
+            <Button asChild>
+              <Link href="/profile/edit">Edit Profile</Link>
+            </Button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">

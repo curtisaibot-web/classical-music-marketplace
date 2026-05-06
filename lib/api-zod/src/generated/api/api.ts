@@ -112,6 +112,7 @@ export const ListTeachersResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -162,6 +163,7 @@ export const GetTeacherResponse = zod.object({
   profileImageUrl: zod.string().nullish(),
   websiteUrl: zod.string().nullish(),
   videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
   user: zod
     .object({
@@ -181,6 +183,149 @@ export const GetTeacherResponse = zod.object({
     })
     .optional(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get a teacher profile by vanity slug
+ */
+export const GetTeacherBySlugParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetTeacherBySlugResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  bio: zod.string().nullish(),
+  instruments: zod.array(zod.string()),
+  genres: zod.array(zod.string()),
+  city: zod.string().nullish(),
+  country: zod.string().nullish(),
+  timezone: zod.string().nullish(),
+  hourlyRate: zod.number().nullish(),
+  currency: zod.string(),
+  yearsExperience: zod.number().nullish(),
+  education: zod.string().nullish(),
+  averageRating: zod.number(),
+  reviewCount: zod.number(),
+  isVerified: zod.boolean(),
+  profileImageUrl: zod.string().nullish(),
+  websiteUrl: zod.string().nullish(),
+  videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
+  stripeOnboarded: zod.boolean(),
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+      role: zod
+        .union([
+          zod.literal("teacher"),
+          zod.literal("student"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Set or update the teacher's vanity URL slug
+ */
+export const updateMyTeacherSlugBodySlugMin = 3;
+export const updateMyTeacherSlugBodySlugMax = 64;
+
+export const updateMyTeacherSlugBodySlugRegExp = new RegExp("^[a-z0-9-]+$");
+
+export const UpdateMyTeacherSlugBody = zod.object({
+  slug: zod
+    .string()
+    .min(updateMyTeacherSlugBodySlugMin)
+    .max(updateMyTeacherSlugBodySlugMax)
+    .regex(updateMyTeacherSlugBodySlugRegExp),
+});
+
+export const UpdateMyTeacherSlugResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  bio: zod.string().nullish(),
+  instruments: zod.array(zod.string()),
+  genres: zod.array(zod.string()),
+  city: zod.string().nullish(),
+  country: zod.string().nullish(),
+  timezone: zod.string().nullish(),
+  hourlyRate: zod.number().nullish(),
+  currency: zod.string(),
+  yearsExperience: zod.number().nullish(),
+  education: zod.string().nullish(),
+  averageRating: zod.number(),
+  reviewCount: zod.number(),
+  isVerified: zod.boolean(),
+  profileImageUrl: zod.string().nullish(),
+  websiteUrl: zod.string().nullish(),
+  videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
+  stripeOnboarded: zod.boolean(),
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+      role: zod
+        .union([
+          zod.literal("teacher"),
+          zod.literal("student"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get recordings for a teacher
+ */
+export const GetTeacherRecordingsParams = zod.object({
+  teacherId: zod.coerce.string(),
+});
+
+export const GetTeacherRecordingsResponse = zod.object({
+  recordings: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      url: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Add a recording to the teacher's profile (max 5)
+ */
+export const CreateTeacherRecordingBody = zod.object({
+  url: zod.string(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Remove a recording from the teacher's profile
+ */
+export const DeleteTeacherRecordingParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**
@@ -205,6 +350,7 @@ export const GetMyTeacherProfileResponse = zod.object({
   profileImageUrl: zod.string().nullish(),
   websiteUrl: zod.string().nullish(),
   videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
   user: zod
     .object({
@@ -263,6 +409,7 @@ export const UpdateMyTeacherProfileResponse = zod.object({
   profileImageUrl: zod.string().nullish(),
   websiteUrl: zod.string().nullish(),
   videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
   user: zod
     .object({
@@ -413,6 +560,7 @@ export const ListListingsResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -516,6 +664,7 @@ export const GetListingResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -608,6 +757,7 @@ export const UpdateListingResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -697,6 +847,7 @@ export const GetTeacherListingsResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -790,6 +941,7 @@ export const ListMasterclassesResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -882,6 +1034,7 @@ export const GetMasterclassResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -963,6 +1116,7 @@ export const UpdateMasterclassResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -1039,6 +1193,7 @@ export const ListDigitalProductsResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -1127,6 +1282,7 @@ export const GetDigitalProductResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -1209,6 +1365,7 @@ export const UpdateDigitalProductResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -1298,6 +1455,7 @@ export const ListBookingsResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -1398,6 +1556,7 @@ export const GetBookingResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -1486,6 +1645,7 @@ export const UpdateBookingResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({
@@ -1740,6 +1900,7 @@ export const GetTeacherDashboardResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -1841,6 +2002,7 @@ export const GetTeacherDashboardResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -1922,6 +2084,7 @@ export const GetStudentDashboardResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -2010,6 +2173,7 @@ export const GetStudentDashboardResponse = zod.object({
           profileImageUrl: zod.string().nullish(),
           websiteUrl: zod.string().nullish(),
           videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
           user: zod
             .object({
@@ -2056,6 +2220,7 @@ export const GetStudentDashboardResponse = zod.object({
       profileImageUrl: zod.string().nullish(),
       websiteUrl: zod.string().nullish(),
       videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
       user: zod
         .object({

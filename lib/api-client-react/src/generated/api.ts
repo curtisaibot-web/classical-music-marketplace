@@ -31,10 +31,12 @@ import type {
   CreateOrderBody,
   CreateOrderCheckoutBody,
   CreateReviewBody,
+  CreateTeacherRecordingBody,
   DashboardUrlResponse,
   DigitalProduct,
   DigitalProductListResponse,
   DownloadRedirectResponse,
+  ErrorEnvelope,
   ForbiddenResponse,
   GetTeacherReviewsParams,
   HealthStatus,
@@ -62,6 +64,8 @@ import type {
   TeacherDashboard,
   TeacherListResponse,
   TeacherProfile,
+  TeacherRecording,
+  TeacherRecordingListResponse,
   UnauthorizedResponse,
   UpdateBookingBody,
   UpdateDigitalProductBody,
@@ -69,6 +73,7 @@ import type {
   UpdateMasterclassBody,
   UpdateStudentProfileBody,
   UpdateTeacherProfileBody,
+  UpdateTeacherSlugBody,
   UploadReelBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -493,6 +498,448 @@ export function useGetTeacher<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get a teacher profile by vanity slug
+ */
+export const getGetTeacherBySlugUrl = (slug: string) => {
+  return `/api/teachers/by-slug/${slug}`;
+};
+
+export const getTeacherBySlug = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<TeacherProfile> => {
+  return customFetch<TeacherProfile>(getGetTeacherBySlugUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTeacherBySlugQueryKey = (slug: string) => {
+  return [`/api/teachers/by-slug/${slug}`] as const;
+};
+
+export const getGetTeacherBySlugQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeacherBySlug>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTeacherBySlugQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTeacherBySlug>>
+  > = ({ signal }) => getTeacherBySlug(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeacherBySlug>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeacherBySlugQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeacherBySlug>>
+>;
+export type GetTeacherBySlugQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a teacher profile by vanity slug
+ */
+
+export function useGetTeacherBySlug<
+  TData = Awaited<ReturnType<typeof getTeacherBySlug>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeacherBySlugQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set or update the teacher's vanity URL slug
+ */
+export const getUpdateMyTeacherSlugUrl = () => {
+  return `/api/teachers/me/slug`;
+};
+
+export const updateMyTeacherSlug = async (
+  updateTeacherSlugBody: UpdateTeacherSlugBody,
+  options?: RequestInit,
+): Promise<TeacherProfile> => {
+  return customFetch<TeacherProfile>(getUpdateMyTeacherSlugUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTeacherSlugBody),
+  });
+};
+
+export const getUpdateMyTeacherSlugMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyTeacherSlug>>,
+    TError,
+    { data: BodyType<UpdateTeacherSlugBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyTeacherSlug>>,
+  TError,
+  { data: BodyType<UpdateTeacherSlugBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyTeacherSlug"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyTeacherSlug>>,
+    { data: BodyType<UpdateTeacherSlugBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyTeacherSlug(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyTeacherSlugMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyTeacherSlug>>
+>;
+export type UpdateMyTeacherSlugMutationBody = BodyType<UpdateTeacherSlugBody>;
+export type UpdateMyTeacherSlugMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Set or update the teacher's vanity URL slug
+ */
+export const useUpdateMyTeacherSlug = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyTeacherSlug>>,
+    TError,
+    { data: BodyType<UpdateTeacherSlugBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyTeacherSlug>>,
+  TError,
+  { data: BodyType<UpdateTeacherSlugBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyTeacherSlugMutationOptions(options));
+};
+
+/**
+ * @summary Get recordings for a teacher
+ */
+export const getGetTeacherRecordingsUrl = (teacherId: string) => {
+  return `/api/teachers/${teacherId}/recordings`;
+};
+
+export const getTeacherRecordings = async (
+  teacherId: string,
+  options?: RequestInit,
+): Promise<TeacherRecordingListResponse> => {
+  return customFetch<TeacherRecordingListResponse>(
+    getGetTeacherRecordingsUrl(teacherId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTeacherRecordingsQueryKey = (teacherId: string) => {
+  return [`/api/teachers/${teacherId}/recordings`] as const;
+};
+
+export const getGetTeacherRecordingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeacherRecordings>>,
+  TError = ErrorType<unknown>,
+>(
+  teacherId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherRecordings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeacherRecordingsQueryKey(teacherId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTeacherRecordings>>
+  > = ({ signal }) =>
+    getTeacherRecordings(teacherId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!teacherId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeacherRecordings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeacherRecordingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeacherRecordings>>
+>;
+export type GetTeacherRecordingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get recordings for a teacher
+ */
+
+export function useGetTeacherRecordings<
+  TData = Awaited<ReturnType<typeof getTeacherRecordings>>,
+  TError = ErrorType<unknown>,
+>(
+  teacherId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherRecordings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeacherRecordingsQueryOptions(teacherId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a recording to the teacher's profile (max 5)
+ */
+export const getCreateTeacherRecordingUrl = () => {
+  return `/api/teachers/me/recordings`;
+};
+
+export const createTeacherRecording = async (
+  createTeacherRecordingBody: CreateTeacherRecordingBody,
+  options?: RequestInit,
+): Promise<TeacherRecording> => {
+  return customFetch<TeacherRecording>(getCreateTeacherRecordingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createTeacherRecordingBody),
+  });
+};
+
+export const getCreateTeacherRecordingMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTeacherRecording>>,
+    TError,
+    { data: BodyType<CreateTeacherRecordingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTeacherRecording>>,
+  TError,
+  { data: BodyType<CreateTeacherRecordingBody> },
+  TContext
+> => {
+  const mutationKey = ["createTeacherRecording"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTeacherRecording>>,
+    { data: BodyType<CreateTeacherRecordingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createTeacherRecording(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTeacherRecordingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTeacherRecording>>
+>;
+export type CreateTeacherRecordingMutationBody =
+  BodyType<CreateTeacherRecordingBody>;
+export type CreateTeacherRecordingMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Add a recording to the teacher's profile (max 5)
+ */
+export const useCreateTeacherRecording = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTeacherRecording>>,
+    TError,
+    { data: BodyType<CreateTeacherRecordingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTeacherRecording>>,
+  TError,
+  { data: BodyType<CreateTeacherRecordingBody> },
+  TContext
+> => {
+  return useMutation(getCreateTeacherRecordingMutationOptions(options));
+};
+
+/**
+ * @summary Remove a recording from the teacher's profile
+ */
+export const getDeleteTeacherRecordingUrl = (id: number) => {
+  return `/api/teachers/me/recordings/${id}`;
+};
+
+export const deleteTeacherRecording = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteTeacherRecordingUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteTeacherRecordingMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTeacherRecording>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteTeacherRecording>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteTeacherRecording"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteTeacherRecording>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteTeacherRecording(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteTeacherRecordingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteTeacherRecording>>
+>;
+
+export type DeleteTeacherRecordingMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Remove a recording from the teacher's profile
+ */
+export const useDeleteTeacherRecording = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteTeacherRecording>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteTeacherRecording>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteTeacherRecordingMutationOptions(options));
+};
 
 /**
  * @summary Get current teacher profile
