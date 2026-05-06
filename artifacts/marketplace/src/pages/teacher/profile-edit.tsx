@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageCropModal } from "@/components/ui/image-crop-modal";
 import { Loader2, Music, Camera } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +35,8 @@ export default function TeacherProfileEdit() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -49,7 +52,7 @@ export default function TeacherProfileEdit() {
     }
   }, [profile]);
 
-  const handleImageUpload = async (file: File) => {
+  const handleFileSelected = (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file.");
       return;
@@ -58,8 +61,22 @@ export default function TeacherProfileEdit() {
       toast.error("Image must be smaller than 5 MB.");
       return;
     }
-
     const objectUrl = URL.createObjectURL(file);
+    setCropSrc(objectUrl);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+
+    const croppedFile = new File([croppedBlob], "profile-photo.jpg", { type: "image/jpeg" });
+
+    const objectUrl = URL.createObjectURL(croppedBlob);
     setPreviewUrl((prev) => {
       if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
       return objectUrl;
@@ -72,9 +89,9 @@ export default function TeacherProfileEdit() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: file.name,
-          size: file.size,
-          contentType: file.type,
+          name: croppedFile.name,
+          size: croppedFile.size,
+          contentType: croppedFile.type,
         }),
       });
 
@@ -87,8 +104,8 @@ export default function TeacherProfileEdit() {
 
       const putResp = await fetch(uploadURL, {
         method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
+        body: croppedFile,
+        headers: { "Content-Type": croppedFile.type },
       });
 
       if (!putResp.ok) throw new Error("Failed to upload image to storage");
@@ -142,181 +159,192 @@ export default function TeacherProfileEdit() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
+    <>
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          aspect={3 / 4}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
 
-      <div className="bg-muted py-10 border-b border-border">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <h1 className="text-3xl font-serif font-bold text-foreground">Edit Profile</h1>
-          <p className="text-muted-foreground mt-1">Update your public teacher profile.</p>
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+
+        <div className="bg-muted py-10 border-b border-border">
+          <div className="container mx-auto px-4 max-w-3xl">
+            <h1 className="text-3xl font-serif font-bold text-foreground">Edit Profile</h1>
+            <p className="text-muted-foreground mt-1">Update your public teacher profile.</p>
+          </div>
         </div>
-      </div>
 
-      <main className="flex-1 container mx-auto px-4 py-12 max-w-3xl">
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-8">
+        <main className="flex-1 container mx-auto px-4 py-12 max-w-3xl">
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-8">
 
-            <Card className="border-border">
-              <CardHeader>
-                <CardTitle className="font-serif">Profile Photo</CardTitle>
-                <CardDescription>This photo appears on your public profile and teacher cards.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className="w-28 h-28 rounded-full overflow-hidden bg-muted border-2 border-border shrink-0 flex items-center justify-center">
-                    {displayImageUrl ? (
-                      <img
-                        src={displayImageUrl}
-                        alt="Profile preview"
-                        className="w-full h-full object-cover object-top"
-                      />
-                    ) : (
-                      <Music className="h-10 w-10 text-muted-foreground opacity-30" />
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={uploadState.isUploading}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="gap-2"
-                    >
-                      {uploadState.isUploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle className="font-serif">Profile Photo</CardTitle>
+                  <CardDescription>This photo appears on your public profile and teacher cards.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <div className="w-28 h-28 rounded-full overflow-hidden bg-muted border-2 border-border shrink-0 flex items-center justify-center">
+                      {displayImageUrl ? (
+                        <img
+                          src={displayImageUrl}
+                          alt="Profile preview"
+                          className="w-full h-full object-cover object-top"
+                        />
                       ) : (
-                        <Camera className="h-4 w-4" />
+                        <Music className="h-10 w-10 text-muted-foreground opacity-30" />
                       )}
-                      {uploadState.isUploading ? "Uploading…" : displayImageUrl ? "Change Photo" : "Upload Photo"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      JPG, PNG or WebP · Max 5 MB
-                    </p>
-                    {uploadState.error && (
-                      <p className="text-xs text-destructive">{uploadState.error}</p>
-                    )}
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={uploadState.isUploading}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="gap-2"
+                      >
+                        {uploadState.isUploading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        {uploadState.isUploading ? "Uploading…" : displayImageUrl ? "Change Photo" : "Upload Photo"}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        JPG, PNG or WebP · Max 5 MB · Crop to 3:4 portrait
+                      </p>
+                      {uploadState.error && (
+                        <p className="text-xs text-destructive">{uploadState.error}</p>
+                      )}
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleFileSelected(f);
+                        e.target.value = "";
+                      }}
+                    />
                   </div>
+                </CardContent>
+              </Card>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleImageUpload(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border">
-              <CardHeader>
-                <CardTitle className="font-serif">Basic Information</CardTitle>
-                <CardDescription>This information will be displayed publicly on your profile.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Biography</Label>
-                  <Textarea
-                    id="bio"
-                    value={formData.bio}
-                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    placeholder="Tell prospective students about yourself..."
-                    className="min-h-[150px]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle className="font-serif">Basic Information</CardTitle>
+                  <CardDescription>This information will be displayed publicly on your profile.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="instruments">Instruments (comma-separated)</Label>
-                    <Input
-                      id="instruments"
-                      value={formData.instruments}
-                      onChange={(e) => setFormData({ ...formData, instruments: e.target.value })}
-                      placeholder="e.g. Piano, Violin, Music Theory"
+                    <Label htmlFor="bio">Biography</Label>
+                    <Textarea
+                      id="bio"
+                      value={formData.bio}
+                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                      placeholder="Tell prospective students about yourself..."
+                      className="min-h-[150px]"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="genres">Genres (comma-separated)</Label>
-                    <Input
-                      id="genres"
-                      value={formData.genres}
-                      onChange={(e) => setFormData({ ...formData, genres: e.target.value })}
-                      placeholder="e.g. Classical, Jazz, Contemporary"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="instruments">Instruments (comma-separated)</Label>
+                      <Input
+                        id="instruments"
+                        value={formData.instruments}
+                        onChange={(e) => setFormData({ ...formData, instruments: e.target.value })}
+                        placeholder="e.g. Piano, Violin, Music Theory"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City / Location</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="e.g. New York, NY"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="genres">Genres (comma-separated)</Label>
+                      <Input
+                        id="genres"
+                        value={formData.genres}
+                        onChange={(e) => setFormData({ ...formData, genres: e.target.value })}
+                        placeholder="e.g. Classical, Jazz, Contemporary"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="yearsExperience">Years of Experience</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City / Location</Label>
+                      <Input
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        placeholder="e.g. New York, NY"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="yearsExperience">Years of Experience</Label>
+                      <Input
+                        id="yearsExperience"
+                        type="number"
+                        min="0"
+                        value={formData.yearsExperience}
+                        onChange={(e) => setFormData({ ...formData, yearsExperience: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border">
+                <CardHeader>
+                  <CardTitle className="font-serif">Rates & Qualifications</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2 max-w-sm">
+                    <Label htmlFor="hourlyRate">Default Hourly Rate ($)</Label>
                     <Input
-                      id="yearsExperience"
+                      id="hourlyRate"
                       type="number"
                       min="0"
-                      value={formData.yearsExperience}
-                      onChange={(e) => setFormData({ ...formData, yearsExperience: Number(e.target.value) })}
+                      step="1"
+                      value={formData.hourlyRate / 100}
+                      onChange={(e) => setFormData({ ...formData, hourlyRate: Math.round(Number(e.target.value) * 100) })}
+                    />
+                    <p className="text-xs text-muted-foreground">This is your base rate for private lessons.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="education">Education & Credentials</Label>
+                    <Textarea
+                      id="education"
+                      value={formData.education}
+                      onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                      placeholder="List your degrees, conservatories, and major instructors..."
+                      className="min-h-[100px]"
                     />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card className="border-border">
-              <CardHeader>
-                <CardTitle className="font-serif">Rates & Qualifications</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2 max-w-sm">
-                  <Label htmlFor="hourlyRate">Default Hourly Rate ($)</Label>
-                  <Input
-                    id="hourlyRate"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formData.hourlyRate / 100}
-                    onChange={(e) => setFormData({ ...formData, hourlyRate: Math.round(Number(e.target.value) * 100) })}
-                  />
-                  <p className="text-xs text-muted-foreground">This is your base rate for private lessons.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="education">Education & Credentials</Label>
-                  <Textarea
-                    id="education"
-                    value={formData.education}
-                    onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                    placeholder="List your degrees, conservatories, and major instructors..."
-                    className="min-h-[100px]"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end gap-4 border-t border-border pt-6">
-              <Button type="submit" disabled={updateProfile.isPending || uploadState.isUploading}>
-                {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
+              <div className="flex justify-end gap-4 border-t border-border pt-6">
+                <Button type="submit" disabled={updateProfile.isPending || uploadState.isUploading}>
+                  {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </div>
             </div>
-          </div>
-        </form>
-      </main>
+          </form>
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </>
   );
 }
