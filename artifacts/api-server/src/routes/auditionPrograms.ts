@@ -130,7 +130,7 @@ router.get("/audition-programs/my-programs", requireAuth, requireRole("teacher")
 });
 
 // GET /audition-programs/my-enrollments — student's enrollments
-router.get("/audition-programs/my-enrollments", requireAuth, async (req, res): Promise<void> => {
+router.get("/audition-programs/my-enrollments", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
 
   const rows = await db
