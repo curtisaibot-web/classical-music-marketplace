@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { initStripe } from "./stripeInit";
+import { backfillMissingProfileSlugs } from "./backfillSlugs";
 
 const rawPort = process.env["PORT"];
 
@@ -21,6 +22,8 @@ try {
 } catch (err) {
   logger.warn({ err }, "Stripe initialization failed — server will start without payment support");
 }
+
+await backfillMissingProfileSlugs();
 
 app.listen(port, (err) => {
   if (err) {
