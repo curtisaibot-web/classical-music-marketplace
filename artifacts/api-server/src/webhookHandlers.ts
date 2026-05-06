@@ -186,41 +186,26 @@ async function handleCheckoutSessionCompleted(
     if (existing) {
       logger.info({ ticketId: existing.id, sessionId: session.id, eventId }, "Campaign ticket already recorded — idempotent skip");
     } else {
-      // Race condition guard: check campaign is still active before saving the payment method.
-      // If campaign was cancelled/failed/succeeded since checkout started, detach the payment
-      // method immediately so the fan's card is never charged.
+      // Race condition guard: verify campaign is still active before recording the authorization.
+      // If campaign transitioned (cancelled/failed/succeeded) after the fan started checkout,
+      // cancel the PaymentIntent immediately so the authorization hold is released.
       const [campaignCheck] = await db
         .select({ status: concertCampaignsTable.status, deadlineAt: concertCampaignsTable.deadlineAt })
         .from(concertCampaignsTable)
         .where(eq(concertCampaignsTable.id, campaignId));
-
-      // Retrieve SetupIntent to get the saved payment method ID
-      const setupIntentId = session.setup_intent as string | undefined;
-      let paymentMethodId: string | undefined;
-      const stripeCustomerId = (session.customer as string | undefined) ?? ((metadata.stripe_customer_id as string | undefined) || undefined);
-
-      if (setupIntentId) {
-        try {
-          const stripe = await getUncachableStripeClient();
-          const si = await stripe.setupIntents.retrieve(setupIntentId);
-          paymentMethodId = si.payment_method as string | undefined;
-        } catch (err) {
-          logger.error({ err, setupIntentId }, "Failed to retrieve SetupIntent");
-        }
-      }
 
       const isInactive = !campaignCheck ||
         campaignCheck.status !== "active" ||
         (campaignCheck.deadlineAt && new Date(campaignCheck.deadlineAt) < new Date());
 
       if (isInactive) {
-        if (paymentMethodId) {
+        if (paymentIntentId) {
           try {
             const stripe = await getUncachableStripeClient();
-            await stripe.paymentMethods.detach(paymentMethodId);
-            logger.info({ paymentMethodId, campaignId, sessionId: session.id }, "Detached payment method — campaign inactive at checkout completion");
+            await stripe.paymentIntents.cancel(paymentIntentId);
+            logger.info({ paymentIntentId, campaignId, sessionId: session.id }, "Cancelled PaymentIntent — campaign inactive at checkout completion");
           } catch (err) {
-            logger.error({ err, paymentMethodId }, "Failed to detach payment method for inactive campaign");
+            logger.error({ err, paymentIntentId }, "Failed to cancel PaymentIntent for inactive campaign");
           }
         }
         return;
@@ -244,15 +229,13 @@ async function handleCheckoutSessionCompleted(
           totalPriceCents,
           platformFeeCents,
           stripeCheckoutSessionId: session.id,
-          stripeSetupIntentId: setupIntentId ?? null,
-          stripePaymentMethodId: paymentMethodId ?? null,
-          stripeCustomerId: stripeCustomerId ?? null,
+          stripePaymentIntentId: paymentIntentId ?? null,
           accessCode,
           status: "authorised",
         })
         .returning();
 
-      logger.info({ campaignId, ticketId: ticket.id, sessionId: session.id, eventId, hasPaymentMethod: !!paymentMethodId }, "Campaign ticket recorded (SetupIntent flow)");
+      logger.info({ campaignId, ticketId: ticket.id, sessionId: session.id, eventId, paymentIntentId }, "Campaign ticket authorised (manual-capture)");
     }
 
     await processCampaignSuccess(campaignId).catch((err) => {
