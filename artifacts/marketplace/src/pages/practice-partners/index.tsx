@@ -68,7 +68,7 @@ interface AvailabilitySlot { day: string; time: string; }
 interface PracticeProfile {
   id: number; userId: string; instruments: string[]; skillLevel: string; goals: string[];
   availabilitySlots: AvailabilitySlot[]; sessionFormat: string; bio: string | null; isActive: boolean;
-  user: { firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  user: { firstName: string | null; lastName: string | null; imageUrl: string | null } | null;
   matchScore?: number; matchReason?: string | null;
 }
 interface SessionCompletion { id: number; sessionId: number; userId: string; notes: string | null; completedAt: string; }
@@ -80,7 +80,7 @@ interface SessionData {
 interface Partnership {
   id: number; requesterId: string; recipientId: string; status: string;
   matchScore: number; matchReason: string | null; isRequester: boolean;
-  partner: { firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
+  partner: { firstName: string | null; lastName: string | null; imageUrl: string | null } | null;
   partnerProfile: { userId: string; instruments: string[]; skillLevel: string; sessionFormat: string } | null;
 }
 
@@ -94,8 +94,8 @@ function AvatarIcon({ partner }: { partner: Partnership["partner"] }) {
   const name = avatarName(partner);
   return (
     <div className="h-10 w-10 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center shrink-0">
-      {partner?.profileImageUrl
-        ? <img src={partner.profileImageUrl} alt={name} className="w-full h-full object-cover" />
+      {partner?.imageUrl
+        ? <img src={partner.imageUrl} alt={name} className="w-full h-full object-cover" />
         : <Music2 className="h-4 w-4 text-primary" />}
     </div>
   );
@@ -286,8 +286,8 @@ function PartnerCard({ profile, onRequest, requesting }: {
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className="h-12 w-12 rounded-full bg-primary/10 overflow-hidden shrink-0 flex items-center justify-center">
-            {profile.user?.profileImageUrl
-              ? <img src={profile.user.profileImageUrl} alt={name} className="w-full h-full object-cover" />
+            {profile.user?.imageUrl
+              ? <img src={profile.user.imageUrl} alt={name} className="w-full h-full object-cover" />
               : <Music2 className="h-5 w-5 text-primary" />}
           </div>
           <div className="flex-1 min-w-0">
@@ -700,8 +700,8 @@ function PartnershipsSection() {
             {sent.map(p => (
               <div key={p.id} className="flex items-center gap-3 p-3 rounded-lg border border-border text-sm">
                 <div className="h-8 w-8 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
-                  {p.partner?.profileImageUrl
-                    ? <img src={p.partner.profileImageUrl} alt={avatarName(p.partner)} className="w-full h-full object-cover" />
+                  {p.partner?.imageUrl
+                    ? <img src={p.partner.imageUrl} alt={avatarName(p.partner)} className="w-full h-full object-cover" />
                     : <Music2 className="h-3.5 w-3.5 text-muted-foreground" />}
                 </div>
                 <span className="flex-1 text-foreground">{avatarName(p.partner)}</span>

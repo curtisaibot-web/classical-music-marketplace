@@ -15,6 +15,20 @@ import { isProSubscriber } from "./subscriptions";
 
 const router: IRouter = Router();
 
+// ── Safe user projection (no email, no internal fields) ──────────────────────
+
+const safeUserFields = {
+  id: usersTable.id,
+  firstName: usersTable.firstName,
+  lastName: usersTable.lastName,
+  imageUrl: usersTable.imageUrl,
+} as const;
+
+function safeUser(u: { firstName: string | null; lastName: string | null; imageUrl: string | null } | null) {
+  if (!u) return null;
+  return { firstName: u.firstName, lastName: u.lastName, imageUrl: u.imageUrl };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function isSafeUrl(url: string): boolean {
@@ -97,12 +111,12 @@ async function getMyPartnerships(userId: string) {
 router.get("/practice/profile/me", requireAuth, async (req, res): Promise<void> => {
   const { userId } = getAuth(req);
   const [row] = await db
-    .select()
+    .select({ profile: practiceProfilesTable, user: safeUserFields })
     .from(practiceProfilesTable)
     .leftJoin(usersTable, eq(practiceProfilesTable.userId, usersTable.id))
     .where(eq(practiceProfilesTable.userId, userId!));
   if (!row) { res.status(404).json({ error: "No practice profile" }); return; }
-  res.json({ ...row.practice_profiles, user: row.users });
+  res.json({ ...row.profile, user: row.user });
 });
 
 router.post("/practice/profile", requireAuth, async (req, res): Promise<void> => {
@@ -177,12 +191,12 @@ router.put("/practice/profile", requireAuth, async (req, res): Promise<void> => 
 router.get("/practice/profile/:userId", async (req, res): Promise<void> => {
   const { userId } = req.params as { userId: string };
   const [row] = await db
-    .select()
+    .select({ profile: practiceProfilesTable, user: safeUserFields })
     .from(practiceProfilesTable)
     .leftJoin(usersTable, eq(practiceProfilesTable.userId, usersTable.id))
     .where(and(eq(practiceProfilesTable.userId, userId), eq(practiceProfilesTable.isActive, true)));
   if (!row) { res.status(404).json({ error: "Practice profile not found" }); return; }
-  res.json({ ...row.practice_profiles, user: row.users });
+  res.json({ ...row.profile, user: row.user });
 });
 
 // ── Matches ───────────────────────────────────────────────────────────────────
@@ -201,7 +215,7 @@ router.get("/practice/matches", requireAuth, async (req, res): Promise<void> => 
   if (!myRow) { res.json({ matches: [], hasProfile: false, isPremium: isPro }); return; }
 
   const allRows = await db
-    .select()
+    .select({ profile: practiceProfilesTable, user: safeUserFields })
     .from(practiceProfilesTable)
     .leftJoin(usersTable, eq(practiceProfilesTable.userId, usersTable.id))
     .where(and(eq(practiceProfilesTable.isActive, true), ne(practiceProfilesTable.userId, userId!)));
@@ -214,11 +228,13 @@ router.get("/practice/matches", requireAuth, async (req, res): Promise<void> => 
   );
 
   let matches = allRows
-    .filter((r) => !partnerUserIds.has(r.practice_profiles.userId))
+    .filter((r) => !partnerUserIds.has(r.profile.userId))
     .map((r) => {
-      const { score, reason } = computeMatchScore(myRow, r.practice_profiles);
-      return { ...r.practice_profiles, user: r.users, matchScore: score, matchReason: isPro ? reason : null };
-    });
+      const { score, reason, baselineMet } = computeMatchScore(myRow, r.profile);
+      return { ...r.profile, user: r.user, matchScore: score, matchReason: isPro ? reason : null, baselineMet };
+    })
+    // Enforce compatibility gate: only return profiles with shared instrument + close skill
+    .filter((m) => m.baselineMet);
 
   if (instrument) {
     const lower = instrument.toLowerCase();
@@ -404,14 +420,19 @@ router.get("/practice/partnerships", requireAuth, async (req, res): Promise<void
 
   const users =
     uniqueIds.length > 0
-      ? await db.select().from(usersTable).where(
+      ? await db.select(safeUserFields).from(usersTable).where(
           or(...uniqueIds.map((id) => eq(usersTable.id, id))),
         )
       : [];
 
   const profiles =
     uniqueIds.length > 0
-      ? await db.select().from(practiceProfilesTable).where(
+      ? await db.select({
+          userId: practiceProfilesTable.userId,
+          instruments: practiceProfilesTable.instruments,
+          skillLevel: practiceProfilesTable.skillLevel,
+          sessionFormat: practiceProfilesTable.sessionFormat,
+        }).from(practiceProfilesTable).where(
           or(...uniqueIds.map((id) => eq(practiceProfilesTable.userId, id))),
         )
       : [];
@@ -423,7 +444,7 @@ router.get("/practice/partnerships", requireAuth, async (req, res): Promise<void
     const partnerId = p.requesterId === userId ? p.recipientId : p.requesterId;
     return {
       ...p,
-      partner: userMap[partnerId] ?? null,
+      partner: safeUser(userMap[partnerId] ?? null),
       partnerProfile: profileMap[partnerId] ?? null,
       isRequester: p.requesterId === userId,
     };
