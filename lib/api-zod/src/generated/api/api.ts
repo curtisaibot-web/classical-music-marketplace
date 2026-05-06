@@ -2497,8 +2497,9 @@ export const GetSubscriptionMeResponse = zod.object({
  * @summary Create Business Suite Stripe Checkout session
  */
 export const CreateSubscriptionCheckoutBody = zod.object({
-  plan: zod.enum(["monthly", "annual"]),
-  returnUrl: zod.string(),
+  plan: zod.enum(["monthly", "annual"]).optional(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
 });
 
 export const CreateSubscriptionCheckoutResponse = zod.object({

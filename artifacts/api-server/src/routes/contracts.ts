@@ -445,11 +445,18 @@ router.get("/contracts/sign/:token", async (req, res): Promise<void> => {
 
 router.post("/contracts/sign/:token", async (req, res): Promise<void> => {
   const { token } = req.params;
-  const rawSignerName = (req.body as { signerName?: string }).signerName;
+  const body = req.body as { signerName?: string; agreed?: string | boolean };
+  const rawSignerName = body.signerName;
   const signerName = rawSignerName?.trim().slice(0, 200) ?? "";
+  const agreed = body.agreed === true || body.agreed === "on" || body.agreed === "true" || body.agreed === "1";
 
   if (!signerName) {
     res.status(400).send("<!DOCTYPE html><html><body><h1>Error: Full name is required.</h1></body></html>");
+    return;
+  }
+
+  if (!agreed) {
+    res.status(400).send("<!DOCTYPE html><html><body><h1>Error: You must confirm that you have read and agreed to the contract terms.</h1></body></html>");
     return;
   }
 

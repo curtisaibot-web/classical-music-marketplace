@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or, desc } from "drizzle-orm";
 import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable, reviewsTable } from "@workspace/db";
+import { isProSubscriber } from "./subscriptions";
 import {
   GetBookingResponse,
   ListBookingsResponse,
@@ -81,16 +82,19 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
   }
 
   if (teacherId) {
-    const [tp] = await db
-      .select({
-        cancellationPolicyHours: teacherProfilesTable.cancellationPolicyHours,
-        cancellationFeePercent: teacherProfilesTable.cancellationFeePercent,
-      })
-      .from(teacherProfilesTable)
-      .where(eq(teacherProfilesTable.userId, teacherId));
-    if (tp) {
-      cancellationPolicyHoursSnapshot = tp.cancellationPolicyHours ?? null;
-      cancellationFeePercentSnapshot = tp.cancellationFeePercent ?? null;
+    const teacherIsPro = await isProSubscriber(teacherId);
+    if (teacherIsPro) {
+      const [tp] = await db
+        .select({
+          cancellationPolicyHours: teacherProfilesTable.cancellationPolicyHours,
+          cancellationFeePercent: teacherProfilesTable.cancellationFeePercent,
+        })
+        .from(teacherProfilesTable)
+        .where(eq(teacherProfilesTable.userId, teacherId));
+      if (tp) {
+        cancellationPolicyHoursSnapshot = tp.cancellationPolicyHours ?? null;
+        cancellationFeePercentSnapshot = tp.cancellationFeePercent ?? null;
+      }
     }
   }
 
