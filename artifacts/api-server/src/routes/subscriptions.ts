@@ -197,7 +197,8 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
       return;
     }
 
-    const periodEnd = new Date(sub.current_period_end * 1000);
+    const itemPeriodEnd = sub.items.data[0]?.current_period_end ?? null;
+    const periodEnd = itemPeriodEnd ? new Date(itemPeriodEnd * 1000) : null;
 
     await db
       .insert(subscriptionsTable)

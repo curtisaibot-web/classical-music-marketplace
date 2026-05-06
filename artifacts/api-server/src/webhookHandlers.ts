@@ -70,7 +70,8 @@ async function handleCheckoutSessionCompleted(
     }
     const sub = await stripe.subscriptions.retrieve(subscriptionId);
     const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    const itemPeriodEnd = sub.items.data[0]?.current_period_end ?? null;
+    const periodEnd = itemPeriodEnd ? new Date(itemPeriodEnd * 1000) : null;
 
     await db
       .insert(subscriptionsTable)
@@ -264,7 +265,8 @@ async function syncSubscription(
   eventId: string,
 ): Promise<void> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-  const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+  const itemPeriodEnd = sub.items.data[0]?.current_period_end ?? null;
+  const periodEnd = itemPeriodEnd ? new Date(itemPeriodEnd * 1000) : null;
 
   await db
     .insert(subscriptionsTable)

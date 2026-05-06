@@ -119,7 +119,8 @@ router.post(
 router.get(
   "/storage/objects/images/:teacherId/:fileId",
   async (req: Request, res: Response) => {
-    const { teacherId, fileId } = req.params;
+    const teacherId = String(req.params.teacherId);
+    const fileId = String(req.params.fileId);
 
     const SAFE_ID = /^[\w-]+$/;
     if (!SAFE_ID.test(teacherId) || !SAFE_ID.test(fileId)) {

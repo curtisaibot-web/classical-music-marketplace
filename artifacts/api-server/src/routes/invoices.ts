@@ -191,7 +191,7 @@ router.post("/invoices", requireAuth, async (req, res): Promise<void> => {
 router.get("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
@@ -212,7 +212,7 @@ router.get("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
 router.patch("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
@@ -245,7 +245,7 @@ router.patch("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
 router.delete("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
@@ -263,7 +263,7 @@ router.delete("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
 router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
@@ -327,7 +327,7 @@ ${invoice.notes ? `<p><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</p>` 
 router.get("/invoices/:id/pdf", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {

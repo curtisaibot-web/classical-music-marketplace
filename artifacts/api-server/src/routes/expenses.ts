@@ -124,7 +124,7 @@ router.post("/expenses", requireAuth, async (req, res): Promise<void> => {
 router.put("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
@@ -162,7 +162,7 @@ router.put("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
 router.delete("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   if (!await isProSubscriber(userId)) {
