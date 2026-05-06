@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, serial, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, serial, pgEnum, boolean, unique } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { ordersTable } from "./orders";
 
@@ -43,14 +43,18 @@ export const programEnrollmentsTable = pgTable("program_enrollments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const programSessionNotesTable = pgTable("program_session_notes", {
-  id: serial("id").primaryKey(),
-  enrollmentId: integer("enrollment_id").notNull().references(() => programEnrollmentsTable.id, { onDelete: "cascade" }),
-  sessionNumber: integer("session_number").notNull(),
-  teacherNote: text("teacher_note"),
-  feedbackFileKey: text("feedback_file_key"),
-  completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const programSessionNotesTable = pgTable(
+  "program_session_notes",
+  {
+    id: serial("id").primaryKey(),
+    enrollmentId: integer("enrollment_id").notNull().references(() => programEnrollmentsTable.id, { onDelete: "cascade" }),
+    sessionNumber: integer("session_number").notNull(),
+    teacherNote: text("teacher_note"),
+    feedbackFileKey: text("feedback_file_key"),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("program_session_notes_enrollment_session_uniq").on(t.enrollmentId, t.sessionNumber)],
+);
 
 export type AuditionProgram = typeof auditionProgramsTable.$inferSelect;
 export type ProgramEnrollment = typeof programEnrollmentsTable.$inferSelect;

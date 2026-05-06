@@ -17,19 +17,21 @@ import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 import { resolveImageUrl } from "@/lib/image-url";
 
-const TABS = ["lessons", "masterclasses", "events"] as const;
+const TABS = ["lessons", "masterclasses", "events", "audition-prep"] as const;
 type Tab = typeof TABS[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   lessons: "Lessons",
   masterclasses: "Masterclasses",
   events: "Events",
+  "audition-prep": "Audition Prep",
 };
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   lessons: <BookOpen className="h-4 w-4" />,
   masterclasses: <Sparkles className="h-4 w-4" />,
   events: <Music2 className="h-4 w-4" />,
+  "audition-prep": <GraduationCap className="h-4 w-4" />,
 };
 
 function StarRating({ rating, max = 5, size = "sm" }: { rating: number; max?: number; size?: "sm" | "md" | "lg" }) {
@@ -199,10 +201,17 @@ export default function TeacherProfile() {
   const masterclasses = listingsData?.listings.filter(l => l.type === "masterclass") ?? [];
   const events = listingsData?.listings.filter(l => l.type === "event") ?? [];
 
-  const tabListings: Record<Tab, typeof lessons> = {
+  const tabListings: Record<Exclude<Tab, "audition-prep">, typeof lessons> = {
     lessons,
     masterclasses,
     events,
+  };
+
+  const auditionPrograms = auditionProgramsData?.programs ?? [];
+
+  const tabCount = (tab: Tab): number => {
+    if (tab === "audition-prep") return auditionPrograms.length;
+    return tabListings[tab].length;
   };
 
   if (isLoadingTeacher) {
@@ -372,15 +381,16 @@ export default function TeacherProfile() {
               </section>
             )}
 
-            {/* Listings Tabs */}
-            {listingsData && listingsData.listings.length > 0 && (
+            {/* Offerings Tabs — listings + audition prep */}
+            {(listingsData && listingsData.listings.length > 0) || auditionPrograms.length > 0 ? (
               <section>
                 <h2 className="text-xl font-serif font-semibold mb-4 text-foreground">Offerings</h2>
 
                 {/* Tab bar */}
-                <div className="flex gap-1 mb-5 border-b border-border">
+                <div className="flex flex-wrap gap-1 mb-5 border-b border-border">
                   {TABS.map(tab => {
-                    const count = tabListings[tab].length;
+                    const count = tabCount(tab);
+                    if (count === 0) return null;
                     return (
                       <button
                         key={tab}
@@ -393,159 +403,145 @@ export default function TeacherProfile() {
                       >
                         {TAB_ICONS[tab]}
                         {TAB_LABELS[tab]}
-                        {count > 0 && (
-                          <span className={`text-xs rounded-full px-1.5 py-0.5 ${
-                            activeTab === tab ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                          }`}>{count}</span>
-                        )}
+                        <span className={`text-xs rounded-full px-1.5 py-0.5 ${
+                          activeTab === tab ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        }`}>{count}</span>
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Tab panels */}
-                {tabListings[activeTab].length === 0 ? (
-                  <p className="text-muted-foreground italic text-sm py-4">
-                    No {TAB_LABELS[activeTab].toLowerCase()} available yet.
-                  </p>
-                ) : (
-                  <div className="grid gap-4">
-                    {tabListings[activeTab].map(listing => (
-                      <Card key={listing.id} className="border-border hover:border-primary/30 transition-colors">
-                        <CardContent className="p-5 flex gap-4 items-start">
-                          {/* Icon */}
-                          <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                            {activeTab === "lessons" && <BookOpen className="h-5 w-5" />}
-                            {activeTab === "masterclasses" && <Sparkles className="h-5 w-5" />}
-                            {activeTab === "events" && <Music2 className="h-5 w-5" />}
-                          </div>
-
-                          {/* Details */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-foreground mb-1">{listing.title}</h4>
-                            {listing.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
-                            )}
-                            <div className="flex flex-wrap gap-2">
-                              {listing.skillLevel && listing.skillLevel !== "all" && (
-                                <Badge variant="secondary" className="text-xs capitalize font-normal">
-                                  {listing.skillLevel}
-                                </Badge>
-                              )}
-                              {listing.durationMinutes && (
-                                <Badge variant="secondary" className="text-xs font-normal">
-                                  <Clock className="h-2.5 w-2.5 mr-1" />
-                                  {listing.durationMinutes} min
-                                </Badge>
-                              )}
-                              {listing.isOnline && (
-                                <Badge variant="secondary" className="text-xs font-normal">
-                                  <Globe className="h-2.5 w-2.5 mr-1" />
-                                  Online
-                                </Badge>
-                              )}
+                {/* Tab panels — audition prep */}
+                {activeTab === "audition-prep" && (() => {
+                  const LEVEL_LABELS: Record<string, string> = {
+                    undergraduate: "Undergraduate",
+                    postgrad: "Postgraduate",
+                    professional_orchestra: "Professional Orchestra",
+                  };
+                  const LEVEL_COLORS: Record<string, string> = {
+                    undergraduate: "bg-blue-100 text-blue-800",
+                    postgrad: "bg-purple-100 text-purple-800",
+                    professional_orchestra: "bg-amber-100 text-amber-800",
+                  };
+                  return (
+                    <div className="grid gap-4">
+                      {auditionPrograms.map(program => (
+                        <Card key={program.id} className="border-border hover:border-primary/30 transition-colors">
+                          <CardContent className="p-5 flex gap-4 items-start">
+                            <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                              <GraduationCap className="h-5 w-5" />
                             </div>
-                          </div>
-
-                          {/* Price + CTA */}
-                          <div className="shrink-0 text-right flex flex-col items-end gap-2">
-                            <div>
-                              <div className="text-lg font-bold text-foreground">
-                                ${(listing.priceInCents / 100).toFixed(0)}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {listing.currency?.toUpperCase() ?? "USD"}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-foreground mb-1">{program.title}</h4>
+                              {program.syllabusText && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{program.syllabusText}</p>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                <Badge className={`text-xs font-medium ${LEVEL_COLORS[program.targetLevel] ?? ""}`}>
+                                  {LEVEL_LABELS[program.targetLevel] ?? program.targetLevel}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">{program.instrument}</Badge>
+                                <Badge variant="secondary" className="text-xs">{program.sessionCount} sessions</Badge>
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant={activeTab === "lessons" ? "default" : "outline"}
-                              className="text-xs h-8 px-3"
-                              onClick={() => {
-                                if (!isLoaded || !user) {
-                                  toast.error("Please sign in first");
-                                  return;
-                                }
-                                if (activeTab === "lessons") {
-                                  setBookingModalOpen(true);
-                                } else {
-                                  setEventSuccess(false);
-                                  setEventModalOpen(true);
-                                }
-                              }}
-                            >
-                              {activeTab === "lessons" && "Book"}
-                              {activeTab === "masterclasses" && "Inquire"}
-                              {activeTab === "events" && "Inquire"}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                            <div className="shrink-0 text-right flex flex-col items-end gap-2">
+                              <div>
+                                <div className="text-lg font-bold text-foreground">
+                                  ${(program.priceCents / 100).toFixed(0)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">full package</div>
+                              </div>
+                              <Button size="sm" asChild>
+                                <a href={`${import.meta.env.BASE_URL}audition-prep/${program.id}`}>View Program</a>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Tab panels — listings (lessons / masterclasses / events) */}
+                {activeTab !== "audition-prep" && (
+                  tabListings[activeTab as Exclude<Tab, "audition-prep">].length === 0 ? (
+                    <p className="text-muted-foreground italic text-sm py-4">
+                      No {TAB_LABELS[activeTab].toLowerCase()} available yet.
+                    </p>
+                  ) : (
+                    <div className="grid gap-4">
+                      {tabListings[activeTab as Exclude<Tab, "audition-prep">].map(listing => (
+                        <Card key={listing.id} className="border-border hover:border-primary/30 transition-colors">
+                          <CardContent className="p-5 flex gap-4 items-start">
+                            <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                              {activeTab === "lessons" && <BookOpen className="h-5 w-5" />}
+                              {activeTab === "masterclasses" && <Sparkles className="h-5 w-5" />}
+                              {activeTab === "events" && <Music2 className="h-5 w-5" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-foreground mb-1">{listing.title}</h4>
+                              {listing.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                {listing.skillLevel && listing.skillLevel !== "all" && (
+                                  <Badge variant="secondary" className="text-xs capitalize font-normal">
+                                    {listing.skillLevel}
+                                  </Badge>
+                                )}
+                                {listing.durationMinutes && (
+                                  <Badge variant="secondary" className="text-xs font-normal">
+                                    <Clock className="h-2.5 w-2.5 mr-1" />
+                                    {listing.durationMinutes} min
+                                  </Badge>
+                                )}
+                                {listing.isOnline && (
+                                  <Badge variant="secondary" className="text-xs font-normal">
+                                    <Globe className="h-2.5 w-2.5 mr-1" />
+                                    Online
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right flex flex-col items-end gap-2">
+                              <div>
+                                <div className="text-lg font-bold text-foreground">
+                                  ${(listing.priceInCents / 100).toFixed(0)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {listing.currency?.toUpperCase() ?? "USD"}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={activeTab === "lessons" ? "default" : "outline"}
+                                className="text-xs h-8 px-3"
+                                onClick={() => {
+                                  if (!isLoaded || !user) {
+                                    toast.error("Please sign in first");
+                                    return;
+                                  }
+                                  if (activeTab === "lessons") {
+                                    setBookingModalOpen(true);
+                                  } else {
+                                    setEventSuccess(false);
+                                    setEventModalOpen(true);
+                                  }
+                                }}
+                              >
+                                {activeTab === "lessons" && "Book"}
+                                {activeTab === "masterclasses" && "Inquire"}
+                                {activeTab === "events" && "Inquire"}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )
                 )}
               </section>
-            )}
-
-            {/* Audition Prep Programs */}
-            {!!auditionProgramsData?.programs.length && (
-              <section>
-                <h2 className="text-xl font-serif font-semibold mb-4 text-foreground flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                  Audition Prep Programs
-                </h2>
-                <div className="grid gap-4">
-                  {auditionProgramsData.programs.map((program) => {
-                    const levelLabels: Record<string, string> = {
-                      undergraduate: "Undergraduate",
-                      postgrad: "Postgraduate",
-                      professional_orchestra: "Professional Orchestra",
-                    };
-                    const levelColors: Record<string, string> = {
-                      undergraduate: "bg-blue-100 text-blue-800",
-                      postgrad: "bg-purple-100 text-purple-800",
-                      professional_orchestra: "bg-amber-100 text-amber-800",
-                    };
-                    return (
-                      <Card key={program.id} className="border-border hover:border-primary/30 transition-colors">
-                        <CardContent className="p-5 flex gap-4 items-start">
-                          <div className="h-11 w-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
-                            <GraduationCap className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-foreground mb-1">{program.title}</h4>
-                            {program.syllabusText && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{program.syllabusText}</p>
-                            )}
-                            <div className="flex flex-wrap gap-2">
-                              <Badge className={`text-xs font-medium ${levelColors[program.targetLevel] ?? ""}`}>
-                                {levelLabels[program.targetLevel] ?? program.targetLevel}
-                              </Badge>
-                              <Badge variant="secondary" className="text-xs">{program.instrument}</Badge>
-                              <Badge variant="secondary" className="text-xs">{program.sessionCount} sessions</Badge>
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right flex flex-col items-end gap-2">
-                            <div>
-                              <div className="text-lg font-bold text-foreground">
-                                ${(program.priceCents / 100).toFixed(0)}
-                              </div>
-                              <div className="text-xs text-muted-foreground">full package</div>
-                            </div>
-                            <Button
-                              size="sm"
-                              asChild
-                            >
-                              <a href={`${import.meta.env.BASE_URL}audition-prep/${program.id}`}>View Program</a>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+            ) : null}
 
             {/* Reviews */}
             <section>

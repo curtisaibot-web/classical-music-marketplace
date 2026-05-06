@@ -346,7 +346,15 @@ router.get("/audition-programs/enrollments/:enrollmentId/certificate", requireAu
 
   const studentName = `${studentUser?.firstName ?? ""} ${studentUser?.lastName ?? ""}`.trim() || "Student";
   const teacherName = `${teacherUser?.firstName ?? ""} ${teacherUser?.lastName ?? ""}`.trim() || "Teacher";
-  const completionDate = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  // Use the last completed session's timestamp as the canonical completion date
+  const [lastSession] = await db
+    .select({ completedAt: programSessionNotesTable.completedAt })
+    .from(programSessionNotesTable)
+    .where(eq(programSessionNotesTable.enrollmentId, enrollmentId))
+    .orderBy(desc(programSessionNotesTable.completedAt))
+    .limit(1);
+  const completionDateRaw = lastSession?.completedAt ?? enrollment.paidAt ?? new Date();
+  const completionDate = new Date(completionDateRaw).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   try {
     const doc = new PDFDocument({ size: "A4", margin: 60 });
