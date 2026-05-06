@@ -36,7 +36,7 @@ function StudentAuditionPrepCard() {
               const done = e.sessionsCompleted ?? 0;
               const pct = Math.round((done / total) * 100);
               return (
-                <Link key={e.id} href={`/my-programs/${e.id}`}>
+                <Link key={e.id} href="/my-programs">
                   <div className="rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors cursor-pointer space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">

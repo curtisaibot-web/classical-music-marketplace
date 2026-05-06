@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListMyEnrollments } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,7 +220,7 @@ function BookingReelCard() {
 
 function AuditionPrepCard() {
   const { data: programsData } = useListMyAuditionPrograms();
-  const { data: enrollmentsData } = useListMyEnrollments();
+  const { data: enrollmentsData } = useListTeacherEnrollments();
 
   const programs = programsData?.programs ?? [];
   const enrollments = (enrollmentsData?.enrollments ?? []) as Array<{ status: string; sessionsCompleted: number; program?: { sessionCount: number; title: string } | null }>;
