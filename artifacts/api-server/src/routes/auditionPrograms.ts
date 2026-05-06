@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, ilike, sql, count, inArray, or } from "drizzle-orm";
 import { Readable } from "stream";
 import {
   db,
@@ -18,7 +18,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 
 const router: IRouter = Router();
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function parseId(raw: string | string[]): number | null {
   const s = Array.isArray(raw) ? raw[0] : raw;
@@ -68,7 +68,7 @@ async function buildEnrollmentDetail(enrollmentId: number, userId?: string) {
   return { ...enrollment, program, teacherUser, studentUser, sessionNotes: notes };
 }
 
-// ── Public: Browse programs ────────────────────────────────────────────────────
+// GET /audition-programs — public browse with optional filters
 router.get("/audition-programs", async (req, res): Promise<void> => {
   const instrument = typeof req.query.instrument === "string" ? req.query.instrument : undefined;
   const targetLevel = typeof req.query.targetLevel === "string" ? req.query.targetLevel : undefined;
@@ -78,19 +78,16 @@ router.get("/audition-programs", async (req, res): Promise<void> => {
 
   const conditions = [eq(auditionProgramsTable.isActive, true)];
   if (instrument) {
-    const { ilike } = await import("drizzle-orm");
     conditions.push(ilike(auditionProgramsTable.instrument, `%${instrument}%`));
   }
   if (targetLevel) {
-    const { sql } = await import("drizzle-orm");
     conditions.push(sql`${auditionProgramsTable.targetLevel} = ${targetLevel}`);
   }
   if (teacherId) {
     conditions.push(eq(auditionProgramsTable.teacherId, teacherId));
   }
 
-  const { and: andFn, count } = await import("drizzle-orm");
-  const where = andFn(...conditions);
+  const where = and(...conditions);
 
   const [totalRow, rows] = await Promise.all([
     db.select({ count: count() }).from(auditionProgramsTable).where(where),
@@ -119,7 +116,7 @@ router.get("/audition-programs", async (req, res): Promise<void> => {
   res.json({ programs, total: totalRow[0]?.count ?? 0 });
 });
 
-// ── Teacher: my programs (before /:id) ───────────────────────────────────────
+// GET /audition-programs/my-programs — teacher's own programs
 router.get("/audition-programs/my-programs", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
 
@@ -132,7 +129,7 @@ router.get("/audition-programs/my-programs", requireAuth, requireRole("teacher")
   res.json({ programs: rows });
 });
 
-// ── Student: my enrollments (before /:id) ─────────────────────────────────────
+// GET /audition-programs/my-enrollments — student's enrollments
 router.get("/audition-programs/my-enrollments", requireAuth, async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
 
@@ -163,7 +160,7 @@ router.get("/audition-programs/my-enrollments", requireAuth, async (req, res): P
   res.json({ enrollments });
 });
 
-// ── Teacher: all enrollments across programs ───────────────────────────────────
+// GET /audition-programs/teacher-enrollments — all enrollments across teacher's programs
 router.get("/audition-programs/teacher-enrollments", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
 
@@ -177,7 +174,6 @@ router.get("/audition-programs/teacher-enrollments", requireAuth, requireRole("t
     return;
   }
 
-  const { inArray } = await import("drizzle-orm");
   const programIds = myPrograms.map((p) => p.id);
 
   const rows = await db
@@ -207,7 +203,7 @@ router.get("/audition-programs/teacher-enrollments", requireAuth, requireRole("t
   res.json({ enrollments });
 });
 
-// ── Enrollment detail (before /:id) ──────────────────────────────────────────
+// GET /audition-programs/enrollments/:enrollmentId — enrollment detail
 router.get("/audition-programs/enrollments/:enrollmentId", requireAuth, async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const enrollmentId = parseId(req.params.enrollmentId);
@@ -219,7 +215,7 @@ router.get("/audition-programs/enrollments/:enrollmentId", requireAuth, async (r
   res.json(detail);
 });
 
-// ── Mark session complete (teacher only) ──────────────────────────────────────
+// POST /audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/complete
 router.post(
   "/audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/complete",
   requireAuth,
@@ -306,7 +302,7 @@ router.post(
   },
 );
 
-// ── Download certificate (student or teacher) ─────────────────────────────────
+// GET /audition-programs/enrollments/:enrollmentId/certificate — PDF certificate download
 router.get("/audition-programs/enrollments/:enrollmentId/certificate", requireAuth, async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const enrollmentId = parseId(req.params.enrollmentId);
@@ -470,7 +466,7 @@ router.get("/audition-programs/enrollments/:enrollmentId/certificate", requireAu
   }
 });
 
-// ── Session feedback upload URL (teacher) ─────────────────────────────────────
+// POST .../sessions/:sessionNumber/feedback-upload-url — presigned upload URL for teacher
 router.post(
   "/audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/feedback-upload-url",
   requireAuth,
@@ -510,7 +506,7 @@ router.post(
   },
 );
 
-// ── Session feedback download (student or teacher) ─────────────────────────────
+// GET .../sessions/:sessionNumber/feedback — stream feedback file to student or teacher
 router.get(
   "/audition-programs/enrollments/:enrollmentId/sessions/:sessionNumber/feedback",
   requireAuth,
@@ -582,7 +578,7 @@ router.get(
   },
 );
 
-// ── Get single program ────────────────────────────────────────────────────────
+// GET /audition-programs/:id — single program detail
 router.get("/audition-programs/:id", async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid program id" }); return; }
@@ -608,7 +604,7 @@ router.get("/audition-programs/:id", async (req, res): Promise<void> => {
   });
 });
 
-// ── Create program (teacher) ──────────────────────────────────────────────────
+// POST /audition-programs — create program (teacher)
 router.post("/audition-programs", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const { title, instrument, targetLevel, sessionCount, priceCents, syllabusText } = req.body as {
@@ -647,7 +643,7 @@ router.post("/audition-programs", requireAuth, requireRole("teacher"), async (re
   res.status(201).json(program);
 });
 
-// ── Update program (teacher) ──────────────────────────────────────────────────
+// PATCH /audition-programs/:id — update program (teacher)
 router.patch("/audition-programs/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const id = parseId(req.params.id);
@@ -691,7 +687,7 @@ router.patch("/audition-programs/:id", requireAuth, requireRole("teacher"), asyn
   res.json(program);
 });
 
-// ── Deactivate program (teacher) ──────────────────────────────────────────────
+// DELETE /audition-programs/:id — deactivate program (teacher)
 router.delete("/audition-programs/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const id = parseId(req.params.id);
@@ -708,7 +704,7 @@ router.delete("/audition-programs/:id", requireAuth, requireRole("teacher"), asy
   res.status(204).send();
 });
 
-// ── Create enrollment (student) ───────────────────────────────────────────────
+// POST /audition-programs/:id/enrollments — create or reuse pending enrollment (student)
 router.post("/audition-programs/:id/enrollments", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
   const id = parseId(req.params.id);
@@ -726,7 +722,6 @@ router.post("/audition-programs/:id/enrollments", requireAuth, requireRole("stud
     return;
   }
 
-  const { or } = await import("drizzle-orm");
   const [existingEnrollment] = await db
     .select()
     .from(programEnrollmentsTable)

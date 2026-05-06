@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { useGetStudentDashboard, useListBookings } from "@workspace/api-client-react";
+import { useGetStudentDashboard, useListBookings, useListMyEnrollments } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,64 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, CreditCard, Music, Star, Clock, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
+
+function StudentAuditionPrepCard() {
+  const { data } = useListMyEnrollments();
+  const enrollments = (data?.enrollments ?? []) as Array<{
+    id: number;
+    status: string;
+    sessionsCompleted: number;
+    program?: { sessionCount: number; title: string; instrument: string } | null;
+  }>;
+  const active = enrollments.filter((e) => e.status === "active");
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif">Audition Prep</CardTitle>
+        {enrollments.length > 0 && (
+          <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+            <Link href="/my-programs">View all</Link>
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {active.length > 0 ? (
+          <div className="space-y-3">
+            {active.slice(0, 3).map((e) => {
+              const total = e.program?.sessionCount ?? 1;
+              const done = e.sessionsCompleted ?? 0;
+              const pct = Math.round((done / total) * 100);
+              return (
+                <Link key={e.id} href={`/my-programs/${e.id}`}>
+                  <div className="rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors cursor-pointer space-y-2">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{e.program?.title ?? "Program"}</p>
+                        <p className="text-xs text-muted-foreground">{e.program?.instrument}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">{done}/{total} sessions</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Track your progress through structured audition prep programs with your coach.
+          </p>
+        )}
+        <Button size="sm" variant={active.length > 0 ? "outline" : "default"} className="w-full" asChild>
+          <Link href="/audition-prep">Browse Programs</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function StudentDashboard() {
   const { data: dashboard, isLoading } = useGetStudentDashboard();
@@ -231,22 +289,7 @@ export default function StudentDashboard() {
               </Card>
             )}
 
-            <Card className="border-border shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="font-serif">Audition Prep</CardTitle>
-                <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
-                  <Link href="/my-programs">View all</Link>
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Track your progress through structured audition prep programs with your coach.
-                </p>
-                <Button size="sm" variant="outline" className="w-full" asChild>
-                  <Link href="/audition-prep">Browse Programs</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <StudentAuditionPrepCard />
 
             <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">

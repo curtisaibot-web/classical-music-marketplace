@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListMyEnrollments } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -213,6 +213,71 @@ function BookingReelCard() {
             ))}
           </ul>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AuditionPrepCard() {
+  const { data: programsData } = useListMyAuditionPrograms();
+  const { data: enrollmentsData } = useListMyEnrollments();
+
+  const programs = programsData?.programs ?? [];
+  const enrollments = (enrollmentsData?.enrollments ?? []) as Array<{ status: string; sessionsCompleted: number; program?: { sessionCount: number; title: string } | null }>;
+  const activeEnrollments = enrollments.filter((e) => e.status === "active");
+  const completedEnrollments = enrollments.filter((e) => e.status === "completed");
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif text-lg">Audition Prep Programs</CardTitle>
+        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+          <Link href="/audition-programs">Manage</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="rounded-lg bg-muted/40 p-3">
+            <p className="text-xl font-bold text-foreground">{programs.length}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Active Programs</p>
+          </div>
+          <div className="rounded-lg bg-muted/40 p-3">
+            <p className="text-xl font-bold text-foreground">{activeEnrollments.length}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">In Progress</p>
+          </div>
+          <div className="rounded-lg bg-muted/40 p-3">
+            <p className="text-xl font-bold text-foreground">{completedEnrollments.length}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Completed</p>
+          </div>
+        </div>
+        {activeEnrollments.length > 0 && (
+          <div className="space-y-2">
+            {activeEnrollments.slice(0, 3).map((e, i) => {
+              const total = e.program?.sessionCount ?? 1;
+              const done = e.sessionsCompleted ?? 0;
+              const pct = Math.round((done / total) * 100);
+              return (
+                <div key={i} className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span className="truncate max-w-[160px]">{e.program?.title ?? "Program"}</span>
+                    <span>{done}/{total} sessions</span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {programs.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Create structured multi-session coaching packages for conservatory and orchestra auditions.
+          </p>
+        )}
+        <Button size="sm" className="w-full" asChild>
+          <Link href="/audition-programs">{programs.length === 0 ? "Create First Program" : "Manage Programs"}</Link>
+        </Button>
       </CardContent>
     </Card>
   );
@@ -557,21 +622,7 @@ export default function TeacherDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-border shadow-sm">
-              <CardHeader>
-                <CardTitle className="font-serif text-lg flex items-center gap-2">
-                  Audition Prep Programs
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Create structured multi-session coaching packages for conservatory, postgrad, and professional orchestra auditions.
-                </p>
-                <Button size="sm" className="w-full" asChild>
-                  <Link href="/audition-programs">Manage Programs</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <AuditionPrepCard />
 
             <Card className="border-border shadow-sm">
               <CardHeader>
