@@ -171,24 +171,31 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Invalid enrollment_id in session metadata: ${metadata.enrollment_id}`);
     }
 
-    // Idempotency check
-    const [existingEnrollment] = await db
-      .select()
-      .from(programEnrollmentsTable)
-      .where(eq(programEnrollmentsTable.id, enrollmentId));
+    // Atomically claim the pending enrollment — exactly-once guarantee even under duplicate webhooks.
+    // If status is already active/completed this returns no rows and the block is skipped.
+    const [activatedEnrollment] = await db
+      .update(programEnrollmentsTable)
+      .set({
+        status: "active",
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.status, "pending")))
+      .returning();
 
-    if (existingEnrollment && existingEnrollment.status !== "pending") {
-      logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — skipping idempotent update");
-    } else if (existingEnrollment) {
+    if (!activatedEnrollment) {
+      logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — idempotent skip");
+    } else {
+      // Enrollment transitioned for the first time — create the paid order record.
       const [program] = await db
         .select()
         .from(auditionProgramsTable)
-        .where(eq(auditionProgramsTable.id, existingEnrollment.programId));
+        .where(eq(auditionProgramsTable.id, activatedEnrollment.programId));
 
-      // Create order record — derive amounts from Stripe session for accuracy
       let orderId: number | undefined;
       if (program) {
-        // Prefer Stripe's authoritative session total; fall back to program price if absent
         const priceInCents = (session.amount_total != null && session.amount_total > 0)
           ? session.amount_total
           : program.priceCents;
@@ -196,7 +203,7 @@ async function handleCheckoutSessionCompleted(
         const [newOrder] = await db
           .insert(ordersTable)
           .values({
-            buyerId: existingEnrollment.studentId,
+            buyerId: activatedEnrollment.studentId,
             sellerId: program.teacherId,
             type: "program_enrollment",
             status: "paid",
@@ -210,17 +217,13 @@ async function handleCheckoutSessionCompleted(
         orderId = newOrder?.id;
       }
 
-      await db
-        .update(programEnrollmentsTable)
-        .set({
-          status: "active",
-          orderId: orderId ?? null,
-          stripeCheckoutSessionId: session.id,
-          stripePaymentIntentId: paymentIntentId,
-          paidAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(programEnrollmentsTable.id, enrollmentId));
+      // Link the order back to the enrollment
+      if (orderId) {
+        await db
+          .update(programEnrollmentsTable)
+          .set({ orderId })
+          .where(eq(programEnrollmentsTable.id, enrollmentId));
+      }
 
       logger.info({ enrollmentId, orderId, sessionId: session.id, eventId }, "Program enrollment activated and order created");
     }
