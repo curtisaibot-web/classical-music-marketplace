@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, serial, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, serial, pgEnum, json } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const campaignStatusEnum = pgEnum("campaign_status", [
@@ -26,6 +26,8 @@ export const concertCampaignsTable = pgTable("concert_campaigns", {
   goalCount: integer("goal_count").notNull(),
   deadlineAt: timestamp("deadline_at", { withTimezone: true }).notNull(),
   status: campaignStatusEnum("status").notNull().default("active"),
+  // Array of Stripe PaymentIntent IDs captured on campaign success (populated by processCampaignSuccess)
+  stripePaymentIntentIds: json("stripe_payment_intent_ids").$type<string[]>().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

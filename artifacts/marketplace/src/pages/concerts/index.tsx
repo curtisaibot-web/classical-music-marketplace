@@ -115,9 +115,24 @@ export default function Concerts() {
                         </h3>
 
                         {(c.teacherFirstName || c.teacherLastName) && (
-                          <p className="text-sm text-muted-foreground mb-3">
-                            by {c.teacherFirstName} {c.teacherLastName}
-                          </p>
+                          <div className="flex items-center gap-2 mb-3">
+                            {(c as { teacherProfileImageUrl?: string | null }).teacherProfileImageUrl ? (
+                              <img
+                                src={(c as { teacherProfileImageUrl?: string | null }).teacherProfileImageUrl!}
+                                alt=""
+                                className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {(c.teacherFirstName?.[0] ?? "").toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-sm text-muted-foreground">
+                              {c.teacherFirstName} {c.teacherLastName}
+                            </p>
+                          </div>
                         )}
 
                         {c.description && (
