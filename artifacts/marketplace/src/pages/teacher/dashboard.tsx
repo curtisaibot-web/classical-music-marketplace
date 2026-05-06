@@ -181,6 +181,48 @@ const TIPS = [
   "Warm up before recording so your best playing is captured.",
 ];
 
+function ClipRangeInputs({ clipStart, clipEnd, onStartChange, onEndChange }: {
+  clipStart: string; clipEnd: string;
+  onStartChange: (v: string) => void; onEndChange: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+      <p className="text-xs font-medium text-foreground">
+        Highlight a specific moment <span className="text-muted-foreground font-normal">(optional)</span>
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Enter start and end times in seconds to feature a specific part of your recording. Leave blank to let the AI choose automatically.
+      </p>
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="text-xs text-muted-foreground block mb-1">Start time (seconds)</label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="e.g. 30"
+            value={clipStart}
+            onChange={(e) => onStartChange(e.target.value)}
+            className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs text-muted-foreground block mb-1">End time (seconds)</label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="e.g. 120"
+            value={clipEnd}
+            onChange={(e) => onEndChange(e.target.value)}
+            className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BookingReelCard() {
   const { data: reel, isLoading: isLoadingReel, refetch } = useGetMyReel({
     query: {
@@ -293,6 +335,7 @@ function BookingReelCard() {
                 {isMuted ? "Unmute" : "Mute"}
               </button>
             </div>
+            <ClipRangeInputs clipStart={clipStart} clipEnd={clipEnd} onStartChange={setClipStart} onEndChange={setClipEnd} />
             <Button
               variant="outline"
               size="sm"
@@ -325,6 +368,7 @@ function BookingReelCard() {
                 {reel?.errorMessage && <p className="text-xs mt-0.5 opacity-80">{reel.errorMessage}</p>}
               </div>
             </div>
+            <ClipRangeInputs clipStart={clipStart} clipEnd={clipEnd} onStartChange={setClipStart} onEndChange={setClipEnd} />
             <Button
               size="sm"
               className="w-full"
@@ -341,41 +385,7 @@ function BookingReelCard() {
             <p className="text-sm text-muted-foreground">
               Film yourself performing for 2–3 minutes in good light — we handle the rest. Our AI will clean your audio, grade the colour, and produce a polished 60–90 second reel.
             </p>
-            {/* Optional clip range */}
-            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <p className="text-xs font-medium text-foreground">
-                Highlight a specific moment <span className="text-muted-foreground font-normal">(optional)</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                If you know exactly which part of your recording you want featured, enter the start and end times in seconds. Leave blank to let the AI choose automatically.
-              </p>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-muted-foreground block mb-1">Start time (seconds)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="e.g. 30"
-                    value={clipStart}
-                    onChange={(e) => setClipStart(e.target.value)}
-                    className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-muted-foreground block mb-1">End time (seconds)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="e.g. 120"
-                    value={clipEnd}
-                    onChange={(e) => setClipEnd(e.target.value)}
-                    className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-            </div>
+            <ClipRangeInputs clipStart={clipStart} clipEnd={clipEnd} onStartChange={setClipStart} onEndChange={setClipEnd} />
             <div
               onDrop={handleDrop}
               onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}

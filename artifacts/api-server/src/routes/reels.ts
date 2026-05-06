@@ -115,6 +115,11 @@ router.post(
       const clipEndRaw = req.body.clipEnd !== undefined ? Number(req.body.clipEnd) : undefined;
       const clipStart = clipStartRaw !== undefined && isFinite(clipStartRaw) && clipStartRaw >= 0 ? clipStartRaw : undefined;
       const clipEnd = clipEndRaw !== undefined && isFinite(clipEndRaw) && clipEndRaw > 0 ? clipEndRaw : undefined;
+      // clipEnd without clipStart is ambiguous — require both or neither
+      if (clipEnd !== undefined && clipStart === undefined) {
+        res.status(400).json({ error: "clipStart is required when clipEnd is provided" });
+        return;
+      }
       if (clipStart !== undefined && clipEnd !== undefined && clipEnd <= clipStart) {
         res.status(400).json({ error: "clipEnd must be greater than clipStart" });
         return;
