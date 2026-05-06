@@ -279,7 +279,7 @@ export interface CreateListingBody {
   description?: string;
   instrument?: string;
   skillLevel?: CreateListingBodySkillLevel;
-  priceInCents: number;
+  priceInCents?: number;
   durationMinutes?: number;
   imageUrl?: string;
   tags?: string[];
@@ -1686,6 +1686,10 @@ export type ListListingsParams = {
   maxPrice?: number;
   limit?: number;
   offset?: number;
+  /**
+   * Filter listings to a specific school org portal. Private orgs require caller to be an enrolled member.
+   */
+  orgSlug?: string;
 };
 
 export type ListListingsType =

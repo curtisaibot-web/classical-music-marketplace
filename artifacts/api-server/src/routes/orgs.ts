@@ -385,12 +385,31 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
       await db.update(organisationsTable).set({ stripeCustomerId: customerId }).where(eq(organisationsTable.id, ctx.org.id));
     }
 
-    const price = await stripe.prices.create({
-      unit_amount: ctx.org.perSeatCents,
-      currency: "usd",
-      recurring: { interval: "month" },
-      product_data: { name: `${ctx.org.name} — Harmonia per-seat plan` },
-    });
+    // Use a lookup_key so we reuse a single price object per (unit_amount, slug) pair
+    // rather than creating a new price on every subscribe call.
+    const priceLookupKey = `org_seat_${ctx.org.slug}`;
+    let priceId: string;
+    const existingPrices = await stripe.prices.list({ lookup_keys: [priceLookupKey], limit: 1 });
+    if (existingPrices.data.length > 0 && existingPrices.data[0]) {
+      priceId = existingPrices.data[0].id;
+    } else {
+      const price = await stripe.prices.create({
+        unit_amount: ctx.org.perSeatCents,
+        currency: "usd",
+        recurring: { interval: "month" },
+        product_data: { name: `${ctx.org.name} — Harmonia per-seat plan` },
+        lookup_key: priceLookupKey,
+      });
+      priceId = price.id;
+    }
+
+    // Set initial quantity from current active student count (minimum 1 for Stripe)
+    const [studentCountRow] = await db
+      .select({ count: count() })
+      .from(orgMembersTable)
+      .where(and(eq(orgMembersTable.orgId, ctx.org.id), eq(orgMembersTable.role, "student")));
+    const studentCount = Number(studentCountRow?.count ?? 0);
+    const initialQuantity = Math.max(1, studentCount);
 
     // Use Checkout (hosted page) so the admin enters their card without needing Stripe.js in the frontend
     const origin = process.env.APP_ORIGIN
@@ -400,7 +419,7 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: price.id, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: initialQuantity }],
       subscription_data: { metadata: { orgSlug: ctx.org.slug, orgId: String(ctx.org.id) } },
       success_url: `${origin}${basePath}/org-admin?org=${ctx.org.slug}&billing=success`,
       cancel_url: `${origin}${basePath}/schools/join?org=${ctx.org.slug}&billing=cancel`,

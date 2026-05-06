@@ -546,6 +546,12 @@ export const ListListingsQueryParams = zod.object({
   maxPrice: zod.coerce.number().optional(),
   limit: zod.coerce.number().default(listListingsQueryLimitDefault),
   offset: zod.coerce.number().default(listListingsQueryOffsetDefault),
+  orgSlug: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Filter listings to a specific school org portal. Private orgs require caller to be an enrolled member.",
+    ),
 });
 
 export const ListListingsResponse = zod.object({
@@ -641,7 +647,7 @@ export const CreateListingBody = zod.object({
   skillLevel: zod
     .enum(["beginner", "intermediate", "advanced", "all"])
     .optional(),
-  priceInCents: zod.number(),
+  priceInCents: zod.number().optional(),
   durationMinutes: zod.number().optional(),
   imageUrl: zod.string().optional(),
   tags: zod.array(zod.string()).optional(),

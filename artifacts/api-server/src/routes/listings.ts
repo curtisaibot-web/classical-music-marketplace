@@ -24,12 +24,73 @@ router.get("/listings", async (req, res): Promise<void> => {
   const skillLevel = params.success ? params.data.skillLevel : undefined;
   const minPrice = params.success ? params.data.minPrice : undefined;
   const maxPrice = params.success ? params.data.maxPrice : undefined;
-
   const city = params.success ? params.data.city : undefined;
   const isOnline = params.success ? params.data.isOnline : undefined;
   const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
+  const orgSlugParam = typeof req.query.orgSlug === "string" ? req.query.orgSlug : undefined;
 
   const conditions = [eq(listingsTable.status, "active")];
+
+  // ── Org-scoped listing filtering ─────────────────────────────────────────
+  // When orgSlug is provided, restrict listings to teachers in that org.
+  // For school-private orgs the caller must be an enrolled member.
+  if (orgSlugParam) {
+    const [org] = await db
+      .select({ id: organisationsTable.id, isPublicMarketplace: organisationsTable.isPublicMarketplace })
+      .from(organisationsTable)
+      .where(eq(organisationsTable.slug, orgSlugParam));
+
+    if (!org) {
+      res.json(ListListingsResponse.parse({ listings: [], total: 0 }));
+      return;
+    }
+
+    if (!org.isPublicMarketplace) {
+      // Private org: require authenticated enrollment
+      const auth = getAuth(req);
+      const callerId = auth.userId ?? null;
+      if (!callerId) {
+        res.status(403).json({ error: "Authentication required to view this school's listings" });
+        return;
+      }
+      const [membership] = await db
+        .select({ id: orgMembersTable.id })
+        .from(orgMembersTable)
+        .where(and(eq(orgMembersTable.orgId, org.id), eq(orgMembersTable.userId, callerId)));
+      if (!membership) {
+        res.status(403).json({ error: "You must be enrolled in this school to view its listings" });
+        return;
+      }
+    }
+
+    // Restrict to teachers who are members of this org
+    const orgTeacherRows = await db
+      .select({ userId: orgMembersTable.userId })
+      .from(orgMembersTable)
+      .where(and(eq(orgMembersTable.orgId, org.id), eq(orgMembersTable.role, "teacher")));
+    const orgTeacherIds = orgTeacherRows.map((r) => r.userId).filter((id): id is string => id !== null);
+
+    if (orgTeacherIds.length === 0) {
+      res.json(ListListingsResponse.parse({ listings: [], total: 0 }));
+      return;
+    }
+    conditions.push(inArray(listingsTable.teacherId, orgTeacherIds));
+  } else {
+    // No org context — hide listings from teachers in private orgs
+    const privateOrgTeacherRows = await db
+      .select({ userId: orgMembersTable.userId })
+      .from(orgMembersTable)
+      .innerJoin(organisationsTable, eq(orgMembersTable.orgId, organisationsTable.id))
+      .where(and(eq(orgMembersTable.role, "teacher"), eq(organisationsTable.isPublicMarketplace, false)));
+    const privateOrgTeacherIds = privateOrgTeacherRows
+      .map((r) => r.userId)
+      .filter((id): id is string => id !== null);
+    if (privateOrgTeacherIds.length > 0) {
+      conditions.push(
+        sql`${listingsTable.teacherId} NOT IN (${sql.raw(privateOrgTeacherIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(","))})`,
+      );
+    }
+  }
   if (type) conditions.push(eq(listingsTable.type, type as "lesson" | "event" | "masterclass" | "digital_product"));
   if (instrument) conditions.push(ilike(listingsTable.instrument, instrument));
   if (skillLevel) conditions.push(eq(listingsTable.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "all"));

@@ -36,15 +36,20 @@ export function Navbar() {
             </Link>
           )}
           <nav className="hidden md:flex gap-6">
-            <Link href="/teachers" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Teachers</Link>
-            <Link href="/musicians" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Musicians</Link>
-            <Link href="/masterclasses" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Masterclasses</Link>
-            <Link href="/concerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Concerts</Link>
-            <Link href="/events" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Events</Link>
-            <Link href="/gigs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Gigs</Link>
-            <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
-            <Link href="/store" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Store</Link>
-            <Link href="/audition-prep" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Audition Prep</Link>
+            <Link href={`/teachers${orgSuffix}`} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Teachers</Link>
+            {!orgSlug && <>
+              <Link href="/musicians" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Musicians</Link>
+              <Link href="/masterclasses" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Masterclasses</Link>
+              <Link href="/concerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Concerts</Link>
+              <Link href="/events" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Events</Link>
+              <Link href="/gigs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Gigs</Link>
+              <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
+              <Link href="/store" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Store</Link>
+              <Link href="/audition-prep" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Audition Prep</Link>
+            </>}
+            {orgSlug && (
+              <Link href={`/org-admin${orgSuffix}`} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Admin</Link>
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-4">
