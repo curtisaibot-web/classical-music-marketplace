@@ -6,6 +6,7 @@ function buildAutoSlug(
   firstName: string | null,
   lastName: string | null,
   userId: string,
+  attempt = 0,
 ): string {
   const suffix = userId
     .slice(-6)
@@ -17,7 +18,24 @@ function buildAutoSlug(
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 50) || "musician";
-  return `${base}-${suffix}`;
+  return attempt === 0 ? `${base}-${suffix}` : `${base}-${suffix}-${attempt}`;
+}
+
+async function generateUniqueSlug(
+  firstName: string | null,
+  lastName: string | null,
+  userId: string,
+): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = buildAutoSlug(firstName, lastName, userId, attempt);
+    const conflict = await db
+      .select({ userId: teacherProfilesTable.userId })
+      .from(teacherProfilesTable)
+      .where(eq(teacherProfilesTable.profileSlug, candidate))
+      .limit(1);
+    if (conflict.length === 0 || conflict[0]?.userId === userId) return candidate;
+  }
+  return `musician-${userId.slice(-12).toLowerCase().replace(/[^a-z0-9]/g, "x")}`;
 }
 
 export async function backfillMissingProfileSlugs(): Promise<void> {
@@ -37,7 +55,7 @@ export async function backfillMissingProfileSlugs(): Promise<void> {
     logger.info({ count: rows.length }, "Backfilling profile slugs for teachers with null slug");
 
     for (const row of rows) {
-      const slug = buildAutoSlug(
+      const slug = await generateUniqueSlug(
         row.firstName ?? null,
         row.lastName ?? null,
         row.userId,

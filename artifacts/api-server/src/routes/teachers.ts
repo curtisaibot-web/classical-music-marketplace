@@ -144,10 +144,23 @@ router.get("/teachers/me", requireAuth, async (req, res): Promise<void> => {
   res.json(GetMyTeacherProfileResponse.parse({ ...result.teacher_profiles, user: result.users }));
 });
 
-function buildAutoSlug(firstName: string | null, lastName: string | null, userId: string): string {
+function buildAutoSlug(firstName: string | null, lastName: string | null, userId: string, attempt = 0): string {
   const suffix = userId.slice(-6).toLowerCase().replace(/[^a-z0-9]/g, "x");
   const base = `${firstName ?? ""} ${lastName ?? ""}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "musician";
-  return `${base}-${suffix}`;
+  return attempt === 0 ? `${base}-${suffix}` : `${base}-${suffix}-${attempt}`;
+}
+
+async function generateUniqueSlug(firstName: string | null, lastName: string | null, userId: string): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = buildAutoSlug(firstName, lastName, userId, attempt);
+    const conflict = await db
+      .select({ userId: teacherProfilesTable.userId })
+      .from(teacherProfilesTable)
+      .where(eq(teacherProfilesTable.profileSlug, candidate))
+      .limit(1);
+    if (conflict.length === 0 || conflict[0]?.userId === userId) return candidate;
+  }
+  return `musician-${userId.slice(-12).toLowerCase().replace(/[^a-z0-9]/g, "x")}`;
 }
 
 router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
@@ -160,6 +173,9 @@ router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // profileSlug is managed exclusively via PUT /teachers/me/slug — strip it here
+  const { profileSlug: _ignored, ...profileData } = parsed.data as typeof parsed.data & { profileSlug?: unknown };
+
   const existing = await db
     .select({ profileSlug: teacherProfilesTable.profileSlug })
     .from(teacherProfilesTable)
@@ -168,12 +184,12 @@ router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
   let autoSlug: string | undefined;
   if (!existing[0]?.profileSlug) {
     const [userRow] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId));
-    autoSlug = buildAutoSlug(userRow?.firstName ?? null, userRow?.lastName ?? null, userId);
+    autoSlug = await generateUniqueSlug(userRow?.firstName ?? null, userRow?.lastName ?? null, userId);
   }
 
   const [profile] = await db
     .update(teacherProfilesTable)
-    .set({ ...parsed.data, ...(autoSlug ? { profileSlug: autoSlug } : {}), updatedAt: new Date() })
+    .set({ ...profileData, ...(autoSlug ? { profileSlug: autoSlug } : {}), updatedAt: new Date() })
     .where(eq(teacherProfilesTable.userId, userId))
     .returning();
 

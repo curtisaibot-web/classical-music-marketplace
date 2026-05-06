@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
 import { db, teacherProfilesTable, usersTable } from "@workspace/db";
 
@@ -8,6 +8,14 @@ const CRAWLER_UA_RE = /Googlebot|Twitterbot|facebookexternalhit|LinkedInBot|What
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function resolvePublicOrigin(req: Request): string {
+  const fromEnv = process.env.PUBLIC_ORIGIN ?? process.env.VITE_APP_ORIGIN ?? "";
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
+  const proto = req.headers["x-forwarded-proto"] ?? (req.socket && (req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
+  return `${proto}://${host}`;
 }
 
 router.get("/og/musicians/:slug", async (req, res): Promise<void> => {
@@ -36,11 +44,14 @@ router.get("/og/musicians/:slug", async (req, res): Promise<void> => {
       ? profile.bio.slice(0, 160)
       : `Classical musician specializing in ${instruments || "music"}. Based in ${profile.city ?? "Online"}.`
   );
-  const imageUrl = esc(profile.profileImageUrl ?? "");
-  const spaBase = process.env.VITE_APP_ORIGIN ?? "";
-  const basePath = process.env.VITE_BASE_PATH ?? "/marketplace/";
-  const canonicalUrl = esc(`${spaBase}${basePath}musicians/${slug}`);
-  const spaUrl = canonicalUrl;
+
+  const origin = resolvePublicOrigin(req);
+  const canonicalUrl = esc(`${origin}/musicians/${slug}`);
+
+  const rawImageUrl = profile.profileImageUrl ?? "";
+  const imageUrl = esc(
+    rawImageUrl.startsWith("http") ? rawImageUrl : rawImageUrl ? `${origin}${rawImageUrl}` : ""
+  );
 
   const ua = req.headers["user-agent"] ?? "";
   const isCrawler = CRAWLER_UA_RE.test(ua);
@@ -61,11 +72,11 @@ router.get("/og/musicians/:slug", async (req, res): Promise<void> => {
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
-  ${!isCrawler ? `<meta http-equiv="refresh" content="0;url=${spaUrl}" />` : ""}
+  ${!isCrawler ? `<meta http-equiv="refresh" content="0;url=${canonicalUrl}" />` : ""}
 </head>
 <body>
   <p>
-    <a href="${spaUrl}">${esc(fullName)}'s musician profile</a>
+    <a href="${canonicalUrl}">${esc(fullName)}'s musician profile on Harmonia</a>
   </p>
 </body>
 </html>`;
