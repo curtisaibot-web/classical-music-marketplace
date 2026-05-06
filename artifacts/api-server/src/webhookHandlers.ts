@@ -35,6 +35,9 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     await handleCheckoutSessionCompleted(session, event.id);
+  } else if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    await handleCheckoutSessionExpired(session, event.id);
   } else if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     await handlePaymentIntentSucceeded(paymentIntent, event.id);
@@ -370,6 +373,37 @@ async function handleCheckoutSessionCompleted(
     await processCampaignSuccess(campaignId).catch((err) => {
       logger.error({ err, campaignId }, "Failed to check campaign success after ticket recorded");
     });
+  }
+}
+
+// ── checkout.session.expired ─────────────────────────────────────────────────
+// When a Stripe session expires without payment (e.g. user abandons checkout),
+// cancel any pending purchased_licenses tied to that session so they don't
+// accumulate as stale rows and block future re-purchase attempts.
+async function handleCheckoutSessionExpired(
+  session: Stripe.Checkout.Session,
+  eventId: string,
+): Promise<void> {
+  const metadata = session.metadata ?? {};
+
+  if (metadata.type === "score_license" && metadata.purchased_license_id) {
+    const purchasedLicenseId = parseInt(metadata.purchased_license_id, 10);
+    if (isNaN(purchasedLicenseId)) return;
+
+    const updated = await db
+      .update(purchasedLicensesTable)
+      .set({ status: "canceled", updatedAt: new Date() })
+      .where(and(
+        eq(purchasedLicensesTable.id, purchasedLicenseId),
+        eq(purchasedLicensesTable.status, "pending"),
+      ))
+      .returning({ id: purchasedLicensesTable.id });
+
+    if (updated.length > 0) {
+      logger.info({ purchasedLicenseId, sessionId: session.id, eventId }, "Pending score license canceled — checkout session expired");
+    } else {
+      logger.info({ purchasedLicenseId, sessionId: session.id, eventId }, "Score license already transitioned — skipping expired cleanup");
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -124,7 +124,6 @@ export default function ScoresBrowse() {
   const [scores, setScores] = useState<Score[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const apiBase = import.meta.env.VITE_API_URL ?? "";
 
   usePageMeta({
@@ -132,7 +131,7 @@ export default function ScoresBrowse() {
     description: "Discover and license original compositions — from string quartets to film scores — by composers on Harmonia.",
   });
 
-  const loadScores = async () => {
+  const loadScores = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ limit: "24", offset: "0" });
@@ -148,17 +147,15 @@ export default function ScoresBrowse() {
       }
     } finally {
       setIsLoading(false);
-      setHasLoaded(true);
     }
-  };
+  }, [activeGenre, activeDifficulty, activeLicenseType, search, apiBase]);
 
-  if (!hasLoaded && !isLoading) {
+  useEffect(() => {
     loadScores();
-  }
+  }, [loadScores]);
 
   const applyFilter = (key: string, value: string, setter: (v: string) => void) => {
     setter(value);
-    setHasLoaded(false);
   };
 
   return (
@@ -182,7 +179,7 @@ export default function ScoresBrowse() {
               className="pl-10 bg-background"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { setHasLoaded(false); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") loadScores(); }}
             />
           </div>
         </div>
@@ -261,7 +258,6 @@ export default function ScoresBrowse() {
                 className="w-full"
                 onClick={() => {
                   setActiveGenre(""); setActiveDifficulty(""); setActiveLicenseType(""); setSearch("");
-                  setHasLoaded(false);
                 }}
               >
                 Clear Filters
