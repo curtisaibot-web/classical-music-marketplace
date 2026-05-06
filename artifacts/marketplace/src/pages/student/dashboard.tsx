@@ -14,13 +14,65 @@ function apiFetch(path: string) {
   return fetch(`${BASE}/api${path}`, { credentials: "include" });
 }
 
+type DashPartnership = {
+  id: number; status: string; isRequester: boolean;
+  partner: { firstName: string | null; lastName: string | null } | null;
+  partnerProfile: { instruments: string[]; skillLevel: string } | null;
+};
+
+function usePartnerSessions(partnershipId: number) {
+  return useQuery({
+    queryKey: ["practice", "sessions", partnershipId],
+    queryFn: async () => {
+      const res = await apiFetch(`/practice/partnerships/${partnershipId}/sessions`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ sessions: Array<{ id: number; status: string; proposedAt: string; proposedById: string }> }>;
+    },
+  });
+}
+
+function ActivePartnerRow({ partnership }: { partnership: DashPartnership }) {
+  const { data } = usePartnerSessions(partnership.id);
+  const sessions = data?.sessions ?? [];
+  const next = sessions.find(s => s.status === "proposed" || s.status === "confirmed");
+  const past = sessions.filter(s => s.status === "completed").length;
+  const name = [partnership.partner?.firstName, partnership.partner?.lastName].filter(Boolean).join(" ") || "Musician";
+
+  return (
+    <div className="p-2 rounded-lg border border-border bg-muted/20 space-y-1">
+      <div className="flex items-center gap-2 text-sm">
+        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <Users className="h-3 w-3 text-primary" />
+        </div>
+        <span className="text-foreground flex-1 truncate font-medium">{name}</span>
+        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Active</Badge>
+      </div>
+      {next ? (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground pl-8">
+          <Calendar className="h-3 w-3 shrink-0" />
+          <span className="capitalize">{next.status}:</span>
+          <span>{new Date(next.proposedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground pl-8 flex items-center gap-1.5">
+          <Clock className="h-3 w-3 shrink-0" />
+          <Link href="/practice-partners" className="text-primary hover:underline">Schedule a session</Link>
+        </div>
+      )}
+      {past > 0 && (
+        <p className="text-xs text-muted-foreground pl-8">{past} session{past !== 1 ? "s" : ""} completed</p>
+      )}
+    </div>
+  );
+}
+
 function PracticePartnersCard() {
   const { data } = useQuery({
     queryKey: ["practice", "partnerships"],
     queryFn: async () => {
       const res = await apiFetch("/practice/partnerships");
       if (!res.ok) return null;
-      return res.json() as Promise<{ partnerships: Array<{ id: number; status: string; isRequester: boolean; partner: { firstName: string | null; lastName: string | null } | null }> }>;
+      return res.json() as Promise<{ partnerships: DashPartnership[] }>;
     },
   });
   const { data: profileData } = useQuery({
@@ -32,20 +84,46 @@ function PracticePartnersCard() {
       return res.json();
     },
   });
+  const { data: notifData } = useQuery({
+    queryKey: ["practice", "notifications"],
+    queryFn: async () => {
+      const res = await apiFetch("/practice/notifications");
+      if (!res.ok) return null;
+      return res.json() as Promise<{ total: number; recentNotifications: Array<{ id: number; message: string; type: string; isRead: boolean }> }>;
+    },
+    refetchInterval: 30_000,
+  });
 
   const partnerships = data?.partnerships ?? [];
-  const pending = partnerships.filter((p) => p.status === "pending" && !p.isRequester);
-  const active = partnerships.filter((p) => p.status === "active");
+  const pending = partnerships.filter(p => p.status === "pending" && !p.isRequester);
+  const active = partnerships.filter(p => p.status === "active");
+  const unreadNotifs = notifData?.recentNotifications?.filter(n => !n.isRead) ?? [];
 
   return (
     <Card className="border-border shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="font-serif">Practice Partners</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="font-serif">Practice Partners</CardTitle>
+          {(notifData?.total ?? 0) > 0 && (
+            <span className="h-5 w-5 text-xs font-bold bg-primary text-primary-foreground rounded-full flex items-center justify-center">
+              {notifData!.total}
+            </span>
+          )}
+        </div>
         <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
           <Link href="/practice-partners">View all</Link>
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
+        {/* In-app notifications (accept/decline/dissolve) */}
+        {unreadNotifs.slice(0, 2).map(n => (
+          <div key={n.id} className="flex items-start gap-2 p-2 bg-primary/5 border border-primary/20 rounded-lg text-xs">
+            <MessageSquare className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+            <span className="text-foreground">{n.message}</span>
+          </div>
+        ))}
+
+        {/* Incoming requests */}
         {pending.length > 0 && (
           <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
             <Users className="h-4 w-4 text-primary shrink-0" />
@@ -55,26 +133,18 @@ function PracticePartnersCard() {
             </Button>
           </div>
         )}
+
+        {/* Active partners with next session + past count */}
         {active.length > 0 ? (
           <div className="space-y-2">
-            {active.slice(0, 3).map((p) => {
-              const name = [p.partner?.firstName, p.partner?.lastName].filter(Boolean).join(" ") || "Musician";
-              return (
-                <div key={p.id} className="flex items-center gap-2 text-sm">
-                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Users className="h-3 w-3 text-primary" />
-                  </div>
-                  <span className="text-foreground flex-1 truncate">{name}</span>
-                  <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Active</Badge>
-                </div>
-              );
-            })}
+            {active.slice(0, 3).map(p => <ActivePartnerRow key={p.id} partnership={p} />)}
           </div>
         ) : !profileData ? (
           <p className="text-sm text-muted-foreground">Set up your practice profile to find compatible music partners for regular sessions.</p>
         ) : (
           <p className="text-sm text-muted-foreground">No active partners yet. Browse matches to find compatible musicians.</p>
         )}
+
         <Button size="sm" variant={active.length > 0 || profileData ? "outline" : "default"} className="w-full" asChild>
           <Link href="/practice-partners">{profileData ? "Find Partners" : "Get Started"}</Link>
         </Button>

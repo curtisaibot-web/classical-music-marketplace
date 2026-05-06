@@ -323,7 +323,20 @@ function PartnerCard({ profile, onRequest, requesting }: {
                 <p className="text-xs text-amber-800">Why you match: {profile.matchReason}</p>
               </div>
             )}
-            {profile.bio && <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{profile.bio}</p>}
+            {profile.bio && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{profile.bio}</p>}
+            {/* Availability preview */}
+            {profile.availabilitySlots && profile.availabilitySlots.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-3">
+                {profile.availabilitySlots.slice(0, 3).map((s, i) => (
+                  <span key={i} className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded border border-border">
+                    {s.day.slice(0, 3)} {s.time}
+                  </span>
+                ))}
+                {profile.availabilitySlots.length > 3 && (
+                  <span className="text-xs text-muted-foreground px-1 py-0.5">+{profile.availabilitySlots.length - 3} more</span>
+                )}
+              </div>
+            )}
             <Button size="sm" onClick={() => onRequest(profile.userId)} disabled={requesting} className="w-full">
               <Send className="h-3.5 w-3.5 mr-1.5" />
               {requesting ? "Sending…" : "Send Practice Request"}

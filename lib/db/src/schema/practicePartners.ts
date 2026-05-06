@@ -65,3 +65,15 @@ export const practiceSessionCompletionsTable = pgTable("practice_session_complet
 export const insertPracticeSessionCompletionSchema = createInsertSchema(practiceSessionCompletionsTable).omit({ id: true, completedAt: true });
 export type InsertPracticeSessionCompletion = z.infer<typeof insertPracticeSessionCompletionSchema>;
 export type PracticeSessionCompletion = typeof practiceSessionCompletionsTable.$inferSelect;
+
+export const practiceNotificationsTable = pgTable("practice_notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // request_accepted | request_declined | partnership_dissolved | session_proposed | session_confirmed | session_completed
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  partnershipId: integer("partnership_id").references(() => practicePartnershipsTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PracticeNotification = typeof practiceNotificationsTable.$inferSelect;

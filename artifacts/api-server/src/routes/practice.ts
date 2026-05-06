@@ -7,6 +7,7 @@ import {
   practicePartnershipsTable,
   practiceSessionsTable,
   practiceSessionCompletionsTable,
+  practiceNotificationsTable,
   usersTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -69,8 +70,8 @@ function computeMatchScore(
     b.sessionFormat === "either";
   if (formatsCompatible) score += 5;
 
-  // Baseline gate: must share ≥1 instrument OR be within 1 skill tier
-  const baselineMet = sharedInstruments.length > 0 || skillDiff <= 1;
+  // Baseline gate: must share ≥1 instrument AND be within 1 skill tier
+  const baselineMet = sharedInstruments.length > 0 && skillDiff <= 1;
 
   return {
     score: baselineMet ? Math.min(100, score) : 0,
@@ -290,6 +291,16 @@ router.post("/practice/partnerships/:id/accept", requireAuth, async (req, res): 
     .where(eq(practicePartnershipsTable.id, id))
     .returning();
 
+  // Notify the requester that their request was accepted
+  const [acceptorUser] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId!));
+  const acceptorName = [acceptorUser?.firstName, acceptorUser?.lastName].filter(Boolean).join(" ") || "Your partner";
+  await db.insert(practiceNotificationsTable).values({
+    userId: partnership.requesterId,
+    type: "request_accepted",
+    message: `${acceptorName} accepted your practice partner request!`,
+    partnershipId: id,
+  });
+
   res.json(updated);
 });
 
@@ -309,6 +320,18 @@ router.post("/practice/partnerships/:id/decline", requireAuth, async (req, res):
     );
 
   if (!partnership) { res.status(404).json({ error: "Partnership request not found" }); return; }
+
+  // Notify the requester if declined by the recipient
+  if (partnership.recipientId === userId && partnership.requesterId !== userId) {
+    const [declinerUser] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId!));
+    const declinerName = [declinerUser?.firstName, declinerUser?.lastName].filter(Boolean).join(" ") || "The musician";
+    await db.insert(practiceNotificationsTable).values({
+      userId: partnership.requesterId,
+      type: "request_declined",
+      message: `${declinerName} declined your practice partner request.`,
+      partnershipId: id,
+    });
+  }
 
   await db.delete(practicePartnershipsTable).where(eq(practicePartnershipsTable.id, id));
   res.json({ ok: true });
@@ -335,6 +358,24 @@ router.post("/practice/partnerships/:id/dissolve", requireAuth, async (req, res)
     .set({ status: "dissolved" })
     .where(eq(practicePartnershipsTable.id, id))
     .returning();
+
+  // Notify both parties that the partnership was dissolved
+  const [dissolverUser] = await db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId!));
+  const dissolverName = [dissolverUser?.firstName, dissolverUser?.lastName].filter(Boolean).join(" ") || "Your partner";
+  const otherUserId = partnership.requesterId === userId ? partnership.recipientId : partnership.requesterId;
+  await db.insert(practiceNotificationsTable).values({
+    userId: otherUserId,
+    type: "partnership_dissolved",
+    message: `${dissolverName} ended your practice partnership.`,
+    partnershipId: id,
+  });
+  // Self-notification so both see it in their feed
+  await db.insert(practiceNotificationsTable).values({
+    userId: userId!,
+    type: "partnership_dissolved",
+    message: `You ended your practice partnership.`,
+    partnershipId: id,
+  });
 
   res.json(updated);
 });
@@ -613,9 +654,13 @@ router.get("/practice/partnerships/:id/sessions", requireAuth, async (req, res):
   });
 });
 
-// ── Notification Badge Count ──────────────────────────────────────────────────
-// Returns counts for items needing the user's attention:
-// incoming pending requests + proposed sessions where they are NOT the proposer.
+// ── Notification Badge Count & Feed ──────────────────────────────────────────
+// Returns:
+//  - incomingRequests: pending partnership requests addressed to the user
+//  - pendingSessionsAwaitingMe: proposed sessions user hasn't responded to
+//  - unreadNotifications: unread in-app notifications (accept/decline/dissolve events)
+//  - total: sum of all actionable items
+//  - recentNotifications: last 10 in-app notification records (for feed display)
 router.get("/practice/notifications", requireAuth, async (req, res): Promise<void> => {
   const { userId } = getAuth(req);
 
@@ -651,11 +696,33 @@ router.get("/practice/notifications", requireAuth, async (req, res): Promise<voi
     pendingSessionsAwaitingMe = sessions.filter((s) => s.proposedById !== userId).length;
   }
 
+  // Unread in-app notifications (accept/decline/dissolve events)
+  const recentNotifications = await db
+    .select()
+    .from(practiceNotificationsTable)
+    .where(eq(practiceNotificationsTable.userId, userId!))
+    .orderBy(desc(practiceNotificationsTable.createdAt))
+    .limit(10);
+
+  const unreadNotifications = recentNotifications.filter((n) => !n.isRead).length;
+
   res.json({
     incomingRequests,
     pendingSessionsAwaitingMe,
-    total: incomingRequests + pendingSessionsAwaitingMe,
+    unreadNotifications,
+    total: incomingRequests + pendingSessionsAwaitingMe + unreadNotifications,
+    recentNotifications,
   });
+});
+
+// Mark in-app notifications as read
+router.post("/practice/notifications/read", requireAuth, async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
+  await db
+    .update(practiceNotificationsTable)
+    .set({ isRead: true })
+    .where(and(eq(practiceNotificationsTable.userId, userId!), eq(practiceNotificationsTable.isRead, false)));
+  res.json({ ok: true });
 });
 
 export default router;
