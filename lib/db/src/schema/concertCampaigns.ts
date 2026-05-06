@@ -38,6 +38,12 @@ export const campaignTicketsTable = pgTable("campaign_tickets", {
   buyerName: text("buyer_name"),
   quantity: integer("quantity").notNull().default(1),
   totalPriceCents: integer("total_price_cents").notNull(),
+  // Payment columns — one of the two sets will be populated depending on checkout mode:
+  // SetupIntent flow (used for campaigns): setup_intent_id + payment_method_id + customer_id
+  stripeSetupIntentId: text("stripe_setup_intent_id"),
+  stripePaymentMethodId: text("stripe_payment_method_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  // PaymentIntent created at capture time (populated by processCampaignSuccess)
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   accessCode: text("access_code"),
