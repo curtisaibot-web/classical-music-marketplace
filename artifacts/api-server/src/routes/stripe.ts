@@ -49,6 +49,7 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
 
   try {
     const stripe = await getUncachableStripeClient();
+    const feeRate = booking.type === "coaching" ? COACHING_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
 
     const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       payment_method_types: ["card"],
@@ -58,7 +59,7 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
           price_data: {
             currency: booking.currency.toLowerCase(),
             product_data: {
-              name: `${booking.type === "lesson" ? "Private Lesson" : booking.type === "coaching" ? "Coaching Session" : "Event Booking"}`,
+              name: booking.type === "lesson" ? "Private Lesson" : booking.type === "coaching" ? "Coaching Session" : "Event Booking",
               description: booking.notes ?? undefined,
             },
             unit_amount: booking.priceInCents,
@@ -81,10 +82,13 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
       },
     };
 
+    // For all bookings: transfer net to the coach/teacher's Stripe Connect account.
+    // Coaches who are also teachers use their teacher profile Stripe account.
+    // Coaches without a Stripe Connect account: platform retains funds for manual disbursement.
     if (teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
         ...sessionParams.payment_intent_data,
-        application_fee_amount: Math.round(booking.priceInCents * (booking.type === "coaching" ? COACHING_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE)),
+        application_fee_amount: Math.round(booking.priceInCents * feeRate),
         transfer_data: {
           destination: teacherProfile.stripeAccountId,
         },

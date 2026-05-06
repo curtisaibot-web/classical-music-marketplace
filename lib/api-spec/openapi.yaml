@@ -124,7 +124,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [lesson, event, masterclass, digital_product]
+            enum: [lesson, event, masterclass, digital_product, coaching]
         - name: dayOfWeek
           in: query
           description: "Filter teachers by the day of week they have masterclass events scheduled (0=Sunday, 1=Monday, ..., 6=Saturday). When listingType is 'lesson', 'event', or 'digital_product', this parameter is ignored because those listing types have no rows in masterclass_events — all matching teachers are returned regardless of this value."
@@ -396,7 +396,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [lesson, event, masterclass, digital_product]
+            enum: [lesson, event, masterclass, digital_product, coaching]
         - name: instrument
           in: query
           schema:
@@ -2958,8 +2958,10 @@ paths:
                   coaches:
                     type: array
                     items:
-                      $ref: "#/components/schemas/CoachProfile"
-                required: [coaches]
+                      $ref: "#/components/schemas/CoachWithUser"
+                  total:
+                    type: integer
+                required: [coaches, total]
 
   /coaches/apply:
     post:
@@ -3106,19 +3108,11 @@ paths:
             type: string
       responses:
         "200":
-          description: Coach profile with listings
+          description: Coach profile with user info and listings
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  coach:
-                    $ref: "#/components/schemas/CoachProfile"
-                  listings:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Listing"
-                required: [coach, listings]
+                $ref: "#/components/schemas/CoachWithUserAndListings"
 
   /stripe/checkout/score-license:
     post:
@@ -3281,6 +3275,35 @@ components:
         city:
           type: string
       required: [bio]
+
+    CoachWithUser:
+      allOf:
+        - $ref: "#/components/schemas/CoachProfile"
+        - type: object
+          properties:
+            user:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                firstName:
+                  type: ["string", "null"]
+                lastName:
+                  type: ["string", "null"]
+                profileImageUrl:
+                  type: ["string", "null"]
+
+    CoachWithUserAndListings:
+      allOf:
+        - $ref: "#/components/schemas/CoachWithUser"
+        - type: object
+          properties:
+            listings:
+              type: array
+              items:
+                $ref: "#/components/schemas/Listing"
+          required: [listings]
 
     # ── Teacher Profile ──────────────────────────────────────────────────────
     TeacherProfile:
@@ -3520,7 +3543,7 @@ components:
           type: string
         type:
           type: string
-          enum: [lesson, event, masterclass, digital_product]
+          enum: [lesson, event, masterclass, digital_product, coaching]
         status:
           type: string
           enum: [active, inactive, draft]
@@ -3580,7 +3603,7 @@ components:
       properties:
         type:
           type: string
-          enum: [lesson, event, masterclass, digital_product]
+          enum: [lesson, event, masterclass, digital_product, coaching]
         title:
           type: string
         description:

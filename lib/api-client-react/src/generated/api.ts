@@ -35,6 +35,7 @@ import type {
   CheckoutUrlResponse,
   CoachApplyBody,
   CoachProfile,
+  CoachWithUserAndListings,
   CompleteSessionBody,
   ComposerRoyaltyResponse,
   ConnectStatusResponse,
@@ -74,7 +75,6 @@ import type {
   ExpenseListResponse,
   ExpenseResponse,
   ForbiddenResponse,
-  GetCoachProfile200,
   GetMyCoachBookings200,
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
@@ -11046,8 +11046,8 @@ export const getGetCoachProfileUrl = (userId: string) => {
 export const getCoachProfile = async (
   userId: string,
   options?: RequestInit,
-): Promise<GetCoachProfile200> => {
-  return customFetch<GetCoachProfile200>(getGetCoachProfileUrl(userId), {
+): Promise<CoachWithUserAndListings> => {
+  return customFetch<CoachWithUserAndListings>(getGetCoachProfileUrl(userId), {
     ...options,
     method: "GET",
   });

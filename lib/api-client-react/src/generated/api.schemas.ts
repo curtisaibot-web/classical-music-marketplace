@@ -92,6 +92,48 @@ export interface CoachApplyBody {
   city?: string;
 }
 
+export type CoachWithUserUser = {
+  id?: string;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  profileImageUrl?: string | null;
+} | null;
+
+export type CoachWithUser = CoachProfile & {
+  user?: CoachWithUserUser;
+};
+
+export type ListingType = (typeof ListingType)[keyof typeof ListingType];
+
+export const ListingType = {
+  lesson: "lesson",
+  event: "event",
+  masterclass: "masterclass",
+  digital_product: "digital_product",
+  coaching: "coaching",
+} as const;
+
+export type ListingStatus = (typeof ListingStatus)[keyof typeof ListingStatus];
+
+export const ListingStatus = {
+  active: "active",
+  inactive: "inactive",
+  draft: "draft",
+} as const;
+
+export type ListingSkillLevel =
+  (typeof ListingSkillLevel)[keyof typeof ListingSkillLevel];
+
+export const ListingSkillLevel = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+  all: "all",
+} as const;
+
 export interface TeacherProfile {
   id: number;
   userId: string;
@@ -137,6 +179,47 @@ export interface TeacherProfile {
   user?: User;
   createdAt: string;
 }
+
+export interface Listing {
+  id: number;
+  teacherId: string;
+  type: ListingType;
+  status: ListingStatus;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  instrument?: string | null;
+  skillLevel: ListingSkillLevel;
+  priceInCents: number;
+  currency: string;
+  /** @nullable */
+  durationMinutes?: number | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  tags: string[];
+  isOnline: boolean;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /**
+   * ID of the associated digital product (only set when type=digital_product)
+   * @nullable
+   */
+  digitalProductId?: number | null;
+  /**
+   * ID of the first upcoming masterclass event (only set when type=masterclass)
+   * @nullable
+   */
+  masterclassEventId?: number | null;
+  teacher?: TeacherProfile;
+  createdAt: string;
+}
+
+export type CoachWithUserAndListings = CoachWithUser & {
+  listings: Listing[];
+};
 
 export interface TeacherListResponse {
   teachers: TeacherProfile[];
@@ -234,70 +317,6 @@ export interface UpdateStudentProfileBody {
   ageGroup?: string;
 }
 
-export type ListingType = (typeof ListingType)[keyof typeof ListingType];
-
-export const ListingType = {
-  lesson: "lesson",
-  event: "event",
-  masterclass: "masterclass",
-  digital_product: "digital_product",
-} as const;
-
-export type ListingStatus = (typeof ListingStatus)[keyof typeof ListingStatus];
-
-export const ListingStatus = {
-  active: "active",
-  inactive: "inactive",
-  draft: "draft",
-} as const;
-
-export type ListingSkillLevel =
-  (typeof ListingSkillLevel)[keyof typeof ListingSkillLevel];
-
-export const ListingSkillLevel = {
-  beginner: "beginner",
-  intermediate: "intermediate",
-  advanced: "advanced",
-  all: "all",
-} as const;
-
-export interface Listing {
-  id: number;
-  teacherId: string;
-  type: ListingType;
-  status: ListingStatus;
-  title: string;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  instrument?: string | null;
-  skillLevel: ListingSkillLevel;
-  priceInCents: number;
-  currency: string;
-  /** @nullable */
-  durationMinutes?: number | null;
-  /** @nullable */
-  imageUrl?: string | null;
-  tags: string[];
-  isOnline: boolean;
-  /** @nullable */
-  city?: string | null;
-  /** @nullable */
-  country?: string | null;
-  /**
-   * ID of the associated digital product (only set when type=digital_product)
-   * @nullable
-   */
-  digitalProductId?: number | null;
-  /**
-   * ID of the first upcoming masterclass event (only set when type=masterclass)
-   * @nullable
-   */
-  masterclassEventId?: number | null;
-  teacher?: TeacherProfile;
-  createdAt: string;
-}
-
 export interface ListingListResponse {
   listings: Listing[];
   total: number;
@@ -311,6 +330,7 @@ export const CreateListingBodyType = {
   event: "event",
   masterclass: "masterclass",
   digital_product: "digital_product",
+  coaching: "coaching",
 } as const;
 
 export type CreateListingBodySkillLevel =
@@ -1896,6 +1916,7 @@ export const ListTeachersListingType = {
   event: "event",
   masterclass: "masterclass",
   digital_product: "digital_product",
+  coaching: "coaching",
 } as const;
 
 export type ListListingsParams = {
@@ -1928,6 +1949,7 @@ export const ListListingsType = {
   event: "event",
   masterclass: "masterclass",
   digital_product: "digital_product",
+  coaching: "coaching",
 } as const;
 
 export type ListMasterclassesParams = {
@@ -2041,7 +2063,8 @@ export type ListCoachesParams = {
 };
 
 export type ListCoaches200 = {
-  coaches: CoachProfile[];
+  coaches: CoachWithUser[];
+  total: number;
 };
 
 export type CreateCoachListingBody = {
@@ -2060,11 +2083,6 @@ export type GetMyCoachBookings200 = {
 
 export type SetCoachMeetingUrlBody = {
   meetingUrl: string;
-};
-
-export type GetCoachProfile200 = {
-  coach: CoachProfile;
-  listings: Listing[];
 };
 
 export type CreateScoreLicenseCheckout200 = {

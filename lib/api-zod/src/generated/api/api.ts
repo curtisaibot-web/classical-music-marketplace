@@ -63,7 +63,7 @@ export const ListTeachersQueryParams = zod.object({
   instrument: zod.coerce.string().optional(),
   city: zod.coerce.string().optional(),
   listingType: zod
-    .enum(["lesson", "event", "masterclass", "digital_product"])
+    .enum(["lesson", "event", "masterclass", "digital_product", "coaching"])
     .optional(),
   dayOfWeek: zod.coerce
     .number()
@@ -588,7 +588,7 @@ export const listListingsQueryOffsetDefault = 0;
 
 export const ListListingsQueryParams = zod.object({
   type: zod
-    .enum(["lesson", "event", "masterclass", "digital_product"])
+    .enum(["lesson", "event", "masterclass", "digital_product", "coaching"])
     .optional(),
   instrument: zod.coerce.string().optional(),
   skillLevel: zod.coerce.string().optional(),
@@ -619,7 +619,13 @@ export const ListListingsResponse = zod.object({
     zod.object({
       id: zod.number(),
       teacherId: zod.string(),
-      type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
+      type: zod.enum([
+        "lesson",
+        "event",
+        "masterclass",
+        "digital_product",
+        "coaching",
+      ]),
       status: zod.enum(["active", "inactive", "draft"]),
       title: zod.string(),
       description: zod.string().nullish(),
@@ -709,7 +715,13 @@ export const ListListingsResponse = zod.object({
  * @summary Create a new listing
  */
 export const CreateListingBody = zod.object({
-  type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
+  type: zod.enum([
+    "lesson",
+    "event",
+    "masterclass",
+    "digital_product",
+    "coaching",
+  ]),
   title: zod.string(),
   description: zod.string().optional(),
   instrument: zod.string().optional(),
@@ -735,7 +747,13 @@ export const GetListingParams = zod.object({
 export const GetListingResponse = zod.object({
   id: zod.number(),
   teacherId: zod.string(),
-  type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
+  type: zod.enum([
+    "lesson",
+    "event",
+    "masterclass",
+    "digital_product",
+    "coaching",
+  ]),
   status: zod.enum(["active", "inactive", "draft"]),
   title: zod.string(),
   description: zod.string().nullish(),
@@ -840,7 +858,13 @@ export const UpdateListingBody = zod.object({
 export const UpdateListingResponse = zod.object({
   id: zod.number(),
   teacherId: zod.string(),
-  type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
+  type: zod.enum([
+    "lesson",
+    "event",
+    "masterclass",
+    "digital_product",
+    "coaching",
+  ]),
   status: zod.enum(["active", "inactive", "draft"]),
   title: zod.string(),
   description: zod.string().nullish(),
@@ -942,7 +966,13 @@ export const GetTeacherListingsResponse = zod.object({
     zod.object({
       id: zod.number(),
       teacherId: zod.string(),
-      type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
+      type: zod.enum([
+        "lesson",
+        "event",
+        "masterclass",
+        "digital_product",
+        "coaching",
+      ]),
       status: zod.enum(["active", "inactive", "draft"]),
       title: zod.string(),
       description: zod.string().nullish(),
@@ -4500,22 +4530,36 @@ export const ListCoachesQueryParams = zod.object({
 
 export const ListCoachesResponse = zod.object({
   coaches: zod.array(
-    zod.object({
-      id: zod.number(),
-      userId: zod.string(),
-      bio: zod.string().nullish(),
-      credentials: zod.string().nullish(),
-      specialties: zod.array(zod.string()).optional(),
-      linkedInUrl: zod.string().nullish(),
-      approvalStatus: zod.enum(["pending", "approved", "rejected"]),
-      sessionRateCents: zod.number().nullish(),
-      isOnline: zod.boolean(),
-      city: zod.string().nullish(),
-      averageRating: zod.number().nullish(),
-      reviewCount: zod.number(),
-      createdAt: zod.coerce.date(),
-    }),
+    zod
+      .object({
+        id: zod.number(),
+        userId: zod.string(),
+        bio: zod.string().nullish(),
+        credentials: zod.string().nullish(),
+        specialties: zod.array(zod.string()).optional(),
+        linkedInUrl: zod.string().nullish(),
+        approvalStatus: zod.enum(["pending", "approved", "rejected"]),
+        sessionRateCents: zod.number().nullish(),
+        isOnline: zod.boolean(),
+        city: zod.string().nullish(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number(),
+        createdAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          user: zod
+            .object({
+              id: zod.string().optional(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              profileImageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+        }),
+      ),
   ),
+  total: zod.number(),
 });
 
 /**
@@ -4726,8 +4770,8 @@ export const GetCoachProfileParams = zod.object({
   userId: zod.coerce.string(),
 });
 
-export const GetCoachProfileResponse = zod.object({
-  coach: zod.object({
+export const GetCoachProfileResponse = zod
+  .object({
     id: zod.number(),
     userId: zod.string(),
     bio: zod.string().nullish(),
@@ -4741,95 +4785,116 @@ export const GetCoachProfileResponse = zod.object({
     averageRating: zod.number().nullish(),
     reviewCount: zod.number(),
     createdAt: zod.coerce.date(),
-  }),
-  listings: zod.array(
+  })
+  .and(
     zod.object({
-      id: zod.number(),
-      teacherId: zod.string(),
-      type: zod.enum(["lesson", "event", "masterclass", "digital_product"]),
-      status: zod.enum(["active", "inactive", "draft"]),
-      title: zod.string(),
-      description: zod.string().nullish(),
-      instrument: zod.string().nullish(),
-      skillLevel: zod.enum(["beginner", "intermediate", "advanced", "all"]),
-      priceInCents: zod.number(),
-      currency: zod.string(),
-      durationMinutes: zod.number().nullish(),
-      imageUrl: zod.string().nullish(),
-      tags: zod.array(zod.string()),
-      isOnline: zod.boolean(),
-      city: zod.string().nullish(),
-      country: zod.string().nullish(),
-      digitalProductId: zod
-        .number()
-        .nullish()
-        .describe(
-          "ID of the associated digital product (only set when type=digital_product)",
-        ),
-      masterclassEventId: zod
-        .number()
-        .nullish()
-        .describe(
-          "ID of the first upcoming masterclass event (only set when type=masterclass)",
-        ),
-      teacher: zod
+      user: zod
         .object({
+          id: zod.string().optional(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          profileImageUrl: zod.string().nullish(),
+        })
+        .nullish(),
+    }),
+  )
+  .and(
+    zod.object({
+      listings: zod.array(
+        zod.object({
           id: zod.number(),
-          userId: zod.string(),
-          bio: zod.string().nullish(),
-          instruments: zod.array(zod.string()),
-          genres: zod.array(zod.string()),
+          teacherId: zod.string(),
+          type: zod.enum([
+            "lesson",
+            "event",
+            "masterclass",
+            "digital_product",
+            "coaching",
+          ]),
+          status: zod.enum(["active", "inactive", "draft"]),
+          title: zod.string(),
+          description: zod.string().nullish(),
+          instrument: zod.string().nullish(),
+          skillLevel: zod.enum(["beginner", "intermediate", "advanced", "all"]),
+          priceInCents: zod.number(),
+          currency: zod.string(),
+          durationMinutes: zod.number().nullish(),
+          imageUrl: zod.string().nullish(),
+          tags: zod.array(zod.string()),
+          isOnline: zod.boolean(),
           city: zod.string().nullish(),
           country: zod.string().nullish(),
-          timezone: zod.string().nullish(),
-          hourlyRate: zod.number().nullish(),
-          currency: zod.string(),
-          yearsExperience: zod.number().nullish(),
-          education: zod.string().nullish(),
-          averageRating: zod.number(),
-          reviewCount: zod.number(),
-          isVerified: zod.boolean(),
-          profileImageUrl: zod.string().nullish(),
-          websiteUrl: zod.string().nullish(),
-          videoIntroUrl: zod.string().nullish(),
-          profileSlug: zod.string().nullish(),
-          stripeOnboarded: zod.boolean(),
-          isProSubscriber: zod.boolean().optional(),
-          cancellationPolicyHours: zod.number().optional(),
-          cancellationFeePercent: zod.number().optional(),
-          isPubliclyVisible: zod
-            .boolean()
-            .describe(
-              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
-            ),
-          orgId: zod
+          digitalProductId: zod
             .number()
             .nullish()
-            .describe("The organisation this teacher belongs to, if any."),
-          user: zod
+            .describe(
+              "ID of the associated digital product (only set when type=digital_product)",
+            ),
+          masterclassEventId: zod
+            .number()
+            .nullish()
+            .describe(
+              "ID of the first upcoming masterclass event (only set when type=masterclass)",
+            ),
+          teacher: zod
             .object({
-              id: zod.string(),
-              email: zod.string(),
-              firstName: zod.string().nullish(),
-              lastName: zod.string().nullish(),
-              imageUrl: zod.string().nullish(),
-              role: zod
-                .union([
-                  zod.literal("teacher"),
-                  zod.literal("student"),
-                  zod.literal(null),
-                ])
-                .nullish(),
+              id: zod.number(),
+              userId: zod.string(),
+              bio: zod.string().nullish(),
+              instruments: zod.array(zod.string()),
+              genres: zod.array(zod.string()),
+              city: zod.string().nullish(),
+              country: zod.string().nullish(),
+              timezone: zod.string().nullish(),
+              hourlyRate: zod.number().nullish(),
+              currency: zod.string(),
+              yearsExperience: zod.number().nullish(),
+              education: zod.string().nullish(),
+              averageRating: zod.number(),
+              reviewCount: zod.number(),
+              isVerified: zod.boolean(),
+              profileImageUrl: zod.string().nullish(),
+              websiteUrl: zod.string().nullish(),
+              videoIntroUrl: zod.string().nullish(),
+              profileSlug: zod.string().nullish(),
+              stripeOnboarded: zod.boolean(),
+              isProSubscriber: zod.boolean().optional(),
+              cancellationPolicyHours: zod.number().optional(),
+              cancellationFeePercent: zod.number().optional(),
+              isPubliclyVisible: zod
+                .boolean()
+                .describe(
+                  "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+                ),
+              orgId: zod
+                .number()
+                .nullish()
+                .describe("The organisation this teacher belongs to, if any."),
+              user: zod
+                .object({
+                  id: zod.string(),
+                  email: zod.string(),
+                  firstName: zod.string().nullish(),
+                  lastName: zod.string().nullish(),
+                  imageUrl: zod.string().nullish(),
+                  role: zod
+                    .union([
+                      zod.literal("teacher"),
+                      zod.literal("student"),
+                      zod.literal(null),
+                    ])
+                    .nullish(),
+                  createdAt: zod.coerce.date(),
+                })
+                .optional(),
               createdAt: zod.coerce.date(),
             })
             .optional(),
           createdAt: zod.coerce.date(),
-        })
-        .optional(),
-      createdAt: zod.coerce.date(),
+        }),
+      ),
     }),
-  ),
-});
+  );
 
 /**
  * @summary Create Stripe Checkout session for a score license
