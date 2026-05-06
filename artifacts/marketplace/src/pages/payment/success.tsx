@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, ShoppingBag, ArrowRight, Music } from "lucide-react";
+import { CheckCircle2, Calendar, ShoppingBag, ArrowRight, Music, BookOpen } from "lucide-react";
 
 export default function PaymentSuccess() {
   const [location] = useLocation();
@@ -17,15 +17,18 @@ export default function PaymentSuccess() {
   const isBooking = type === "booking";
   const isOrder = type === "order" || type === "masterclass_performer" || type === "masterclass_observer";
   const isCampaign = type === "campaign";
+  const isProgramEnrollment = type === "program_enrollment";
 
   const heading = isCampaign ? "Pledge Received!" : "Payment Successful!";
   const subtext = isBooking
     ? "Your lesson has been booked and payment received. The teacher will confirm shortly."
-    : isOrder
-      ? "Your purchase is confirmed. You can access your items in your orders."
-      : isCampaign
-        ? "Your card has been authorized. If the campaign reaches its goal, your payment will be captured and you'll receive your tickets by email."
-        : "Your payment was processed successfully.";
+    : isProgramEnrollment
+      ? "You're enrolled! Your audition prep program is ready to begin."
+      : isOrder
+        ? "Your purchase is confirmed. You can access your items in your orders."
+        : isCampaign
+          ? "Your card has been authorized. If the campaign reaches its goal, your payment will be captured and you'll receive your tickets by email."
+          : "Your payment was processed successfully.";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -59,6 +62,21 @@ export default function PaymentSuccess() {
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-bold mt-0.5">3.</span>
                   If the goal is not met, your authorization is cancelled — no charge is ever made.
+                </li>
+              </ul>
+            ) : isProgramEnrollment ? (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">1.</span>
+                  Your enrollment is now active and visible in your dashboard.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">2.</span>
+                  Your teacher will schedule your first session and may send notes after each one.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">3.</span>
+                  Once all sessions are complete, you'll receive a certificate of completion.
                 </li>
               </ul>
             ) : isBooking ? (
@@ -96,6 +114,13 @@ export default function PaymentSuccess() {
                 <Link href="/concerts">
                   <Music className="h-4 w-4 mr-2" />
                   Browse Campaigns
+                </Link>
+              </Button>
+            ) : isProgramEnrollment ? (
+              <Button asChild>
+                <Link href="/my-programs">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  View My Programs
                 </Link>
               </Button>
             ) : isBooking ? (
