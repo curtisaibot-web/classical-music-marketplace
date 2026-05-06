@@ -3766,6 +3766,9 @@ components:
         teacherLastName:
           type: string
           nullable: true
+        teacherProfileImageUrl:
+          type: string
+          nullable: true
         ticketsSold:
           type: integer
       required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, ticketsSold]
@@ -3808,6 +3811,9 @@ components:
           type: string
           nullable: true
         teacherLastName:
+          type: string
+          nullable: true
+        teacherProfileImageUrl:
           type: string
           nullable: true
         ticketsSold:
@@ -3859,7 +3865,16 @@ components:
           type: integer
         grossRaisedCents:
           type: integer
-      required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, updatedAt, ticketsSold, backerCount, grossRaisedCents]
+        platformFeeCents:
+          type: integer
+        netRaisedCents:
+          type: integer
+        stripePaymentIntentIds:
+          type: array
+          items:
+            type: string
+          nullable: true
+      required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, updatedAt, ticketsSold, backerCount, grossRaisedCents, platformFeeCents, netRaisedCents]
 
     CampaignListResponse:
       type: object

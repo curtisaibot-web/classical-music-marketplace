@@ -3134,6 +3134,7 @@ export const ListCampaignsResponse = zod.object({
       createdAt: zod.coerce.date(),
       teacherFirstName: zod.string().nullish(),
       teacherLastName: zod.string().nullish(),
+      teacherProfileImageUrl: zod.string().nullish(),
       ticketsSold: zod.number(),
     }),
   ),
@@ -3176,6 +3177,9 @@ export const GetMyCampaignsResponse = zod.object({
       ticketsSold: zod.number(),
       backerCount: zod.number(),
       grossRaisedCents: zod.number(),
+      platformFeeCents: zod.number(),
+      netRaisedCents: zod.number(),
+      stripePaymentIntentIds: zod.array(zod.string()).nullish(),
     }),
   ),
 });
@@ -3202,6 +3206,7 @@ export const GetCampaignResponse = zod.object({
   createdAt: zod.coerce.date(),
   teacherFirstName: zod.string().nullish(),
   teacherLastName: zod.string().nullish(),
+  teacherProfileImageUrl: zod.string().nullish(),
   ticketsSold: zod.number(),
   backerCount: zod.number(),
 });
@@ -3239,6 +3244,9 @@ export const UpdateCampaignResponse = zod.object({
     ticketsSold: zod.number(),
     backerCount: zod.number(),
     grossRaisedCents: zod.number(),
+    platformFeeCents: zod.number(),
+    netRaisedCents: zod.number(),
+    stripePaymentIntentIds: zod.array(zod.string()).nullish(),
   }),
 });
 

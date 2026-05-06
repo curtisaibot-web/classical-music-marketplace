@@ -1177,6 +1177,7 @@ export interface ConcertCampaign {
   createdAt: string;
   teacherFirstName?: string | null;
   teacherLastName?: string | null;
+  teacherProfileImageUrl?: string | null;
   ticketsSold: number;
 }
 
@@ -1205,6 +1206,7 @@ export interface CampaignDetail {
   createdAt: string;
   teacherFirstName?: string | null;
   teacherLastName?: string | null;
+  teacherProfileImageUrl?: string | null;
   ticketsSold: number;
   backerCount: number;
 }
@@ -1236,6 +1238,9 @@ export interface MyCampaignItem {
   ticketsSold: number;
   backerCount: number;
   grossRaisedCents: number;
+  platformFeeCents: number;
+  netRaisedCents: number;
+  stripePaymentIntentIds?: string[] | null;
 }
 
 export interface CampaignListResponse {

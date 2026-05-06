@@ -116,9 +116,9 @@ export default function Concerts() {
 
                         {(c.teacherFirstName || c.teacherLastName) && (
                           <div className="flex items-center gap-2 mb-3">
-                            {(c as { teacherProfileImageUrl?: string | null }).teacherProfileImageUrl ? (
+                            {c.teacherProfileImageUrl ? (
                               <img
-                                src={(c as { teacherProfileImageUrl?: string | null }).teacherProfileImageUrl!}
+                                src={c.teacherProfileImageUrl}
                                 alt=""
                                 className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                               />
