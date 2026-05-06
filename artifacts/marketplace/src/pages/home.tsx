@@ -116,7 +116,7 @@ export default function Home() {
                 {teachersData?.teachers.map((teacher) => {
                   const imgSrc = resolveImageUrl(teacher.profileImageUrl, basePath);
                   return (
-                    <Link key={teacher.id} href={`/teachers/${teacher.userId}`}>
+                    <Link key={teacher.id} href={teacher.profileSlug ? `/musicians/${teacher.profileSlug}` : `/teachers/${teacher.userId}`}>
                       <Card className="h-full hover-elevate transition-all border-border overflow-hidden group cursor-pointer">
                         <div className="aspect-[3/4] bg-muted relative overflow-hidden">
                           {imgSrc ? (
