@@ -1921,7 +1921,7 @@ components:
           enum: [lesson, event]
         status:
           type: string
-          enum: [pending, confirmed, cancelled, completed, refunded]
+          enum: [pending, confirmed, cancelled, completed, refunded, expired]
         scheduledAt:
           type: ["string", "null"]
           format: date-time
@@ -1946,6 +1946,19 @@ components:
           type: ["string", "null"]
         cancelReason:
           type: ["string", "null"]
+        platformFeeInCents:
+          type: integer
+          description: "Platform fee charged on this booking (in cents)"
+        surgePercent:
+          type: ["integer", "null"]
+          description: "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)"
+        surgeAmountInCents:
+          type: ["integer", "null"]
+          description: "Absolute surge premium in cents (surgePercent % of base price)"
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+          description: "Acceptance deadline for last-minute booking requests (null for standard bookings)"
         hasReview:
           type: boolean
           description: "Whether the student has already submitted a review for this booking"
@@ -1954,7 +1967,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, studentId, teacherId, type, status, priceInCents, currency, createdAt]
+      required: [id, studentId, teacherId, type, status, priceInCents, platformFeeInCents, currency, createdAt]
 
     BookingListResponse:
       type: object

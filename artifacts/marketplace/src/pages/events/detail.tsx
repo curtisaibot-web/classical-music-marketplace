@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Music, MapPin, Star, Users, Clock, CheckCircle2,
-  Calendar, AlertCircle, ChevronLeft, ChevronRight,
+  Calendar, AlertCircle, ChevronLeft, ChevronRight, Zap,
 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
@@ -141,6 +141,13 @@ export default function EventDetail() {
   const [durationMinutes, setDurationMinutes] = useState("");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [bookingResult, setBookingResult] = useState<{
+    surgePercent: number | null;
+    surgeAmountInCents: number | null;
+    priceInCents: number;
+    platformFeeInCents: number;
+    expiresAt: string | null;
+  } | null>(null);
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -186,8 +193,15 @@ export default function EventDetail() {
       notes: notes.trim() || undefined,
       instrument: event?.instrument ?? undefined,
     }, {
-      onSuccess: () => {
+      onSuccess: (data) => {
         setSubmitted(true);
+        setBookingResult({
+          surgePercent: data.surgePercent ?? null,
+          surgeAmountInCents: data.surgeAmountInCents ?? null,
+          priceInCents: data.priceInCents,
+          platformFeeInCents: data.platformFeeInCents,
+          expiresAt: data.expiresAt ?? null,
+        });
         toast.success("Booking request sent! The musician will be in touch shortly.");
       },
       onError: () => {
@@ -232,6 +246,21 @@ export default function EventDetail() {
   const imgSrc = resolveImageUrl(event.imageUrl, basePath);
   const details = event.eventDetails;
   const bookedDates = availability?.bookedDates ?? [];
+
+  // Compute last-minute pricing preview based on selected date
+  const SURGE_PERCENT = 25;
+  const LAST_MINUTE_THRESHOLD_HOURS = 72;
+  const LAST_MINUTE_PLATFORM_FEE_RATE = 0.20;
+  const PLATFORM_FEE_RATE = 0.15;
+
+  const isLastMinuteDate = selectedDate
+    ? (selectedDate.getTime() - Date.now()) / (1000 * 60 * 60) < LAST_MINUTE_THRESHOLD_HOURS
+    : false;
+
+  const basePrice = event.priceInCents;
+  const surgeAmount = isLastMinuteDate ? Math.round(basePrice * (SURGE_PERCENT / 100)) : 0;
+  const totalPrice = basePrice + surgeAmount;
+  const platformFee = Math.round(totalPrice * (isLastMinuteDate ? LAST_MINUTE_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE));
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -432,9 +461,43 @@ export default function EventDetail() {
                       <CheckCircle2 className="h-8 w-8 text-green-600" />
                     </div>
                     <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">Request Sent!</h3>
-                    <p className="text-muted-foreground text-sm mb-6">
+                    <p className="text-muted-foreground text-sm mb-4">
                       Your booking request has been sent. The musician will review your details and get back to you soon.
                     </p>
+                    {bookingResult && (
+                      <div className="bg-muted/50 rounded-lg p-4 text-left mb-4 space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Price Summary</p>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Base price</span>
+                          <span className="font-medium">${((bookingResult.priceInCents - (bookingResult.surgeAmountInCents ?? 0)) / 100).toFixed(0)}</span>
+                        </div>
+                        {bookingResult.surgePercent && bookingResult.surgeAmountInCents ? (
+                          <div className="flex justify-between text-sm">
+                            <span className="flex items-center gap-1 text-amber-700">
+                              <Zap className="h-3 w-3 fill-amber-600" />
+                              Last-minute premium (+{bookingResult.surgePercent}%)
+                            </span>
+                            <span className="font-medium text-amber-700">+${(bookingResult.surgeAmountInCents / 100).toFixed(0)}</span>
+                          </div>
+                        ) : null}
+                        <div className="flex justify-between text-sm border-t border-border pt-2">
+                          <span className="font-semibold text-foreground">Total</span>
+                          <span className="font-bold text-foreground">${(bookingResult.priceInCents / 100).toFixed(0)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Platform fee ({bookingResult.surgePercent ? "20%" : "15%"})</span>
+                          <span>${(bookingResult.platformFeeInCents / 100).toFixed(0)}</span>
+                        </div>
+                        {bookingResult.expiresAt && (
+                          <div className="mt-2 bg-amber-50 border border-amber-200 rounded-md p-2">
+                            <p className="text-xs text-amber-800 font-medium flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Musician must accept by {format(new Date(bookingResult.expiresAt), "h:mm a")} today
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <Button variant="outline" className="w-full" onClick={() => setLocation("/bookings")}>
                       View My Bookings
                     </Button>
@@ -444,12 +507,49 @@ export default function EventDetail() {
                 <Card className="border-border shadow-lg">
                   <CardHeader className="bg-muted/50 border-b border-border pb-4">
                     <CardTitle className="font-serif text-xl">Request Booking</CardTitle>
-                    {event.priceInCents > 0 && (
+                    {basePrice > 0 && !selectedDate && (
                       <p className="text-2xl font-bold text-foreground mt-1">
-                        From ${(event.priceInCents / 100).toFixed(0)}
+                        From ${(basePrice / 100).toFixed(0)}
                       </p>
                     )}
-                    {event.priceInCents === 0 && (
+                    {basePrice > 0 && selectedDate && (
+                      <div className="mt-2 space-y-1">
+                        {isLastMinuteDate ? (
+                          <>
+                            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 mb-2">
+                              <Zap className="h-3 w-3 fill-amber-600 shrink-0" />
+                              Last-minute booking — 25% surge applies
+                            </div>
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>Base price</span>
+                              <span>${(basePrice / 100).toFixed(0)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm text-amber-700">
+                              <span>Last-minute premium (+25%)</span>
+                              <span>+${(surgeAmount / 100).toFixed(0)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-foreground border-t border-border pt-1 mt-1">
+                              <span>Total</span>
+                              <span>${(totalPrice / 100).toFixed(0)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Platform fee (20%)</span>
+                              <span>${(platformFee / 100).toFixed(0)}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-2xl font-bold text-foreground">
+                              From ${(basePrice / 100).toFixed(0)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Platform fee (15%): ${(platformFee / 100).toFixed(0)}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {basePrice === 0 && (
                       <p className="text-sm text-muted-foreground">Price on request</p>
                     )}
                   </CardHeader>

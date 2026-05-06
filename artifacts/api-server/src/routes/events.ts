@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, or, ilike, inArray, count, lte, gte, isNull } from "drizzle-orm";
+import { eq, and, or, ilike, inArray, count, lte, gte, isNull, sql } from "drizzle-orm";
 import {
   db,
   bookingsTable,
@@ -146,6 +146,9 @@ router.get("/events", async (req, res): Promise<void> => {
       .leftJoin(teacherProfilesTable, eq(listingsTable.teacherId, teacherProfilesTable.userId))
       .leftJoin(usersTable, eq(listingsTable.teacherId, usersTable.id))
       .where(where)
+      .orderBy(lastMinute
+        ? sql`${teacherProfilesTable.averageRating} DESC NULLS LAST`
+        : sql`${listingsTable.createdAt} DESC`)
       .limit(limit)
       .offset(offset),
   ]);
