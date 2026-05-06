@@ -23,6 +23,7 @@ import expensesRouter from "./expenses";
 import campaignsRouter from "./campaigns";
 import auditionProgramsRouter from "./auditionPrograms";
 import orgsRouter from "./orgs";
+import scoresRouter from "./scores";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(expensesRouter);
 router.use(campaignsRouter);
 router.use(auditionProgramsRouter);
 router.use(orgsRouter);
+router.use(scoresRouter);
 
 export default router;

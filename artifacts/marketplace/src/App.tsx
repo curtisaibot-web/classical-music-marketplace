@@ -43,6 +43,9 @@ import AuditionPrepDetail from "@/pages/audition-prep/detail";
 import SchoolsJoin from "@/pages/schools/join";
 import OrgAdmin from "@/pages/org-admin/index";
 import { OrgProvider } from "@/context/OrgContext";
+import ScoresBrowse from "@/pages/scores/index";
+import ScoreDetail from "@/pages/scores/detail";
+import StudentScoreLicenses from "@/pages/student/score-licenses";
 
 const queryClient = new QueryClient();
 
@@ -227,10 +230,14 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/store" component={Store} />
           <Route path="/store/:id" component={StoreDetail} />
+
+          <Route path="/scores" component={ScoresBrowse} />
+          <Route path="/scores/:id" component={ScoreDetail} />
           
           <Route path="/dashboard" component={StudentDashboard} />
           <Route path="/bookings" component={StudentBookings} />
           <Route path="/orders" component={StudentOrders} />
+          <Route path="/my-score-licenses" component={StudentScoreLicenses} />
           
           <Route path="/teacher-dashboard" component={TeacherDashboard} />
           <Route path="/listings" component={TeacherListings} />

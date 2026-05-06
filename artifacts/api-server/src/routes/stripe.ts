@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or } from "drizzle-orm";
-import { db, bookingsTable, ordersTable, teacherProfilesTable, auditionProgramsTable, programEnrollmentsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, teacherProfilesTable, auditionProgramsTable, programEnrollmentsTable, scoresTable, scoreLicensesTable, purchasedLicensesTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { requireRole } from "../middlewares/requireRole";
 import { getUncachableStripeClient } from "../stripeClient";
@@ -304,6 +304,140 @@ router.post("/stripe/checkout/program-enrollment", requireAuth, requireRole("stu
     res.json({ checkoutUrl: session.url });
   } catch (err) {
     logger.error({ err }, "Failed to create program enrollment checkout session");
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+router.post("/stripe/checkout/score-license", requireAuth, async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+  const { licenseId, successUrl, cancelUrl } = req.body as {
+    licenseId: number;
+    successUrl: string;
+    cancelUrl: string;
+  };
+
+  if (!licenseId || !successUrl || !cancelUrl) {
+    res.status(400).json({ error: "licenseId, successUrl, and cancelUrl are required" });
+    return;
+  }
+
+  const [licRow] = await db
+    .select()
+    .from(scoreLicensesTable)
+    .leftJoin(scoresTable, eq(scoreLicensesTable.scoreId, scoresTable.id))
+    .where(and(eq(scoreLicensesTable.id, licenseId), eq(scoreLicensesTable.isActive, true)));
+
+  if (!licRow?.scores) {
+    res.status(404).json({ error: "License tier not found or inactive" });
+    return;
+  }
+
+  const score = licRow.scores;
+  const license = licRow.score_licenses;
+
+  // Buyers cannot re-purchase the same license type for the same score
+  const [existing] = await db
+    .select({ id: purchasedLicensesTable.id })
+    .from(purchasedLicensesTable)
+    .where(and(
+      eq(purchasedLicensesTable.buyerId, userId),
+      eq(purchasedLicensesTable.scoreId, score.id),
+      eq(purchasedLicensesTable.licenseType, license.licenseType),
+      eq(purchasedLicensesTable.status, "active"),
+    ));
+
+  if (existing) {
+    res.status(409).json({ error: "You already own this license for this score" });
+    return;
+  }
+
+  const platformFeeInCents = Math.round(license.priceCents * PLATFORM_FEE_RATE);
+
+  // Sync license expires after 1 year; personal and performance are perpetual
+  const expiresAt = license.licenseType === "sync"
+    ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    : null;
+
+  const [pendingLicense] = await db
+    .insert(purchasedLicensesTable)
+    .values({
+      scoreId: score.id,
+      licenseId: license.id,
+      buyerId: userId,
+      composerId: score.composerId,
+      licenseType: license.licenseType,
+      priceCents: license.priceCents,
+      platformFeeCents: platformFeeInCents,
+      status: "pending",
+      expiresAt,
+    })
+    .returning();
+
+  const [composerProfile] = await db
+    .select()
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, score.composerId));
+
+  try {
+    const stripe = await getUncachableStripeClient();
+
+    const LICENSE_LABELS: Record<string, string> = {
+      personal: "Personal / Practice License",
+      performance: "Performance License",
+      sync: "Sync / Commercial License (1-year)",
+    };
+
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `${score.title} — ${LICENSE_LABELS[license.licenseType] ?? license.licenseType}`,
+              description: `${score.instrumentation} · ${score.genre} · ${score.difficulty}`,
+            },
+            unit_amount: license.priceCents,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        type: "score_license",
+        purchased_license_id: String(pendingLicense.id),
+        score_id: String(score.id),
+        license_type: license.licenseType,
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    };
+
+    sessionParams.payment_intent_data = {
+      metadata: {
+        type: "score_license",
+        purchased_license_id: String(pendingLicense.id),
+      },
+    };
+
+    if (composerProfile?.stripeAccountId && composerProfile?.stripeOnboarded) {
+      sessionParams.payment_intent_data = {
+        ...sessionParams.payment_intent_data,
+        application_fee_amount: platformFeeInCents,
+        transfer_data: { destination: composerProfile.stripeAccountId },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    await db
+      .update(purchasedLicensesTable)
+      .set({ stripeCheckoutSessionId: session.id })
+      .where(eq(purchasedLicensesTable.id, pendingLicense.id));
+
+    res.json({ checkoutUrl: session.url });
+  } catch (err) {
+    logger.error({ err }, "Failed to create score license checkout session");
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });

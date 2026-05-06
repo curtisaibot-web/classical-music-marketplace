@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
@@ -213,6 +213,112 @@ function BookingReelCard() {
               <li key={i}>{tip}</li>
             ))}
           </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ComposerScore {
+  id: number;
+  title: string;
+  salesCount: number;
+  revenueCents: number;
+  licenses: Array<{ licenseType: string; priceCents: number }>;
+}
+
+function ComposerRoyaltyCard() {
+  const [royalties, setRoyalties] = useState<{
+    totalRevenueCents: number;
+    totalSales: number;
+    byLicenseType: Array<{ licenseType: string; totalCents: number; count: number }>;
+  } | null>(null);
+  const [myScores, setMyScores] = useState<ComposerScore[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL ?? "";
+
+  useEffect(() => {
+    if (hasLoaded) return;
+    setIsLoading(true);
+    Promise.all([
+      fetch(`${apiBase}/api/composers/royalties`, { credentials: "include" }).then((r) => r.ok ? r.json() : null),
+      fetch(`${apiBase}/api/scores/mine`, { credentials: "include" }).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([royaltyData, scoresData]) => {
+        if (royaltyData) setRoyalties(royaltyData as typeof royalties);
+        if (scoresData) setMyScores((scoresData as { scores: ComposerScore[] }).scores);
+      })
+      .catch(() => null)
+      .finally(() => { setIsLoading(false); setHasLoaded(true); });
+  }, [apiBase, hasLoaded]);
+
+  const LICENSE_LABELS: Record<string, string> = {
+    personal: "Personal",
+    performance: "Performance",
+    sync: "Sync",
+  };
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif text-lg flex items-center gap-2">
+          <Music className="h-4 w-4 text-primary" />
+          Composer Royalties
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+          <Link href="/scores">Browse Marketplace</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="animate-pulse space-y-2">
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-8 bg-muted rounded" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xl font-bold text-foreground">${((royalties?.totalRevenueCents ?? 0) / 100).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Total Revenue</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xl font-bold text-foreground">{royalties?.totalSales ?? 0}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Licenses Sold</p>
+              </div>
+            </div>
+
+            {(royalties?.byLicenseType ?? []).length > 0 && (
+              <div className="space-y-1.5">
+                {royalties!.byLicenseType.map((lt) => (
+                  <div key={lt.licenseType} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{LICENSE_LABELS[lt.licenseType] ?? lt.licenseType}</span>
+                    <span className="font-medium">${(lt.totalCents / 100).toFixed(2)} ({lt.count} sold)</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {myScores.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your Scores</p>
+                {myScores.slice(0, 3).map((s) => (
+                  <div key={s.id} className="flex justify-between text-sm items-center">
+                    <span className="text-muted-foreground truncate max-w-[150px]">{s.title}</span>
+                    <span className="font-medium shrink-0">{s.salesCount} sales · ${(s.revenueCents / 100).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                List your original compositions and earn royalties from personal, performance, and sync licenses.
+              </p>
+            )}
+            <Button size="sm" className="w-full" asChild>
+              <Link href="/scores">{myScores.length === 0 ? "List Your First Score" : "Manage My Scores"}</Link>
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>
@@ -625,6 +731,8 @@ export default function TeacherDashboard() {
             </Card>
 
             <AuditionPrepCard />
+
+            <ComposerRoyaltyCard />
 
             <Card className="border-border shadow-sm">
               <CardHeader>

@@ -47,6 +47,8 @@ tags:
     description: Audition Prep Coaching Track programs and enrollments
   - name: orgs
     description: Music school & studio white-label organisations
+  - name: scores
+    description: Original score marketplace — composer listing and buyer licensing
 
 paths:
   /healthz:
@@ -2767,6 +2769,190 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /scores:
+    get:
+      operationId: listScores
+      tags: [scores]
+      summary: Browse scores marketplace
+      parameters:
+        - name: genre
+          in: query
+          schema: { type: string }
+        - name: difficulty
+          in: query
+          schema: { type: string }
+        - name: instrumentation
+          in: query
+          schema: { type: string }
+        - name: licenseType
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: offset
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Score list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreListResponse"
+    post:
+      operationId: createScore
+      tags: [scores]
+      summary: Create a score listing
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScoreBody"
+      responses:
+        "201":
+          description: Score created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreWithLicenses"
+
+  /scores/mine:
+    get:
+      operationId: listMyScores
+      tags: [scores]
+      summary: Composer's own score listings with sales data
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Composer score list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyScoreListResponse"
+
+  /scores/{id}:
+    get:
+      operationId: getScore
+      tags: [scores]
+      summary: Get score detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Score detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreWithLicenses"
+        "404":
+          description: Not found
+    put:
+      operationId: updateScore
+      tags: [scores]
+      summary: Update a score listing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScoreBody"
+      responses:
+        "200":
+          description: Score updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreWithLicenses"
+
+  /score-licenses/purchased:
+    get:
+      operationId: listPurchasedLicenses
+      tags: [scores]
+      summary: List buyer's purchased score licenses
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Purchased licenses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchasedLicenseListResponse"
+
+  /score-licenses/{id}/download:
+    get:
+      operationId: downloadScoreLicense
+      tags: [scores]
+      summary: Get signed download URL for a purchased score
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl:
+                    type: string
+                  licenseType:
+                    type: string
+                required: [downloadUrl, licenseType]
+
+  /composers/royalties:
+    get:
+      operationId: getComposerRoyalties
+      tags: [scores]
+      summary: Composer royalty summary
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Royalty data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComposerRoyaltyResponse"
+
+  /stripe/checkout/score-license:
+    post:
+      operationId: createScoreLicenseCheckout
+      tags: [stripe]
+      summary: Create Stripe Checkout session for a score license
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScoreLicenseCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl:
+                    type: ["string", "null"]
+                required: [checkoutUrl]
+
 components:
   securitySchemes:
     clerkAuth:
@@ -5093,3 +5279,274 @@ components:
           type: string
           nullable: true
       required: [checkoutUrl]
+
+    Score:
+      type: object
+      properties:
+        id:
+          type: integer
+        composerId:
+          type: string
+        title:
+          type: string
+        instrumentation:
+          type: string
+        durationSeconds:
+          type: ["integer", "null"]
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced, professional]
+        genre:
+          type: string
+        description:
+          type: ["string", "null"]
+        previewPdfKey:
+          type: ["string", "null"]
+        fullPdfKey:
+          type: ["string", "null"]
+        audioDemoKey:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, composerId, title, instrumentation, difficulty, genre, isActive, createdAt, updatedAt]
+
+    ScoreLicense:
+      type: object
+      properties:
+        id:
+          type: integer
+        scoreId:
+          type: integer
+        licenseType:
+          type: string
+          enum: [personal, performance, sync]
+        priceCents:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, scoreId, licenseType, priceCents, isActive, createdAt, updatedAt]
+
+    PurchasedLicense:
+      type: object
+      properties:
+        id:
+          type: integer
+        scoreId:
+          type: integer
+        licenseId:
+          type: ["integer", "null"]
+        buyerId:
+          type: string
+        composerId:
+          type: string
+        licenseType:
+          type: string
+        priceCents:
+          type: integer
+        platformFeeCents:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active, expired]
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        stripeCheckoutSessionId:
+          type: ["string", "null"]
+        stripePaymentIntentId:
+          type: ["string", "null"]
+        paidAt:
+          type: ["string", "null"]
+          format: date-time
+        downloadCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, scoreId, buyerId, composerId, licenseType, priceCents, platformFeeCents, status, downloadCount, createdAt, updatedAt]
+
+    ScoreWithLicenses:
+      type: object
+      properties:
+        id:
+          type: integer
+        composerId:
+          type: string
+        title:
+          type: string
+        instrumentation:
+          type: string
+        durationSeconds:
+          type: ["integer", "null"]
+        difficulty:
+          type: string
+        genre:
+          type: string
+        description:
+          type: ["string", "null"]
+        previewPdfKey:
+          type: ["string", "null"]
+        fullPdfKey:
+          type: ["string", "null"]
+        audioDemoKey:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        licenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreLicense"
+      required: [id, composerId, title, instrumentation, difficulty, genre, isActive, createdAt, updatedAt, licenses]
+
+    ScoreListResponse:
+      type: object
+      properties:
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreWithLicenses"
+        total:
+          type: integer
+      required: [scores, total]
+
+    MyScoreListResponse:
+      type: object
+      properties:
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreWithLicenses"
+      required: [scores]
+
+    PurchasedLicenseListResponse:
+      type: object
+      properties:
+        licenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchasedLicense"
+      required: [licenses]
+
+    ComposerRoyaltyResponse:
+      type: object
+      properties:
+        totalRevenueCents:
+          type: integer
+        totalSales:
+          type: integer
+        byLicenseType:
+          type: array
+          items:
+            type: object
+            properties:
+              licenseType:
+                type: string
+              totalCents:
+                type: integer
+              count:
+                type: integer
+            required: [licenseType, totalCents, count]
+        recentSales:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchasedLicense"
+      required: [totalRevenueCents, totalSales, byLicenseType, recentSales]
+
+    CreateScoreBody:
+      type: object
+      properties:
+        title:
+          type: string
+        instrumentation:
+          type: string
+        durationSeconds:
+          type: integer
+        difficulty:
+          type: string
+        genre:
+          type: string
+        description:
+          type: string
+        previewPdfKey:
+          type: string
+        fullPdfKey:
+          type: string
+        audioDemoKey:
+          type: string
+        licenses:
+          type: array
+          items:
+            type: object
+            properties:
+              licenseType:
+                type: string
+              priceCents:
+                type: integer
+            required: [licenseType, priceCents]
+      required: [title, instrumentation, genre, licenses]
+
+    UpdateScoreBody:
+      type: object
+      properties:
+        title:
+          type: string
+        instrumentation:
+          type: string
+        durationSeconds:
+          type: integer
+        difficulty:
+          type: string
+        genre:
+          type: string
+        description:
+          type: string
+        previewPdfKey:
+          type: string
+        fullPdfKey:
+          type: string
+        audioDemoKey:
+          type: string
+        isActive:
+          type: boolean
+        licenses:
+          type: array
+          items:
+            type: object
+            properties:
+              licenseType:
+                type: string
+              priceCents:
+                type: integer
+            required: [licenseType, priceCents]
+
+    ScoreLicenseCheckoutBody:
+      type: object
+      properties:
+        licenseId:
+          type: integer
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [licenseId, successUrl, cancelUrl]

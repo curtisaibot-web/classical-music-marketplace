@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable } from "@workspace/db";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -259,6 +259,38 @@ async function handleCheckoutSessionCompleted(
         logger.info({ enrollmentId, orderId: newOrder.id, sessionId: session.id, eventId }, "Program enrollment activated and order created");
       }
     });
+  }
+
+  if (metadata.type === "score_license" && metadata.purchased_license_id) {
+    const purchasedLicenseId = parseInt(metadata.purchased_license_id, 10);
+    if (isNaN(purchasedLicenseId)) {
+      throw new Error(`Invalid purchased_license_id in session metadata: ${metadata.purchased_license_id}`);
+    }
+    const [existing] = await db
+      .select({ status: purchasedLicensesTable.status })
+      .from(purchasedLicensesTable)
+      .where(eq(purchasedLicensesTable.id, purchasedLicenseId));
+
+    if (!existing) {
+      throw new Error(`PurchasedLicense ${purchasedLicenseId} not found for session ${session.id} (event ${eventId})`);
+    }
+
+    if (existing.status === "pending") {
+      await db
+        .update(purchasedLicensesTable)
+        .set({
+          status: "active",
+          paidAt: new Date(),
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(purchasedLicensesTable.id, purchasedLicenseId), eq(purchasedLicensesTable.status, "pending")));
+      logger.info({ purchasedLicenseId, sessionId: session.id, eventId }, "Score license activated via checkout.session.completed");
+    } else {
+      logger.info({ purchasedLicenseId, eventId }, "Score license already in non-pending state — idempotent skip");
+    }
+    return;
   }
 
   if (metadata.type === "campaign_ticket" && metadata.campaign_id) {

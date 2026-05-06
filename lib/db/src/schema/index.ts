@@ -17,3 +17,4 @@ export * from "./expenses";
 export * from "./concertCampaigns";
 export * from "./auditionPrograms";
 export * from "./organisations";
+export * from "./scores";

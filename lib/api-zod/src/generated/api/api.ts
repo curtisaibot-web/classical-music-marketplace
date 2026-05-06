@@ -4223,3 +4223,281 @@ export const CreateProgramEnrollmentCheckoutBody = zod.object({
 export const CreateProgramEnrollmentCheckoutResponse = zod.object({
   checkoutUrl: zod.string().nullable(),
 });
+
+/**
+ * @summary Browse scores marketplace
+ */
+export const ListScoresQueryParams = zod.object({
+  genre: zod.coerce.string().optional(),
+  difficulty: zod.coerce.string().optional(),
+  instrumentation: zod.coerce.string().optional(),
+  licenseType: zod.coerce.string().optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListScoresResponse = zod.object({
+  scores: zod.array(
+    zod.object({
+      id: zod.number(),
+      composerId: zod.string(),
+      title: zod.string(),
+      instrumentation: zod.string(),
+      durationSeconds: zod.number().nullish(),
+      difficulty: zod.string(),
+      genre: zod.string(),
+      description: zod.string().nullish(),
+      previewPdfKey: zod.string().nullish(),
+      fullPdfKey: zod.string().nullish(),
+      audioDemoKey: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      licenses: zod.array(
+        zod.object({
+          id: zod.number(),
+          scoreId: zod.number(),
+          licenseType: zod.enum(["personal", "performance", "sync"]),
+          priceCents: zod.number(),
+          isActive: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a score listing
+ */
+export const CreateScoreBody = zod.object({
+  title: zod.string(),
+  instrumentation: zod.string(),
+  durationSeconds: zod.number().optional(),
+  difficulty: zod.string().optional(),
+  genre: zod.string(),
+  description: zod.string().optional(),
+  previewPdfKey: zod.string().optional(),
+  fullPdfKey: zod.string().optional(),
+  audioDemoKey: zod.string().optional(),
+  licenses: zod.array(
+    zod.object({
+      licenseType: zod.string(),
+      priceCents: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Composer's own score listings with sales data
+ */
+export const ListMyScoresResponse = zod.object({
+  scores: zod.array(
+    zod.object({
+      id: zod.number(),
+      composerId: zod.string(),
+      title: zod.string(),
+      instrumentation: zod.string(),
+      durationSeconds: zod.number().nullish(),
+      difficulty: zod.string(),
+      genre: zod.string(),
+      description: zod.string().nullish(),
+      previewPdfKey: zod.string().nullish(),
+      fullPdfKey: zod.string().nullish(),
+      audioDemoKey: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      licenses: zod.array(
+        zod.object({
+          id: zod.number(),
+          scoreId: zod.number(),
+          licenseType: zod.enum(["personal", "performance", "sync"]),
+          priceCents: zod.number(),
+          isActive: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Get score detail
+ */
+export const GetScoreParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetScoreResponse = zod.object({
+  id: zod.number(),
+  composerId: zod.string(),
+  title: zod.string(),
+  instrumentation: zod.string(),
+  durationSeconds: zod.number().nullish(),
+  difficulty: zod.string(),
+  genre: zod.string(),
+  description: zod.string().nullish(),
+  previewPdfKey: zod.string().nullish(),
+  fullPdfKey: zod.string().nullish(),
+  audioDemoKey: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  licenses: zod.array(
+    zod.object({
+      id: zod.number(),
+      scoreId: zod.number(),
+      licenseType: zod.enum(["personal", "performance", "sync"]),
+      priceCents: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update a score listing
+ */
+export const UpdateScoreParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateScoreBody = zod.object({
+  title: zod.string().optional(),
+  instrumentation: zod.string().optional(),
+  durationSeconds: zod.number().optional(),
+  difficulty: zod.string().optional(),
+  genre: zod.string().optional(),
+  description: zod.string().optional(),
+  previewPdfKey: zod.string().optional(),
+  fullPdfKey: zod.string().optional(),
+  audioDemoKey: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+  licenses: zod
+    .array(
+      zod.object({
+        licenseType: zod.string(),
+        priceCents: zod.number(),
+      }),
+    )
+    .optional(),
+});
+
+export const UpdateScoreResponse = zod.object({
+  id: zod.number(),
+  composerId: zod.string(),
+  title: zod.string(),
+  instrumentation: zod.string(),
+  durationSeconds: zod.number().nullish(),
+  difficulty: zod.string(),
+  genre: zod.string(),
+  description: zod.string().nullish(),
+  previewPdfKey: zod.string().nullish(),
+  fullPdfKey: zod.string().nullish(),
+  audioDemoKey: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  licenses: zod.array(
+    zod.object({
+      id: zod.number(),
+      scoreId: zod.number(),
+      licenseType: zod.enum(["personal", "performance", "sync"]),
+      priceCents: zod.number(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List buyer's purchased score licenses
+ */
+export const ListPurchasedLicensesResponse = zod.object({
+  licenses: zod.array(
+    zod.object({
+      id: zod.number(),
+      scoreId: zod.number(),
+      licenseId: zod.number().nullish(),
+      buyerId: zod.string(),
+      composerId: zod.string(),
+      licenseType: zod.string(),
+      priceCents: zod.number(),
+      platformFeeCents: zod.number(),
+      status: zod.enum(["pending", "active", "expired"]),
+      expiresAt: zod.coerce.date().nullish(),
+      stripeCheckoutSessionId: zod.string().nullish(),
+      stripePaymentIntentId: zod.string().nullish(),
+      paidAt: zod.coerce.date().nullish(),
+      downloadCount: zod.number(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get signed download URL for a purchased score
+ */
+export const DownloadScoreLicenseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DownloadScoreLicenseResponse = zod.object({
+  downloadUrl: zod.string(),
+  licenseType: zod.string(),
+});
+
+/**
+ * @summary Composer royalty summary
+ */
+export const GetComposerRoyaltiesResponse = zod.object({
+  totalRevenueCents: zod.number(),
+  totalSales: zod.number(),
+  byLicenseType: zod.array(
+    zod.object({
+      licenseType: zod.string(),
+      totalCents: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  recentSales: zod.array(
+    zod.object({
+      id: zod.number(),
+      scoreId: zod.number(),
+      licenseId: zod.number().nullish(),
+      buyerId: zod.string(),
+      composerId: zod.string(),
+      licenseType: zod.string(),
+      priceCents: zod.number(),
+      platformFeeCents: zod.number(),
+      status: zod.enum(["pending", "active", "expired"]),
+      expiresAt: zod.coerce.date().nullish(),
+      stripeCheckoutSessionId: zod.string().nullish(),
+      stripePaymentIntentId: zod.string().nullish(),
+      paidAt: zod.coerce.date().nullish(),
+      downloadCount: zod.number(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create Stripe Checkout session for a score license
+ */
+export const CreateScoreLicenseCheckoutBody = zod.object({
+  licenseId: zod.number(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateScoreLicenseCheckoutResponse = zod.object({
+  checkoutUrl: zod.string().nullable(),
+});

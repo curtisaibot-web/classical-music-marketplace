@@ -1621,6 +1621,182 @@ export interface ProgramEnrollmentCheckoutResponse {
   checkoutUrl: string | null;
 }
 
+export type ScoreDifficulty =
+  (typeof ScoreDifficulty)[keyof typeof ScoreDifficulty];
+
+export const ScoreDifficulty = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+  professional: "professional",
+} as const;
+
+export interface Score {
+  id: number;
+  composerId: string;
+  title: string;
+  instrumentation: string;
+  /** @nullable */
+  durationSeconds?: number | null;
+  difficulty: ScoreDifficulty;
+  genre: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  previewPdfKey?: string | null;
+  /** @nullable */
+  fullPdfKey?: string | null;
+  /** @nullable */
+  audioDemoKey?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ScoreLicenseLicenseType =
+  (typeof ScoreLicenseLicenseType)[keyof typeof ScoreLicenseLicenseType];
+
+export const ScoreLicenseLicenseType = {
+  personal: "personal",
+  performance: "performance",
+  sync: "sync",
+} as const;
+
+export interface ScoreLicense {
+  id: number;
+  scoreId: number;
+  licenseType: ScoreLicenseLicenseType;
+  priceCents: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PurchasedLicenseStatus =
+  (typeof PurchasedLicenseStatus)[keyof typeof PurchasedLicenseStatus];
+
+export const PurchasedLicenseStatus = {
+  pending: "pending",
+  active: "active",
+  expired: "expired",
+} as const;
+
+export interface PurchasedLicense {
+  id: number;
+  scoreId: number;
+  /** @nullable */
+  licenseId?: number | null;
+  buyerId: string;
+  composerId: string;
+  licenseType: string;
+  priceCents: number;
+  platformFeeCents: number;
+  status: PurchasedLicenseStatus;
+  /** @nullable */
+  expiresAt?: string | null;
+  /** @nullable */
+  stripeCheckoutSessionId?: string | null;
+  /** @nullable */
+  stripePaymentIntentId?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  downloadCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScoreWithLicenses {
+  id: number;
+  composerId: string;
+  title: string;
+  instrumentation: string;
+  /** @nullable */
+  durationSeconds?: number | null;
+  difficulty: string;
+  genre: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  previewPdfKey?: string | null;
+  /** @nullable */
+  fullPdfKey?: string | null;
+  /** @nullable */
+  audioDemoKey?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  licenses: ScoreLicense[];
+}
+
+export interface ScoreListResponse {
+  scores: ScoreWithLicenses[];
+  total: number;
+}
+
+export interface MyScoreListResponse {
+  scores: ScoreWithLicenses[];
+}
+
+export interface PurchasedLicenseListResponse {
+  licenses: PurchasedLicense[];
+}
+
+export type ComposerRoyaltyResponseByLicenseTypeItem = {
+  licenseType: string;
+  totalCents: number;
+  count: number;
+};
+
+export interface ComposerRoyaltyResponse {
+  totalRevenueCents: number;
+  totalSales: number;
+  byLicenseType: ComposerRoyaltyResponseByLicenseTypeItem[];
+  recentSales: PurchasedLicense[];
+}
+
+export type CreateScoreBodyLicensesItem = {
+  licenseType: string;
+  priceCents: number;
+};
+
+export interface CreateScoreBody {
+  title: string;
+  instrumentation: string;
+  durationSeconds?: number;
+  difficulty?: string;
+  genre: string;
+  description?: string;
+  previewPdfKey?: string;
+  fullPdfKey?: string;
+  audioDemoKey?: string;
+  licenses: CreateScoreBodyLicensesItem[];
+}
+
+export type UpdateScoreBodyLicensesItem = {
+  licenseType: string;
+  priceCents: number;
+};
+
+export interface UpdateScoreBody {
+  title?: string;
+  instrumentation?: string;
+  durationSeconds?: number;
+  difficulty?: string;
+  genre?: string;
+  description?: string;
+  previewPdfKey?: string;
+  fullPdfKey?: string;
+  audioDemoKey?: string;
+  isActive?: boolean;
+  licenses?: UpdateScoreBodyLicensesItem[];
+}
+
+export interface ScoreLicenseCheckoutBody {
+  licenseId: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
 /**
  * Unauthorized
  */
@@ -1799,4 +1975,23 @@ export type RemoveOrgMember200 = {
 
 export type CreateOrgBillingPortalBody = {
   returnUrl?: string;
+};
+
+export type ListScoresParams = {
+  genre?: string;
+  difficulty?: string;
+  instrumentation?: string;
+  licenseType?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type DownloadScoreLicense200 = {
+  downloadUrl: string;
+  licenseType: string;
+};
+
+export type CreateScoreLicenseCheckout200 = {
+  /** @nullable */
+  checkoutUrl: string | null;
 };

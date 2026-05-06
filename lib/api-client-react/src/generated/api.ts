@@ -34,6 +34,7 @@ import type {
   CancellationReportResponse,
   CheckoutUrlResponse,
   CompleteSessionBody,
+  ComposerRoyaltyResponse,
   ConnectStatusResponse,
   ContractListResponse,
   ContractResponse,
@@ -55,12 +56,15 @@ import type {
   CreateOrgBillingPortalBody,
   CreateOrgBody,
   CreateReviewBody,
+  CreateScoreBody,
+  CreateScoreLicenseCheckout200,
   CreateSubscriptionCheckoutBody,
   CreateTeacherRecordingBody,
   DashboardUrlResponse,
   DigitalProduct,
   DigitalProductListResponse,
   DownloadRedirectResponse,
+  DownloadScoreLicense200,
   EnrollmentListResponse,
   ErrorEnvelope,
   ExpenseCategoriesResponse,
@@ -81,12 +85,14 @@ import type {
   ListListingsParams,
   ListMasterclassesParams,
   ListOrdersParams,
+  ListScoresParams,
   ListTeachersParams,
   Listing,
   ListingListResponse,
   Masterclass,
   MasterclassListResponse,
   MyCampaignsResponse,
+  MyScoreListResponse,
   NotFoundResponse,
   OnboardUserBody,
   OnboardingUrlResponse,
@@ -101,11 +107,15 @@ import type {
   ProgramEnrollmentCheckoutBody,
   ProgramEnrollmentCheckoutResponse,
   ProgramEnrollmentDetail,
+  PurchasedLicenseListResponse,
   ReelCallbackAck,
   ReelCallbackBody,
   RemoveOrgMember200,
   Review,
   ReviewListResponse,
+  ScoreLicenseCheckoutBody,
+  ScoreListResponse,
+  ScoreWithLicenses,
   SendContractResponse,
   SendInvoiceResponse,
   StudentDashboard,
@@ -132,6 +142,7 @@ import type {
   UpdateListingBody,
   UpdateMasterclassBody,
   UpdateOrgBody,
+  UpdateScoreBody,
   UpdateStudentProfileBody,
   UpdateTeacherProfileBody,
   UpdateTeacherSlugBody,
@@ -9758,4 +9769,762 @@ export const useCreateProgramEnrollmentCheckout = <
   return useMutation(
     getCreateProgramEnrollmentCheckoutMutationOptions(options),
   );
+};
+
+/**
+ * @summary Browse scores marketplace
+ */
+export const getListScoresUrl = (params?: ListScoresParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/scores?${stringifiedParams}`
+    : `/api/scores`;
+};
+
+export const listScores = async (
+  params?: ListScoresParams,
+  options?: RequestInit,
+): Promise<ScoreListResponse> => {
+  return customFetch<ScoreListResponse>(getListScoresUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListScoresQueryKey = (params?: ListScoresParams) => {
+  return [`/api/scores`, ...(params ? [params] : [])] as const;
+};
+
+export const getListScoresQueryOptions = <
+  TData = Awaited<ReturnType<typeof listScores>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListScoresParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listScores>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListScoresQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listScores>>> = ({
+    signal,
+  }) => listScores(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listScores>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListScoresQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listScores>>
+>;
+export type ListScoresQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Browse scores marketplace
+ */
+
+export function useListScores<
+  TData = Awaited<ReturnType<typeof listScores>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListScoresParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listScores>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListScoresQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a score listing
+ */
+export const getCreateScoreUrl = () => {
+  return `/api/scores`;
+};
+
+export const createScore = async (
+  createScoreBody: CreateScoreBody,
+  options?: RequestInit,
+): Promise<ScoreWithLicenses> => {
+  return customFetch<ScoreWithLicenses>(getCreateScoreUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createScoreBody),
+  });
+};
+
+export const getCreateScoreMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScore>>,
+    TError,
+    { data: BodyType<CreateScoreBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createScore>>,
+  TError,
+  { data: BodyType<CreateScoreBody> },
+  TContext
+> => {
+  const mutationKey = ["createScore"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createScore>>,
+    { data: BodyType<CreateScoreBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createScore(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateScoreMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createScore>>
+>;
+export type CreateScoreMutationBody = BodyType<CreateScoreBody>;
+export type CreateScoreMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a score listing
+ */
+export const useCreateScore = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScore>>,
+    TError,
+    { data: BodyType<CreateScoreBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createScore>>,
+  TError,
+  { data: BodyType<CreateScoreBody> },
+  TContext
+> => {
+  return useMutation(getCreateScoreMutationOptions(options));
+};
+
+/**
+ * @summary Composer's own score listings with sales data
+ */
+export const getListMyScoresUrl = () => {
+  return `/api/scores/mine`;
+};
+
+export const listMyScores = async (
+  options?: RequestInit,
+): Promise<MyScoreListResponse> => {
+  return customFetch<MyScoreListResponse>(getListMyScoresUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyScoresQueryKey = () => {
+  return [`/api/scores/mine`] as const;
+};
+
+export const getListMyScoresQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyScores>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyScores>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyScoresQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyScores>>> = ({
+    signal,
+  }) => listMyScores({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyScores>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyScoresQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyScores>>
+>;
+export type ListMyScoresQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Composer's own score listings with sales data
+ */
+
+export function useListMyScores<
+  TData = Awaited<ReturnType<typeof listMyScores>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyScores>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyScoresQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get score detail
+ */
+export const getGetScoreUrl = (id: number) => {
+  return `/api/scores/${id}`;
+};
+
+export const getScore = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ScoreWithLicenses> => {
+  return customFetch<ScoreWithLicenses>(getGetScoreUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetScoreQueryKey = (id: number) => {
+  return [`/api/scores/${id}`] as const;
+};
+
+export const getGetScoreQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScore>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScore>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetScoreQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getScore>>> = ({
+    signal,
+  }) => getScore(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getScore>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetScoreQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScore>>
+>;
+export type GetScoreQueryError = ErrorType<void>;
+
+/**
+ * @summary Get score detail
+ */
+
+export function useGetScore<
+  TData = Awaited<ReturnType<typeof getScore>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getScore>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetScoreQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a score listing
+ */
+export const getUpdateScoreUrl = (id: number) => {
+  return `/api/scores/${id}`;
+};
+
+export const updateScore = async (
+  id: number,
+  updateScoreBody: UpdateScoreBody,
+  options?: RequestInit,
+): Promise<ScoreWithLicenses> => {
+  return customFetch<ScoreWithLicenses>(getUpdateScoreUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateScoreBody),
+  });
+};
+
+export const getUpdateScoreMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScore>>,
+    TError,
+    { id: number; data: BodyType<UpdateScoreBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateScore>>,
+  TError,
+  { id: number; data: BodyType<UpdateScoreBody> },
+  TContext
+> => {
+  const mutationKey = ["updateScore"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateScore>>,
+    { id: number; data: BodyType<UpdateScoreBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateScore(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateScoreMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateScore>>
+>;
+export type UpdateScoreMutationBody = BodyType<UpdateScoreBody>;
+export type UpdateScoreMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a score listing
+ */
+export const useUpdateScore = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScore>>,
+    TError,
+    { id: number; data: BodyType<UpdateScoreBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateScore>>,
+  TError,
+  { id: number; data: BodyType<UpdateScoreBody> },
+  TContext
+> => {
+  return useMutation(getUpdateScoreMutationOptions(options));
+};
+
+/**
+ * @summary List buyer's purchased score licenses
+ */
+export const getListPurchasedLicensesUrl = () => {
+  return `/api/score-licenses/purchased`;
+};
+
+export const listPurchasedLicenses = async (
+  options?: RequestInit,
+): Promise<PurchasedLicenseListResponse> => {
+  return customFetch<PurchasedLicenseListResponse>(
+    getListPurchasedLicensesUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPurchasedLicensesQueryKey = () => {
+  return [`/api/score-licenses/purchased`] as const;
+};
+
+export const getListPurchasedLicensesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPurchasedLicenses>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPurchasedLicenses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPurchasedLicensesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPurchasedLicenses>>
+  > = ({ signal }) => listPurchasedLicenses({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPurchasedLicenses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPurchasedLicensesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPurchasedLicenses>>
+>;
+export type ListPurchasedLicensesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List buyer's purchased score licenses
+ */
+
+export function useListPurchasedLicenses<
+  TData = Awaited<ReturnType<typeof listPurchasedLicenses>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPurchasedLicenses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPurchasedLicensesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get signed download URL for a purchased score
+ */
+export const getDownloadScoreLicenseUrl = (id: number) => {
+  return `/api/score-licenses/${id}/download`;
+};
+
+export const downloadScoreLicense = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DownloadScoreLicense200> => {
+  return customFetch<DownloadScoreLicense200>(getDownloadScoreLicenseUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadScoreLicenseQueryKey = (id: number) => {
+  return [`/api/score-licenses/${id}/download`] as const;
+};
+
+export const getDownloadScoreLicenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadScoreLicense>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadScoreLicense>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getDownloadScoreLicenseQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadScoreLicense>>
+  > = ({ signal }) => downloadScoreLicense(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadScoreLicense>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadScoreLicenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadScoreLicense>>
+>;
+export type DownloadScoreLicenseQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get signed download URL for a purchased score
+ */
+
+export function useDownloadScoreLicense<
+  TData = Awaited<ReturnType<typeof downloadScoreLicense>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadScoreLicense>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadScoreLicenseQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Composer royalty summary
+ */
+export const getGetComposerRoyaltiesUrl = () => {
+  return `/api/composers/royalties`;
+};
+
+export const getComposerRoyalties = async (
+  options?: RequestInit,
+): Promise<ComposerRoyaltyResponse> => {
+  return customFetch<ComposerRoyaltyResponse>(getGetComposerRoyaltiesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetComposerRoyaltiesQueryKey = () => {
+  return [`/api/composers/royalties`] as const;
+};
+
+export const getGetComposerRoyaltiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getComposerRoyalties>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComposerRoyalties>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetComposerRoyaltiesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComposerRoyalties>>
+  > = ({ signal }) => getComposerRoyalties({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComposerRoyalties>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComposerRoyaltiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComposerRoyalties>>
+>;
+export type GetComposerRoyaltiesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Composer royalty summary
+ */
+
+export function useGetComposerRoyalties<
+  TData = Awaited<ReturnType<typeof getComposerRoyalties>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComposerRoyalties>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetComposerRoyaltiesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create Stripe Checkout session for a score license
+ */
+export const getCreateScoreLicenseCheckoutUrl = () => {
+  return `/api/stripe/checkout/score-license`;
+};
+
+export const createScoreLicenseCheckout = async (
+  scoreLicenseCheckoutBody: ScoreLicenseCheckoutBody,
+  options?: RequestInit,
+): Promise<CreateScoreLicenseCheckout200> => {
+  return customFetch<CreateScoreLicenseCheckout200>(
+    getCreateScoreLicenseCheckoutUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(scoreLicenseCheckoutBody),
+    },
+  );
+};
+
+export const getCreateScoreLicenseCheckoutMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScoreLicenseCheckout>>,
+    TError,
+    { data: BodyType<ScoreLicenseCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createScoreLicenseCheckout>>,
+  TError,
+  { data: BodyType<ScoreLicenseCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createScoreLicenseCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createScoreLicenseCheckout>>,
+    { data: BodyType<ScoreLicenseCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createScoreLicenseCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateScoreLicenseCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createScoreLicenseCheckout>>
+>;
+export type CreateScoreLicenseCheckoutMutationBody =
+  BodyType<ScoreLicenseCheckoutBody>;
+export type CreateScoreLicenseCheckoutMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create Stripe Checkout session for a score license
+ */
+export const useCreateScoreLicenseCheckout = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createScoreLicenseCheckout>>,
+    TError,
+    { data: BodyType<ScoreLicenseCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createScoreLicenseCheckout>>,
+  TError,
+  { data: BodyType<ScoreLicenseCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getCreateScoreLicenseCheckoutMutationOptions(options));
 };

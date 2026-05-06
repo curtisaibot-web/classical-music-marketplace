@@ -1,0 +1,425 @@
+import { Router, type IRouter } from "express";
+import { getAuth } from "@clerk/express";
+import { eq, and, ilike, count, desc, sum } from "drizzle-orm";
+import {
+  db,
+  scoresTable,
+  scoreLicensesTable,
+  purchasedLicensesTable,
+  usersTable,
+  teacherProfilesTable,
+} from "@workspace/db";
+import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
+import { ObjectStorageService, signObjectURL } from "../lib/objectStorage";
+
+const router: IRouter = Router();
+
+function paramInt(v: unknown): number | null {
+  const n = parseInt(String(v), 10);
+  return isNaN(n) ? null : n;
+}
+
+function validateFileKey(key: string | null | undefined, userId: string): boolean {
+  if (!key) return true;
+  return key.startsWith(`/objects/uploads/${userId}/`) || key.startsWith(`/objects/images/${userId}/`);
+}
+
+// ── GET /scores — public browse ───────────────────────────────────────────────
+router.get("/scores", async (req, res): Promise<void> => {
+  const limit = paramInt(req.query.limit) ?? 20;
+  const offset = paramInt(req.query.offset) ?? 0;
+  const genre = typeof req.query.genre === "string" ? req.query.genre : undefined;
+  const difficulty = typeof req.query.difficulty === "string" ? req.query.difficulty : undefined;
+  const instrumentation = typeof req.query.instrumentation === "string" ? req.query.instrumentation : undefined;
+  const licenseType = typeof req.query.licenseType === "string" ? req.query.licenseType : undefined;
+
+  const conditions = [eq(scoresTable.isActive, true)];
+  if (genre) conditions.push(ilike(scoresTable.genre, `%${genre}%`));
+  if (difficulty) conditions.push(eq(scoresTable.difficulty, difficulty));
+  if (instrumentation) conditions.push(ilike(scoresTable.instrumentation, `%${instrumentation}%`));
+
+  const where = and(...conditions);
+
+  const [totalRow, scoreRows] = await Promise.all([
+    db.select({ count: count() }).from(scoresTable).where(where),
+    db
+      .select()
+      .from(scoresTable)
+      .leftJoin(usersTable, eq(scoresTable.composerId, usersTable.id))
+      .leftJoin(teacherProfilesTable, eq(scoresTable.composerId, teacherProfilesTable.userId))
+      .where(where)
+      .orderBy(desc(scoresTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+  ]);
+
+  // Load licenses for all scores
+  const scoreIds = scoreRows.map((r) => r.scores.id);
+  let licenses: Array<typeof scoreLicensesTable.$inferSelect> = [];
+  if (scoreIds.length > 0) {
+    licenses = await db
+      .select()
+      .from(scoreLicensesTable)
+      .where(and(eq(scoreLicensesTable.isActive, true)));
+  }
+
+  const licensesByScore = new Map<number, Array<typeof scoreLicensesTable.$inferSelect>>();
+  for (const lic of licenses) {
+    if (!scoreIds.includes(lic.scoreId)) continue;
+    if (!licensesByScore.has(lic.scoreId)) licensesByScore.set(lic.scoreId, []);
+    licensesByScore.get(lic.scoreId)!.push(lic);
+  }
+
+  const scores = scoreRows
+    .map((r) => {
+      const scoreLicenses = licensesByScore.get(r.scores.id) ?? [];
+      if (licenseType && !scoreLicenses.some((l) => l.licenseType === licenseType)) return null;
+      return {
+        ...r.scores,
+        fullPdfKey: null, // never expose full PDF key publicly
+        composer: r.users ? { ...r.teacher_profiles, user: r.users } : undefined,
+        licenses: scoreLicenses,
+        minPriceCents: scoreLicenses.length > 0 ? Math.min(...scoreLicenses.map((l) => l.priceCents)) : null,
+      };
+    })
+    .filter(Boolean);
+
+  res.json({ scores, total: totalRow[0]?.count ?? 0 });
+});
+
+// ── GET /scores/mine — must be before /:id to avoid shadowing ────────────────
+router.get("/scores/mine", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+
+  const scoreRows = await db
+    .select()
+    .from(scoresTable)
+    .where(eq(scoresTable.composerId, userId))
+    .orderBy(desc(scoresTable.createdAt));
+
+  const scoreIds = scoreRows.map((s) => s.id);
+  let licenses: Array<typeof scoreLicensesTable.$inferSelect> = [];
+  let purchases: Array<{ scoreId: number; totalCents: number | null; count: number | null }> = [];
+
+  if (scoreIds.length > 0) {
+    type PurchaseSummary = { scoreId: number; totalCents: string | null; count: number | null };
+    const [allLics, rawPurchases] = await Promise.all([
+      db.select().from(scoreLicensesTable).where(eq(scoreLicensesTable.isActive, true)),
+      db
+        .select({
+          scoreId: purchasedLicensesTable.scoreId,
+          totalCents: sum(purchasedLicensesTable.priceCents),
+          count: count(),
+        })
+        .from(purchasedLicensesTable)
+        .where(and(
+          eq(purchasedLicensesTable.composerId, userId),
+          eq(purchasedLicensesTable.status, "active"),
+        ))
+        .groupBy(purchasedLicensesTable.scoreId),
+    ]);
+    licenses = allLics;
+    purchases = (rawPurchases as PurchaseSummary[]).map((p) => ({
+      scoreId: p.scoreId,
+      totalCents: p.totalCents !== null ? Number(p.totalCents) : null,
+      count: p.count !== null ? Number(p.count) : null,
+    }));
+  }
+
+  const licensesByScore = new Map<number, Array<typeof scoreLicensesTable.$inferSelect>>();
+  for (const lic of licenses) {
+    if (!scoreIds.includes(lic.scoreId)) continue;
+    if (!licensesByScore.has(lic.scoreId)) licensesByScore.set(lic.scoreId, []);
+    licensesByScore.get(lic.scoreId)!.push(lic);
+  }
+  const purchasesByScore = new Map<number, { totalCents: number; count: number }>();
+  for (const p of purchases) {
+    purchasesByScore.set(p.scoreId, { totalCents: Number(p.totalCents ?? 0), count: Number(p.count ?? 0) });
+  }
+
+  const scores = scoreRows.map((s) => ({
+    ...s,
+    licenses: licensesByScore.get(s.id) ?? [],
+    salesCount: purchasesByScore.get(s.id)?.count ?? 0,
+    revenueCents: purchasesByScore.get(s.id)?.totalCents ?? 0,
+  }));
+
+  res.json({ scores });
+});
+
+// ── GET /scores/:id — public detail ──────────────────────────────────────────
+router.get("/scores/:id", async (req, res): Promise<void> => {
+  const id = paramInt(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid score id" }); return; }
+
+  const [row] = await db
+    .select()
+    .from(scoresTable)
+    .leftJoin(usersTable, eq(scoresTable.composerId, usersTable.id))
+    .leftJoin(teacherProfilesTable, eq(scoresTable.composerId, teacherProfilesTable.userId))
+    .where(eq(scoresTable.id, id));
+
+  if (!row) { res.status(404).json({ error: "Score not found" }); return; }
+
+  const licenses = await db
+    .select()
+    .from(scoreLicensesTable)
+    .where(and(eq(scoreLicensesTable.scoreId, id), eq(scoreLicensesTable.isActive, true)));
+
+  res.json({
+    ...row.scores,
+    fullPdfKey: null,
+    composer: row.users ? { ...row.teacher_profiles, user: row.users } : undefined,
+    licenses,
+  });
+});
+
+// ── POST /scores — composer creates a score ───────────────────────────────────
+router.post("/scores", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+  const {
+    title, instrumentation, durationSeconds, difficulty, genre,
+    description, previewPdfKey, fullPdfKey, audioDemoKey, licenses,
+  } = req.body as {
+    title?: string;
+    instrumentation?: string;
+    durationSeconds?: number;
+    difficulty?: string;
+    genre?: string;
+    description?: string;
+    previewPdfKey?: string;
+    fullPdfKey?: string;
+    audioDemoKey?: string;
+    licenses?: Array<{ licenseType: string; priceCents: number }>;
+  };
+
+  if (!title?.trim()) { res.status(400).json({ error: "title is required" }); return; }
+  if (!instrumentation?.trim()) { res.status(400).json({ error: "instrumentation is required" }); return; }
+  if (!genre?.trim()) { res.status(400).json({ error: "genre is required" }); return; }
+  if (!licenses || !Array.isArray(licenses) || licenses.length === 0) {
+    res.status(400).json({ error: "At least one license tier is required" }); return;
+  }
+
+  const VALID_LICENSE_TYPES = ["personal", "performance", "sync"];
+  for (const lic of licenses) {
+    if (!VALID_LICENSE_TYPES.includes(lic.licenseType)) {
+      res.status(400).json({ error: `Invalid licenseType: ${lic.licenseType}` }); return;
+    }
+    if (!lic.priceCents || lic.priceCents < 100) {
+      res.status(400).json({ error: "priceCents must be at least 100" }); return;
+    }
+  }
+
+  if (!validateFileKey(previewPdfKey, userId) || !validateFileKey(fullPdfKey, userId) || !validateFileKey(audioDemoKey, userId)) {
+    res.status(403).json({ error: "File key does not belong to this composer" }); return;
+  }
+
+  const VALID_DIFFICULTIES = ["beginner", "intermediate", "advanced", "professional"];
+  const normalizedDifficulty = difficulty && VALID_DIFFICULTIES.includes(difficulty) ? difficulty : "intermediate";
+
+  const [score] = await db
+    .insert(scoresTable)
+    .values({
+      composerId: userId,
+      title: title.trim(),
+      instrumentation: instrumentation.trim(),
+      durationSeconds: durationSeconds ?? null,
+      difficulty: normalizedDifficulty,
+      genre: genre.trim(),
+      description: description?.trim() ?? null,
+      previewPdfKey: previewPdfKey ?? null,
+      fullPdfKey: fullPdfKey ?? null,
+      audioDemoKey: audioDemoKey ?? null,
+    })
+    .returning();
+
+  const insertedLicenses = await db
+    .insert(scoreLicensesTable)
+    .values(licenses.map((l) => ({
+      scoreId: score.id,
+      licenseType: l.licenseType,
+      priceCents: l.priceCents,
+    })))
+    .returning();
+
+  res.status(201).json({ ...score, fullPdfKey: null, licenses: insertedLicenses });
+});
+
+// ── PUT /scores/:id — composer updates a score ────────────────────────────────
+router.put("/scores/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+  const id = paramInt(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid score id" }); return; }
+
+  const [existing] = await db
+    .select({ composerId: scoresTable.composerId })
+    .from(scoresTable)
+    .where(eq(scoresTable.id, id));
+
+  if (!existing) { res.status(404).json({ error: "Score not found" }); return; }
+  if (existing.composerId !== userId) { res.status(403).json({ error: "Not your score" }); return; }
+
+  const {
+    title, instrumentation, durationSeconds, difficulty, genre,
+    description, previewPdfKey, fullPdfKey, audioDemoKey, isActive, licenses,
+  } = req.body as Record<string, unknown>;
+
+  if (!validateFileKey(previewPdfKey as string | null | undefined, userId) ||
+      !validateFileKey(fullPdfKey as string | null | undefined, userId) ||
+      !validateFileKey(audioDemoKey as string | null | undefined, userId)) {
+    res.status(403).json({ error: "File key does not belong to this composer" }); return;
+  }
+
+  const VALID_DIFFICULTIES = ["beginner", "intermediate", "advanced", "professional"];
+  const updateData: Partial<typeof scoresTable.$inferInsert> = {};
+  if (typeof title === "string") updateData.title = title.trim();
+  if (typeof instrumentation === "string") updateData.instrumentation = instrumentation.trim();
+  if (typeof durationSeconds === "number") updateData.durationSeconds = durationSeconds;
+  if (typeof difficulty === "string" && VALID_DIFFICULTIES.includes(difficulty)) updateData.difficulty = difficulty;
+  if (typeof genre === "string") updateData.genre = genre.trim();
+  if (typeof description === "string") updateData.description = description.trim();
+  if (typeof previewPdfKey === "string") updateData.previewPdfKey = previewPdfKey;
+  if (typeof fullPdfKey === "string") updateData.fullPdfKey = fullPdfKey;
+  if (typeof audioDemoKey === "string") updateData.audioDemoKey = audioDemoKey;
+  if (typeof isActive === "boolean") updateData.isActive = isActive;
+
+  const [updated] = await db
+    .update(scoresTable)
+    .set({ ...updateData, updatedAt: new Date() })
+    .where(eq(scoresTable.id, id))
+    .returning();
+
+  // Update license tiers if provided
+  let updatedLicenses: Array<typeof scoreLicensesTable.$inferSelect> = [];
+  if (Array.isArray(licenses) && licenses.length > 0) {
+    const VALID_LICENSE_TYPES = ["personal", "performance", "sync"];
+    const validLicenses = (licenses as Array<{ licenseType: string; priceCents: number }>).filter(
+      (l) => VALID_LICENSE_TYPES.includes(l.licenseType) && l.priceCents >= 100,
+    );
+    if (validLicenses.length > 0) {
+      await db.delete(scoreLicensesTable).where(eq(scoreLicensesTable.scoreId, id));
+      updatedLicenses = await db
+        .insert(scoreLicensesTable)
+        .values(validLicenses.map((l) => ({ scoreId: id, licenseType: l.licenseType, priceCents: l.priceCents })))
+        .returning();
+    }
+  } else {
+    updatedLicenses = await db.select().from(scoreLicensesTable).where(eq(scoreLicensesTable.scoreId, id));
+  }
+
+  res.json({ ...updated, fullPdfKey: null, licenses: updatedLicenses });
+});
+
+// ── GET /score-licenses/purchased — buyer's purchased licenses ────────────────
+router.get("/score-licenses/purchased", requireAuth, async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+
+  const rows = await db
+    .select()
+    .from(purchasedLicensesTable)
+    .leftJoin(scoresTable, eq(purchasedLicensesTable.scoreId, scoresTable.id))
+    .leftJoin(usersTable, eq(purchasedLicensesTable.composerId, usersTable.id))
+    .where(eq(purchasedLicensesTable.buyerId, userId))
+    .orderBy(desc(purchasedLicensesTable.createdAt));
+
+  const licenses = rows.map((r) => ({
+    ...r.purchased_licenses,
+    score: r.scores ? { ...r.scores, fullPdfKey: null } : null,
+    composer: r.users ?? null,
+  }));
+
+  res.json({ licenses });
+});
+
+// ── GET /score-licenses/:id/download — gated full PDF download ────────────────
+router.get("/score-licenses/:id/download", requireAuth, async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+  const id = paramInt(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid license id" }); return; }
+
+  const [license] = await db
+    .select()
+    .from(purchasedLicensesTable)
+    .leftJoin(scoresTable, eq(purchasedLicensesTable.scoreId, scoresTable.id))
+    .where(and(eq(purchasedLicensesTable.id, id), eq(purchasedLicensesTable.buyerId, userId)));
+
+  if (!license) { res.status(404).json({ error: "License not found" }); return; }
+  if (license.purchased_licenses.status !== "active") {
+    res.status(403).json({ error: "License is not active — payment required" }); return;
+  }
+  if (!license.scores?.fullPdfKey) {
+    res.status(404).json({ error: "Full score PDF not yet available" }); return;
+  }
+
+  // Check sync license expiry (1 year)
+  if (license.purchased_licenses.expiresAt && new Date(license.purchased_licenses.expiresAt) < new Date()) {
+    await db.update(purchasedLicensesTable).set({ status: "expired" }).where(eq(purchasedLicensesTable.id, id));
+    res.status(410).json({ error: "This sync license has expired. Please renew to continue downloading." }); return;
+  }
+
+  try {
+    const storageService = new ObjectStorageService();
+    const objectFile = await storageService.getObjectEntityFile(license.scores.fullPdfKey);
+    const gcsFile = objectFile as unknown as { name: string; bucket: { name: string } };
+    const signedUrl = await signObjectURL({
+      bucketName: gcsFile.bucket.name,
+      objectName: gcsFile.name,
+      method: "GET",
+      ttlSec: 300,
+    });
+
+    await db
+      .update(purchasedLicensesTable)
+      .set({ downloadCount: (license.purchased_licenses.downloadCount ?? 0) + 1 })
+      .where(eq(purchasedLicensesTable.id, id));
+
+    res.json({ downloadUrl: signedUrl, licenseType: license.purchased_licenses.licenseType });
+  } catch {
+    res.status(500).json({ error: "Failed to generate download URL" });
+  }
+});
+
+// ── GET /composers/royalties — royalty summary ────────────────────────────────
+router.get("/composers/royalties", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId!;
+
+  const [totalRow, byLicenseType, recentSales] = await Promise.all([
+    db
+      .select({ totalCents: sum(purchasedLicensesTable.priceCents), totalSales: count() })
+      .from(purchasedLicensesTable)
+      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active"))),
+    db
+      .select({
+        licenseType: purchasedLicensesTable.licenseType,
+        totalCents: sum(purchasedLicensesTable.priceCents),
+        count: count(),
+      })
+      .from(purchasedLicensesTable)
+      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active")))
+      .groupBy(purchasedLicensesTable.licenseType),
+    db
+      .select()
+      .from(purchasedLicensesTable)
+      .leftJoin(scoresTable, eq(purchasedLicensesTable.scoreId, scoresTable.id))
+      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active")))
+      .orderBy(desc(purchasedLicensesTable.paidAt))
+      .limit(10),
+  ]);
+
+  res.json({
+    totalRevenueCents: Number(totalRow[0]?.totalCents ?? 0),
+    totalSales: Number(totalRow[0]?.totalSales ?? 0),
+    byLicenseType: byLicenseType.map((r) => ({
+      licenseType: r.licenseType,
+      totalCents: Number(r.totalCents ?? 0),
+      count: Number(r.count ?? 0),
+    })),
+    recentSales: recentSales.map((r) => ({
+      ...r.purchased_licenses,
+      scoreTitle: r.scores?.title ?? null,
+    })),
+  });
+});
+
+export default router;
