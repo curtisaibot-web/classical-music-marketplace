@@ -134,6 +134,26 @@ router.get("/teachers", async (req, res): Promise<void> => {
       return;
     }
 
+    // ── Private org roster visibility guard ────────────────────────────────
+    // For school-private orgs, only enrolled members (students, teachers, admins)
+    // may browse the teacher roster. Unauthenticated / non-member requests get 403.
+    if (!org.isPublicMarketplace) {
+      const auth = getAuth(req);
+      const callerId = auth.userId ?? null;
+      if (!callerId) {
+        res.status(403).json({ error: "Authentication required to view this school's teachers" });
+        return;
+      }
+      const [membership] = await db
+        .select({ id: orgMembersTable.id })
+        .from(orgMembersTable)
+        .where(and(eq(orgMembersTable.orgId, org.id), eq(orgMembersTable.userId, callerId)));
+      if (!membership) {
+        res.status(403).json({ error: "You must be enrolled in this school to view its teachers" });
+        return;
+      }
+    }
+
     // Teachers who belong to this org
     const orgTeacherRows = await db
       .select({ userId: orgMembersTable.userId })

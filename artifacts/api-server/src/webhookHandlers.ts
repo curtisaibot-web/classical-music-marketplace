@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable } from "@workspace/db";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -57,6 +57,35 @@ async function handleCheckoutSessionCompleted(
   const metadata = session.metadata ?? {};
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+  // ── Org per-seat checkout completion ────────────────────────────────────
+  // When the org Checkout session completes, record the subscription ID + active status.
+  // The subscription_data.metadata.orgSlug we set in POST /orgs/:slug/subscribe is
+  // surfaced on the Subscription object — handled by handleSubscriptionUpdated above.
+  // Additionally sync from the session's subscription reference directly, for immediacy.
+  if (session.mode === "subscription" && session.subscription) {
+    const rawSub = session.subscription;
+    const subscriptionId = typeof rawSub === "string" ? rawSub : (rawSub as { id?: string } | null)?.id ?? null;
+    if (subscriptionId) {
+      const stripe = await getUncachableStripeClient();
+      const orgSub = await stripe.subscriptions.retrieve(subscriptionId);
+      const orgSlugFromSub = (orgSub.metadata?.orgSlug as string | undefined) ?? null;
+      if (orgSlugFromSub) {
+        const orgCustomerId = typeof orgSub.customer === "string" ? orgSub.customer : orgSub.customer.id;
+        await db
+          .update(organisationsTable)
+          .set({
+            stripeSubscriptionId: orgSub.id,
+            subscriptionStatus: orgSub.status as "active" | "cancelled" | "trialing" | "inactive",
+            stripeCustomerId: orgCustomerId,
+            updatedAt: new Date(),
+          })
+          .where(eq(organisationsTable.slug, orgSlugFromSub));
+        logger.info({ orgSlug: orgSlugFromSub, subscriptionId: orgSub.id, eventId }, "Org subscription activated via checkout");
+        return;
+      }
+    }
+  }
 
   if (metadata.type === "business_suite") {
     const userId = metadata.userId as string | undefined;
@@ -368,6 +397,29 @@ async function handleSubscriptionUpdated(
   eventId: string,
 ): Promise<void> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+  // ── Org per-seat subscription sync ───────────────────────────────────────
+  const orgSlugMeta = (sub.metadata?.orgSlug as string | undefined) ?? null;
+  if (orgSlugMeta) {
+    const [org] = await db
+      .select({ id: organisationsTable.id })
+      .from(organisationsTable)
+      .where(eq(organisationsTable.slug, orgSlugMeta));
+    if (org) {
+      await db
+        .update(organisationsTable)
+        .set({
+          stripeSubscriptionId: sub.id,
+          subscriptionStatus: sub.status as "active" | "cancelled" | "trialing" | "inactive",
+          stripeCustomerId: customerId,
+          updatedAt: new Date(),
+        })
+        .where(eq(organisationsTable.id, org.id));
+      logger.info({ orgSlug: orgSlugMeta, status: sub.status, eventId }, "Org subscription updated");
+    }
+    return;
+  }
+
   const userId = (sub.metadata?.userId as string | undefined) ?? null;
 
   if (!userId) {
@@ -390,6 +442,18 @@ async function handleSubscriptionDeleted(
   eventId: string,
 ): Promise<void> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+  // ── Org per-seat subscription cancellation ────────────────────────────────
+  const orgSlugMeta = (sub.metadata?.orgSlug as string | undefined) ?? null;
+  if (orgSlugMeta) {
+    await db
+      .update(organisationsTable)
+      .set({ subscriptionStatus: "cancelled", updatedAt: new Date() })
+      .where(eq(organisationsTable.slug, orgSlugMeta));
+    logger.info({ orgSlug: orgSlugMeta, eventId }, "Org subscription cancelled");
+    return;
+  }
+
   const [existing] = await db
     .select({ userId: subscriptionsTable.userId })
     .from(subscriptionsTable)

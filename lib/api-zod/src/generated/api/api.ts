@@ -3980,8 +3980,7 @@ export const CreateOrgSubscriptionParams = zod.object({
 });
 
 export const CreateOrgSubscriptionResponse = zod.object({
-  subscriptionId: zod.string(),
-  clientSecret: zod.string().nullish(),
+  checkoutUrl: zod.string().nullish(),
 });
 
 /**

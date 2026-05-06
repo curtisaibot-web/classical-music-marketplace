@@ -5024,11 +5024,9 @@ components:
     OrgSubscribeResponse:
       type: object
       properties:
-        subscriptionId:
-          type: string
-        clientSecret:
+        checkoutUrl:
           type: ["string", "null"]
-      required: [subscriptionId]
+      required: []
 
     OrgBillingPortalResponse:
       type: object

@@ -165,7 +165,12 @@ export default function OrgAdmin() {
         toast.error(err.error ?? "Failed to create subscription");
         return;
       }
-      toast.success("Subscription created — complete payment in the billing portal");
+      const data = await res.json() as { checkoutUrl?: string };
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      toast.success("Subscription activated");
     } catch {
       toast.error("Network error");
     }

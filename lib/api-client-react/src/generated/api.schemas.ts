@@ -1581,9 +1581,8 @@ export interface InviteOrgMemberBody {
 }
 
 export interface OrgSubscribeResponse {
-  subscriptionId: string;
   /** @nullable */
-  clientSecret?: string | null;
+  checkoutUrl?: string | null;
 }
 
 export interface OrgBillingPortalResponse {

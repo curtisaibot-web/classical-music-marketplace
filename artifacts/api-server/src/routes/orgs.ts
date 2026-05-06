@@ -393,9 +393,8 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
     });
 
     // Use Checkout (hosted page) so the admin enters their card without needing Stripe.js in the frontend
-    const origin = process.env.APP_ORIGIN ?? process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : "http://localhost:3000";
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:3000");
     const basePath = process.env.APP_BASE_PATH ?? "";
 
     const session = await stripe.checkout.sessions.create({
