@@ -43,6 +43,8 @@ tags:
     description: Business Suite invoice generation and delivery
   - name: expenses
     description: Business Suite expense tracking
+  - name: audition-programs
+    description: Audition Prep Coaching Track programs and enrollments
 
 paths:
   /healthz:
@@ -2100,6 +2102,322 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ── Audition Prep Programs ───────────────────────────────────────────────────
+  /audition-programs:
+    get:
+      operationId: listAuditionPrograms
+      tags: [audition-programs]
+      summary: Browse audition prep programs
+      parameters:
+        - name: instrument
+          in: query
+          schema:
+            type: string
+        - name: targetLevel
+          in: query
+          schema:
+            type: string
+            enum: [undergraduate, postgrad, professional_orchestra]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of audition programs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditionProgramListResponse"
+
+    post:
+      operationId: createAuditionProgram
+      tags: [audition-programs]
+      summary: Create an audition prep program (teacher only)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAuditionProgramBody"
+      responses:
+        "201":
+          description: Created program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditionProgram"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /audition-programs/my-programs:
+    get:
+      operationId: listMyAuditionPrograms
+      tags: [audition-programs]
+      summary: Get teacher's own programs with enrollment counts
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Teacher's programs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProgramListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /audition-programs/my-enrollments:
+    get:
+      operationId: listMyEnrollments
+      tags: [audition-programs]
+      summary: Get student's program enrollments
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Student's enrollments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /audition-programs/{id}:
+    get:
+      operationId: getAuditionProgram
+      tags: [audition-programs]
+      summary: Get a single audition prep program
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audition program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditionProgram"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateAuditionProgram
+      tags: [audition-programs]
+      summary: Update an audition prep program (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAuditionProgramBody"
+      responses:
+        "200":
+          description: Updated program
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditionProgram"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteAuditionProgram
+      tags: [audition-programs]
+      summary: Deactivate an audition prep program (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deactivated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/{id}/enrollments:
+    post:
+      operationId: createProgramEnrollment
+      tags: [audition-programs]
+      summary: Enroll in an audition prep program (creates pending enrollment)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Pending enrollment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramEnrollment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/enrollments/{enrollmentId}:
+    get:
+      operationId: getProgramEnrollment
+      tags: [audition-programs]
+      summary: Get a single enrollment with program details and session notes
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Enrollment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramEnrollmentDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/enrollments/{enrollmentId}/sessions/{sessionNumber}/complete:
+    post:
+      operationId: completeSession
+      tags: [audition-programs]
+      summary: Mark a session complete (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sessionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteSessionBody"
+      responses:
+        "200":
+          description: Session marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramEnrollmentDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/enrollments/{enrollmentId}/certificate:
+    get:
+      operationId: downloadCertificate
+      tags: [audition-programs]
+      summary: Download completion certificate PDF
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: enrollmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF certificate
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /audition-programs/teacher-enrollments:
+    get:
+      operationId: listTeacherEnrollments
+      tags: [audition-programs]
+      summary: Get all enrollments across teacher's programs
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: All enrollments for the teacher's programs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherEnrollmentListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /stripe/checkout/program-enrollment:
+    post:
+      operationId: createProgramEnrollmentCheckout
+      tags: [stripe]
+      summary: Create a Stripe Checkout session for a program enrollment
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgramEnrollmentCheckoutBody"
+      responses:
+        "200":
+          description: Checkout session URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramEnrollmentCheckoutResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -4013,3 +4331,255 @@ components:
           items:
             $ref: "#/components/schemas/CampaignTicket"
       required: [tickets]
+
+    # ── Audition Prep Programs ───────────────────────────────────────────────────
+    AuditionProgram:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        instrument:
+          type: string
+        targetLevel:
+          type: string
+          enum: [undergraduate, postgrad, professional_orchestra]
+        sessionCount:
+          type: integer
+        priceCents:
+          type: integer
+        syllabusText:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        teacher:
+          type: object
+          nullable: true
+          properties:
+            profileImageUrl:
+              type: string
+              nullable: true
+            firstName:
+              type: string
+              nullable: true
+            lastName:
+              type: string
+              nullable: true
+      required: [id, teacherId, title, instrument, targetLevel, sessionCount, priceCents, isActive, createdAt, updatedAt]
+
+    AuditionProgramListResponse:
+      type: object
+      properties:
+        programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditionProgram"
+        total:
+          type: integer
+      required: [programs, total]
+
+    TeacherProgramListResponse:
+      type: object
+      properties:
+        programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditionProgram"
+      required: [programs]
+
+    CreateAuditionProgramBody:
+      type: object
+      properties:
+        title:
+          type: string
+        instrument:
+          type: string
+        targetLevel:
+          type: string
+          enum: [undergraduate, postgrad, professional_orchestra]
+        sessionCount:
+          type: integer
+        priceCents:
+          type: integer
+        syllabusText:
+          type: string
+      required: [title, instrument, targetLevel, sessionCount, priceCents]
+
+    UpdateAuditionProgramBody:
+      type: object
+      properties:
+        title:
+          type: string
+        instrument:
+          type: string
+        targetLevel:
+          type: string
+          enum: [undergraduate, postgrad, professional_orchestra]
+        sessionCount:
+          type: integer
+        priceCents:
+          type: integer
+        syllabusText:
+          type: string
+        isActive:
+          type: boolean
+
+    ProgramEnrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        programId:
+          type: integer
+        studentId:
+          type: string
+        sessionsCompleted:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active, completed, cancelled]
+        stripeCheckoutSessionId:
+          type: string
+          nullable: true
+        stripePaymentIntentId:
+          type: string
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, programId, studentId, sessionsCompleted, status, createdAt, updatedAt]
+
+    ProgramSessionNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        enrollmentId:
+          type: integer
+        sessionNumber:
+          type: integer
+        teacherNote:
+          type: string
+          nullable: true
+        feedbackFileKey:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+      required: [id, enrollmentId, sessionNumber, completedAt]
+
+    ProgramEnrollmentDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        programId:
+          type: integer
+        studentId:
+          type: string
+        sessionsCompleted:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active, completed, cancelled]
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        program:
+          $ref: "#/components/schemas/AuditionProgram"
+          nullable: true
+        teacherUser:
+          type: object
+          nullable: true
+          properties:
+            firstName:
+              type: string
+              nullable: true
+            lastName:
+              type: string
+              nullable: true
+        studentUser:
+          type: object
+          nullable: true
+          properties:
+            firstName:
+              type: string
+              nullable: true
+            lastName:
+              type: string
+              nullable: true
+        sessionNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramSessionNote"
+      required: [id, programId, studentId, sessionsCompleted, status, createdAt, updatedAt, sessionNotes]
+
+    EnrollmentListResponse:
+      type: object
+      properties:
+        enrollments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramEnrollmentDetail"
+      required: [enrollments]
+
+    TeacherEnrollmentListResponse:
+      type: object
+      properties:
+        enrollments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramEnrollmentDetail"
+      required: [enrollments]
+
+    CompleteSessionBody:
+      type: object
+      properties:
+        teacherNote:
+          type: string
+        feedbackFileKey:
+          type: string
+
+    ProgramEnrollmentCheckoutBody:
+      type: object
+      properties:
+        enrollmentId:
+          type: integer
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [enrollmentId, successUrl, cancelUrl]
+
+    ProgramEnrollmentCheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          nullable: true
+      required: [checkoutUrl]

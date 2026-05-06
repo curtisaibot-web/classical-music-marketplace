@@ -19,6 +19,8 @@ import type {
 import type {
   ActivateSubscription200,
   ActivateSubscriptionBody,
+  AuditionProgram,
+  AuditionProgramListResponse,
   BadRequestResponse,
   Booking,
   BookingListResponse,
@@ -31,10 +33,12 @@ import type {
   CancellationFeeCollectedResponse,
   CancellationReportResponse,
   CheckoutUrlResponse,
+  CompleteSessionBody,
   ConnectStatusResponse,
   ContractListResponse,
   ContractResponse,
   ContractTemplateListResponse,
+  CreateAuditionProgramBody,
   CreateBookingBody,
   CreateBookingCheckoutBody,
   CreateCampaignBody,
@@ -55,6 +59,7 @@ import type {
   DigitalProduct,
   DigitalProductListResponse,
   DownloadRedirectResponse,
+  EnrollmentListResponse,
   ErrorEnvelope,
   ExpenseCategoriesResponse,
   ExpenseListResponse,
@@ -64,6 +69,7 @@ import type {
   HealthStatus,
   InvoiceListResponse,
   InvoiceResponse,
+  ListAuditionProgramsParams,
   ListBookingsParams,
   ListDigitalProductsParams,
   ListExpensesParams,
@@ -81,6 +87,10 @@ import type {
   OnboardingUrlResponse,
   Order,
   OrderListResponse,
+  ProgramEnrollment,
+  ProgramEnrollmentCheckoutBody,
+  ProgramEnrollmentCheckoutResponse,
+  ProgramEnrollmentDetail,
   ReelCallbackAck,
   ReelCallbackBody,
   Review,
@@ -93,11 +103,14 @@ import type {
   SubscriptionPortalBody,
   SubscriptionPortalUrlResponse,
   TeacherDashboard,
+  TeacherEnrollmentListResponse,
   TeacherListResponse,
   TeacherProfile,
+  TeacherProgramListResponse,
   TeacherRecording,
   TeacherRecordingListResponse,
   UnauthorizedResponse,
+  UpdateAuditionProgramBody,
   UpdateBookingBody,
   UpdateCampaignBody,
   UpdateCampaignResponse,
@@ -7505,3 +7518,1200 @@ export function useGetCampaignTickets<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Browse audition prep programs
+ */
+export const getListAuditionProgramsUrl = (
+  params?: ListAuditionProgramsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/audition-programs?${stringifiedParams}`
+    : `/api/audition-programs`;
+};
+
+export const listAuditionPrograms = async (
+  params?: ListAuditionProgramsParams,
+  options?: RequestInit,
+): Promise<AuditionProgramListResponse> => {
+  return customFetch<AuditionProgramListResponse>(
+    getListAuditionProgramsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAuditionProgramsQueryKey = (
+  params?: ListAuditionProgramsParams,
+) => {
+  return [`/api/audition-programs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAuditionProgramsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAuditionPrograms>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAuditionProgramsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAuditionPrograms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAuditionProgramsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAuditionPrograms>>
+  > = ({ signal }) =>
+    listAuditionPrograms(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAuditionPrograms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAuditionProgramsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAuditionPrograms>>
+>;
+export type ListAuditionProgramsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Browse audition prep programs
+ */
+
+export function useListAuditionPrograms<
+  TData = Awaited<ReturnType<typeof listAuditionPrograms>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAuditionProgramsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAuditionPrograms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAuditionProgramsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an audition prep program (teacher only)
+ */
+export const getCreateAuditionProgramUrl = () => {
+  return `/api/audition-programs`;
+};
+
+export const createAuditionProgram = async (
+  createAuditionProgramBody: CreateAuditionProgramBody,
+  options?: RequestInit,
+): Promise<AuditionProgram> => {
+  return customFetch<AuditionProgram>(getCreateAuditionProgramUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAuditionProgramBody),
+  });
+};
+
+export const getCreateAuditionProgramMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuditionProgram>>,
+    TError,
+    { data: BodyType<CreateAuditionProgramBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAuditionProgram>>,
+  TError,
+  { data: BodyType<CreateAuditionProgramBody> },
+  TContext
+> => {
+  const mutationKey = ["createAuditionProgram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAuditionProgram>>,
+    { data: BodyType<CreateAuditionProgramBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAuditionProgram(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAuditionProgramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAuditionProgram>>
+>;
+export type CreateAuditionProgramMutationBody =
+  BodyType<CreateAuditionProgramBody>;
+export type CreateAuditionProgramMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create an audition prep program (teacher only)
+ */
+export const useCreateAuditionProgram = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAuditionProgram>>,
+    TError,
+    { data: BodyType<CreateAuditionProgramBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAuditionProgram>>,
+  TError,
+  { data: BodyType<CreateAuditionProgramBody> },
+  TContext
+> => {
+  return useMutation(getCreateAuditionProgramMutationOptions(options));
+};
+
+/**
+ * @summary Get teacher's own programs with enrollment counts
+ */
+export const getListMyAuditionProgramsUrl = () => {
+  return `/api/audition-programs/my-programs`;
+};
+
+export const listMyAuditionPrograms = async (
+  options?: RequestInit,
+): Promise<TeacherProgramListResponse> => {
+  return customFetch<TeacherProgramListResponse>(
+    getListMyAuditionProgramsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMyAuditionProgramsQueryKey = () => {
+  return [`/api/audition-programs/my-programs`] as const;
+};
+
+export const getListMyAuditionProgramsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyAuditionPrograms>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAuditionPrograms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListMyAuditionProgramsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyAuditionPrograms>>
+  > = ({ signal }) => listMyAuditionPrograms({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAuditionPrograms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyAuditionProgramsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyAuditionPrograms>>
+>;
+export type ListMyAuditionProgramsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get teacher's own programs with enrollment counts
+ */
+
+export function useListMyAuditionPrograms<
+  TData = Awaited<ReturnType<typeof listMyAuditionPrograms>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyAuditionPrograms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyAuditionProgramsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get student's program enrollments
+ */
+export const getListMyEnrollmentsUrl = () => {
+  return `/api/audition-programs/my-enrollments`;
+};
+
+export const listMyEnrollments = async (
+  options?: RequestInit,
+): Promise<EnrollmentListResponse> => {
+  return customFetch<EnrollmentListResponse>(getListMyEnrollmentsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyEnrollmentsQueryKey = () => {
+  return [`/api/audition-programs/my-enrollments`] as const;
+};
+
+export const getListMyEnrollmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyEnrollments>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnrollments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyEnrollmentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyEnrollments>>
+  > = ({ signal }) => listMyEnrollments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnrollments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyEnrollmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyEnrollments>>
+>;
+export type ListMyEnrollmentsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get student's program enrollments
+ */
+
+export function useListMyEnrollments<
+  TData = Awaited<ReturnType<typeof listMyEnrollments>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnrollments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyEnrollmentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single audition prep program
+ */
+export const getGetAuditionProgramUrl = (id: number) => {
+  return `/api/audition-programs/${id}`;
+};
+
+export const getAuditionProgram = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AuditionProgram> => {
+  return customFetch<AuditionProgram>(getGetAuditionProgramUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAuditionProgramQueryKey = (id: number) => {
+  return [`/api/audition-programs/${id}`] as const;
+};
+
+export const getGetAuditionProgramQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAuditionProgram>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAuditionProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAuditionProgramQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAuditionProgram>>
+  > = ({ signal }) => getAuditionProgram(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAuditionProgram>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAuditionProgramQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAuditionProgram>>
+>;
+export type GetAuditionProgramQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a single audition prep program
+ */
+
+export function useGetAuditionProgram<
+  TData = Awaited<ReturnType<typeof getAuditionProgram>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAuditionProgram>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAuditionProgramQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an audition prep program (teacher only)
+ */
+export const getUpdateAuditionProgramUrl = (id: number) => {
+  return `/api/audition-programs/${id}`;
+};
+
+export const updateAuditionProgram = async (
+  id: number,
+  updateAuditionProgramBody: UpdateAuditionProgramBody,
+  options?: RequestInit,
+): Promise<AuditionProgram> => {
+  return customFetch<AuditionProgram>(getUpdateAuditionProgramUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAuditionProgramBody),
+  });
+};
+
+export const getUpdateAuditionProgramMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuditionProgram>>,
+    TError,
+    { id: number; data: BodyType<UpdateAuditionProgramBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAuditionProgram>>,
+  TError,
+  { id: number; data: BodyType<UpdateAuditionProgramBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAuditionProgram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAuditionProgram>>,
+    { id: number; data: BodyType<UpdateAuditionProgramBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAuditionProgram(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAuditionProgramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAuditionProgram>>
+>;
+export type UpdateAuditionProgramMutationBody =
+  BodyType<UpdateAuditionProgramBody>;
+export type UpdateAuditionProgramMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update an audition prep program (teacher only)
+ */
+export const useUpdateAuditionProgram = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAuditionProgram>>,
+    TError,
+    { id: number; data: BodyType<UpdateAuditionProgramBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAuditionProgram>>,
+  TError,
+  { id: number; data: BodyType<UpdateAuditionProgramBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAuditionProgramMutationOptions(options));
+};
+
+/**
+ * @summary Deactivate an audition prep program (teacher only)
+ */
+export const getDeleteAuditionProgramUrl = (id: number) => {
+  return `/api/audition-programs/${id}`;
+};
+
+export const deleteAuditionProgram = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAuditionProgramUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAuditionProgramMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAuditionProgram>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAuditionProgram>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAuditionProgram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAuditionProgram>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAuditionProgram(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAuditionProgramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAuditionProgram>>
+>;
+
+export type DeleteAuditionProgramMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Deactivate an audition prep program (teacher only)
+ */
+export const useDeleteAuditionProgram = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAuditionProgram>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAuditionProgram>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAuditionProgramMutationOptions(options));
+};
+
+/**
+ * @summary Enroll in an audition prep program (creates pending enrollment)
+ */
+export const getCreateProgramEnrollmentUrl = (id: number) => {
+  return `/api/audition-programs/${id}/enrollments`;
+};
+
+export const createProgramEnrollment = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ProgramEnrollment> => {
+  return customFetch<ProgramEnrollment>(getCreateProgramEnrollmentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateProgramEnrollmentMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgramEnrollment>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProgramEnrollment>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["createProgramEnrollment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProgramEnrollment>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createProgramEnrollment(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProgramEnrollmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProgramEnrollment>>
+>;
+
+export type CreateProgramEnrollmentMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Enroll in an audition prep program (creates pending enrollment)
+ */
+export const useCreateProgramEnrollment = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgramEnrollment>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProgramEnrollment>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCreateProgramEnrollmentMutationOptions(options));
+};
+
+/**
+ * @summary Get a single enrollment with program details and session notes
+ */
+export const getGetProgramEnrollmentUrl = (enrollmentId: number) => {
+  return `/api/audition-programs/enrollments/${enrollmentId}`;
+};
+
+export const getProgramEnrollment = async (
+  enrollmentId: number,
+  options?: RequestInit,
+): Promise<ProgramEnrollmentDetail> => {
+  return customFetch<ProgramEnrollmentDetail>(
+    getGetProgramEnrollmentUrl(enrollmentId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetProgramEnrollmentQueryKey = (enrollmentId: number) => {
+  return [`/api/audition-programs/enrollments/${enrollmentId}`] as const;
+};
+
+export const getGetProgramEnrollmentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProgramEnrollment>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  enrollmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProgramEnrollment>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetProgramEnrollmentQueryKey(enrollmentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProgramEnrollment>>
+  > = ({ signal }) =>
+    getProgramEnrollment(enrollmentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!enrollmentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProgramEnrollment>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProgramEnrollmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProgramEnrollment>>
+>;
+export type GetProgramEnrollmentQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get a single enrollment with program details and session notes
+ */
+
+export function useGetProgramEnrollment<
+  TData = Awaited<ReturnType<typeof getProgramEnrollment>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  enrollmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProgramEnrollment>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProgramEnrollmentQueryOptions(
+    enrollmentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a session complete (teacher only)
+ */
+export const getCompleteSessionUrl = (
+  enrollmentId: number,
+  sessionNumber: number,
+) => {
+  return `/api/audition-programs/enrollments/${enrollmentId}/sessions/${sessionNumber}/complete`;
+};
+
+export const completeSession = async (
+  enrollmentId: number,
+  sessionNumber: number,
+  completeSessionBody: CompleteSessionBody,
+  options?: RequestInit,
+): Promise<ProgramEnrollmentDetail> => {
+  return customFetch<ProgramEnrollmentDetail>(
+    getCompleteSessionUrl(enrollmentId, sessionNumber),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(completeSessionBody),
+    },
+  );
+};
+
+export const getCompleteSessionMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeSession>>,
+    TError,
+    {
+      enrollmentId: number;
+      sessionNumber: number;
+      data: BodyType<CompleteSessionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeSession>>,
+  TError,
+  {
+    enrollmentId: number;
+    sessionNumber: number;
+    data: BodyType<CompleteSessionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["completeSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeSession>>,
+    {
+      enrollmentId: number;
+      sessionNumber: number;
+      data: BodyType<CompleteSessionBody>;
+    }
+  > = (props) => {
+    const { enrollmentId, sessionNumber, data } = props ?? {};
+
+    return completeSession(enrollmentId, sessionNumber, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeSession>>
+>;
+export type CompleteSessionMutationBody = BodyType<CompleteSessionBody>;
+export type CompleteSessionMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Mark a session complete (teacher only)
+ */
+export const useCompleteSession = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeSession>>,
+    TError,
+    {
+      enrollmentId: number;
+      sessionNumber: number;
+      data: BodyType<CompleteSessionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeSession>>,
+  TError,
+  {
+    enrollmentId: number;
+    sessionNumber: number;
+    data: BodyType<CompleteSessionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCompleteSessionMutationOptions(options));
+};
+
+/**
+ * @summary Download completion certificate PDF
+ */
+export const getDownloadCertificateUrl = (enrollmentId: number) => {
+  return `/api/audition-programs/enrollments/${enrollmentId}/certificate`;
+};
+
+export const downloadCertificate = async (
+  enrollmentId: number,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadCertificateUrl(enrollmentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadCertificateQueryKey = (enrollmentId: number) => {
+  return [
+    `/api/audition-programs/enrollments/${enrollmentId}/certificate`,
+  ] as const;
+};
+
+export const getDownloadCertificateQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadCertificate>>,
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+>(
+  enrollmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadCertificate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getDownloadCertificateQueryKey(enrollmentId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof downloadCertificate>>
+  > = ({ signal }) =>
+    downloadCertificate(enrollmentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!enrollmentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadCertificate>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadCertificateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadCertificate>>
+>;
+export type DownloadCertificateQueryError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Download completion certificate PDF
+ */
+
+export function useDownloadCertificate<
+  TData = Awaited<ReturnType<typeof downloadCertificate>>,
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+>(
+  enrollmentId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadCertificate>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadCertificateQueryOptions(
+    enrollmentId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all enrollments across teacher's programs
+ */
+export const getListTeacherEnrollmentsUrl = () => {
+  return `/api/audition-programs/teacher-enrollments`;
+};
+
+export const listTeacherEnrollments = async (
+  options?: RequestInit,
+): Promise<TeacherEnrollmentListResponse> => {
+  return customFetch<TeacherEnrollmentListResponse>(
+    getListTeacherEnrollmentsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTeacherEnrollmentsQueryKey = () => {
+  return [`/api/audition-programs/teacher-enrollments`] as const;
+};
+
+export const getListTeacherEnrollmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTeacherEnrollments>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTeacherEnrollments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTeacherEnrollmentsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTeacherEnrollments>>
+  > = ({ signal }) => listTeacherEnrollments({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTeacherEnrollments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTeacherEnrollmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTeacherEnrollments>>
+>;
+export type ListTeacherEnrollmentsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get all enrollments across teacher's programs
+ */
+
+export function useListTeacherEnrollments<
+  TData = Awaited<ReturnType<typeof listTeacherEnrollments>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listTeacherEnrollments>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTeacherEnrollmentsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a Stripe Checkout session for a program enrollment
+ */
+export const getCreateProgramEnrollmentCheckoutUrl = () => {
+  return `/api/stripe/checkout/program-enrollment`;
+};
+
+export const createProgramEnrollmentCheckout = async (
+  programEnrollmentCheckoutBody: ProgramEnrollmentCheckoutBody,
+  options?: RequestInit,
+): Promise<ProgramEnrollmentCheckoutResponse> => {
+  return customFetch<ProgramEnrollmentCheckoutResponse>(
+    getCreateProgramEnrollmentCheckoutUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(programEnrollmentCheckoutBody),
+    },
+  );
+};
+
+export const getCreateProgramEnrollmentCheckoutMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>,
+    TError,
+    { data: BodyType<ProgramEnrollmentCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>,
+  TError,
+  { data: BodyType<ProgramEnrollmentCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createProgramEnrollmentCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>,
+    { data: BodyType<ProgramEnrollmentCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createProgramEnrollmentCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProgramEnrollmentCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>
+>;
+export type CreateProgramEnrollmentCheckoutMutationBody =
+  BodyType<ProgramEnrollmentCheckoutBody>;
+export type CreateProgramEnrollmentCheckoutMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Create a Stripe Checkout session for a program enrollment
+ */
+export const useCreateProgramEnrollmentCheckout = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>,
+    TError,
+    { data: BodyType<ProgramEnrollmentCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProgramEnrollmentCheckout>>,
+  TError,
+  { data: BodyType<ProgramEnrollmentCheckoutBody> },
+  TContext
+> => {
+  return useMutation(
+    getCreateProgramEnrollmentCheckoutMutationOptions(options),
+  );
+};

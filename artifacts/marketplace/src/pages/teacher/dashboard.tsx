@@ -559,6 +559,22 @@ export default function TeacherDashboard() {
 
             <Card className="border-border shadow-sm">
               <CardHeader>
+                <CardTitle className="font-serif text-lg flex items-center gap-2">
+                  Audition Prep Programs
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Create structured multi-session coaching packages for conservatory, postgrad, and professional orchestra auditions.
+                </p>
+                <Button size="sm" className="w-full" asChild>
+                  <Link href="/audition-programs">Manage Programs</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader>
                 <CardTitle className="font-serif text-lg">Recent Reviews</CardTitle>
               </CardHeader>
               <CardContent>

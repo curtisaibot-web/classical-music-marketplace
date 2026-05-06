@@ -29,6 +29,7 @@ export function Navbar() {
             <Link href="/gigs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Gigs</Link>
             <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
             <Link href="/store" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Store</Link>
+            <Link href="/audition-prep" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Audition Prep</Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">
@@ -46,6 +47,7 @@ export function Navbar() {
                   <Link href="/listings" className="text-sm font-medium hover:underline hidden sm:inline-block">Listings</Link>
                   <Link href="/digital-products" className="text-sm font-medium hover:underline hidden sm:inline-block">Products</Link>
                   <Link href="/campaigns" className="text-sm font-medium hover:underline hidden sm:inline-block">Campaigns</Link>
+                  <Link href="/audition-programs" className="text-sm font-medium hover:underline hidden sm:inline-block">Audition Prep</Link>
                   <Link href="/business-suite" className="text-sm font-medium hover:underline hidden sm:inline-block text-amber-600">Business Suite</Link>
                 </>
               ) : role === 'student' ? (

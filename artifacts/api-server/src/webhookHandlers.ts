@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable } from "@workspace/db";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -162,6 +162,31 @@ async function handleCheckoutSessionCompleted(
       await unlockDigitalDownload(orderId);
     } else {
       logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+    }
+  }
+
+  if (metadata.type === "program_enrollment" && metadata.enrollment_id) {
+    const enrollmentId = parseInt(metadata.enrollment_id, 10);
+    if (isNaN(enrollmentId)) {
+      throw new Error(`Invalid enrollment_id in session metadata: ${metadata.enrollment_id}`);
+    }
+
+    const updatedEnrollments = await db
+      .update(programEnrollmentsTable)
+      .set({
+        status: "active",
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.status, "pending")))
+      .returning({ id: programEnrollmentsTable.id });
+
+    if (updatedEnrollments.length > 0) {
+      logger.info({ enrollmentId, sessionId: session.id, eventId }, "Program enrollment activated via checkout.session.completed");
+    } else {
+      logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — skipping idempotent update");
     }
   }
 

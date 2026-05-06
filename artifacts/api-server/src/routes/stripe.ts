@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or } from "drizzle-orm";
-import { db, bookingsTable, ordersTable, teacherProfilesTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, teacherProfilesTable, auditionProgramsTable, programEnrollmentsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
@@ -193,6 +193,111 @@ router.post("/stripe/checkout/order", requireAuth, async (req, res): Promise<voi
     res.json({ checkoutUrl: session.url });
   } catch (err) {
     logger.error({ err }, "Failed to create order checkout session");
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+router.post("/stripe/checkout/program-enrollment", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const { enrollmentId, successUrl, cancelUrl } = req.body as {
+    enrollmentId: number;
+    successUrl: string;
+    cancelUrl: string;
+  };
+
+  if (!enrollmentId || !successUrl || !cancelUrl) {
+    res.status(400).json({ error: "enrollmentId, successUrl, and cancelUrl are required" });
+    return;
+  }
+
+  const [enrollment] = await db
+    .select()
+    .from(programEnrollmentsTable)
+    .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.studentId, userId)));
+
+  if (!enrollment) {
+    res.status(404).json({ error: "Enrollment not found" });
+    return;
+  }
+
+  if (enrollment.status !== "pending") {
+    res.status(400).json({ error: "Enrollment is not in pending status" });
+    return;
+  }
+
+  const [program] = await db
+    .select()
+    .from(auditionProgramsTable)
+    .where(eq(auditionProgramsTable.id, enrollment.programId));
+
+  if (!program) {
+    res.status(404).json({ error: "Program not found" });
+    return;
+  }
+
+  const [teacherProfile] = await db
+    .select()
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, program.teacherId));
+
+  try {
+    const stripe = await getUncachableStripeClient();
+
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: program.title,
+              description: `Audition Prep — ${program.sessionCount} sessions · ${program.instrument}`,
+            },
+            unit_amount: program.priceCents,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        type: "program_enrollment",
+        enrollment_id: String(enrollment.id),
+        program_id: String(program.id),
+        student_id: userId,
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    };
+
+    sessionParams.payment_intent_data = {
+      metadata: {
+        type: "program_enrollment",
+        enrollment_id: String(enrollment.id),
+      },
+    };
+
+    if (teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
+      sessionParams.payment_intent_data = {
+        ...sessionParams.payment_intent_data,
+        application_fee_amount: Math.round(program.priceCents * PLATFORM_FEE_RATE),
+        transfer_data: {
+          destination: teacherProfile.stripeAccountId,
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    await db
+      .update(programEnrollmentsTable)
+      .set({ stripeCheckoutSessionId: session.id })
+      .where(eq(programEnrollmentsTable.id, enrollment.id));
+
+    res.json({ checkoutUrl: session.url });
+  } catch (err) {
+    logger.error({ err }, "Failed to create program enrollment checkout session");
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });

@@ -233,6 +233,23 @@ export default function StudentDashboard() {
 
             <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif">Audition Prep</CardTitle>
+                <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+                  <Link href="/my-programs">View all</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Track your progress through structured audition prep programs with your coach.
+                </p>
+                <Button size="sm" variant="outline" className="w-full" asChild>
+                  <Link href="/audition-prep">Browse Programs</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="font-serif">Recent Orders</CardTitle>
                 <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
                   <Link href="/orders">View all</Link>

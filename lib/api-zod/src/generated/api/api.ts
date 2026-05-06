@@ -3320,3 +3320,476 @@ export const GetCampaignTicketsResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Browse audition prep programs
+ */
+export const listAuditionProgramsQueryLimitDefault = 20;
+export const listAuditionProgramsQueryOffsetDefault = 0;
+
+export const ListAuditionProgramsQueryParams = zod.object({
+  instrument: zod.coerce.string().optional(),
+  targetLevel: zod
+    .enum(["undergraduate", "postgrad", "professional_orchestra"])
+    .optional(),
+  limit: zod.coerce.number().default(listAuditionProgramsQueryLimitDefault),
+  offset: zod.coerce.number().default(listAuditionProgramsQueryOffsetDefault),
+});
+
+export const ListAuditionProgramsResponse = zod.object({
+  programs: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      instrument: zod.string(),
+      targetLevel: zod.enum([
+        "undergraduate",
+        "postgrad",
+        "professional_orchestra",
+      ]),
+      sessionCount: zod.number(),
+      priceCents: zod.number(),
+      syllabusText: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      teacher: zod
+        .object({
+          profileImageUrl: zod.string().nullish(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create an audition prep program (teacher only)
+ */
+export const CreateAuditionProgramBody = zod.object({
+  title: zod.string(),
+  instrument: zod.string(),
+  targetLevel: zod.enum([
+    "undergraduate",
+    "postgrad",
+    "professional_orchestra",
+  ]),
+  sessionCount: zod.number(),
+  priceCents: zod.number(),
+  syllabusText: zod.string().optional(),
+});
+
+/**
+ * @summary Get teacher's own programs with enrollment counts
+ */
+export const ListMyAuditionProgramsResponse = zod.object({
+  programs: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      instrument: zod.string(),
+      targetLevel: zod.enum([
+        "undergraduate",
+        "postgrad",
+        "professional_orchestra",
+      ]),
+      sessionCount: zod.number(),
+      priceCents: zod.number(),
+      syllabusText: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      teacher: zod
+        .object({
+          profileImageUrl: zod.string().nullish(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get student's program enrollments
+ */
+export const ListMyEnrollmentsResponse = zod.object({
+  enrollments: zod.array(
+    zod.object({
+      id: zod.number(),
+      programId: zod.number(),
+      studentId: zod.string(),
+      sessionsCompleted: zod.number(),
+      status: zod.enum(["pending", "active", "completed", "cancelled"]),
+      paidAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      program: zod
+        .object({
+          id: zod.number(),
+          teacherId: zod.string(),
+          title: zod.string(),
+          instrument: zod.string(),
+          targetLevel: zod.enum([
+            "undergraduate",
+            "postgrad",
+            "professional_orchestra",
+          ]),
+          sessionCount: zod.number(),
+          priceCents: zod.number(),
+          syllabusText: zod.string().nullish(),
+          isActive: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+          teacher: zod
+            .object({
+              profileImageUrl: zod.string().nullish(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+            })
+            .nullish(),
+        })
+        .nullish(),
+      teacherUser: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+      studentUser: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+      sessionNotes: zod.array(
+        zod.object({
+          id: zod.number(),
+          enrollmentId: zod.number(),
+          sessionNumber: zod.number(),
+          teacherNote: zod.string().nullish(),
+          feedbackFileKey: zod.string().nullish(),
+          completedAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a single audition prep program
+ */
+export const GetAuditionProgramParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAuditionProgramResponse = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  title: zod.string(),
+  instrument: zod.string(),
+  targetLevel: zod.enum([
+    "undergraduate",
+    "postgrad",
+    "professional_orchestra",
+  ]),
+  sessionCount: zod.number(),
+  priceCents: zod.number(),
+  syllabusText: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  teacher: zod
+    .object({
+      profileImageUrl: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Update an audition prep program (teacher only)
+ */
+export const UpdateAuditionProgramParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAuditionProgramBody = zod.object({
+  title: zod.string().optional(),
+  instrument: zod.string().optional(),
+  targetLevel: zod
+    .enum(["undergraduate", "postgrad", "professional_orchestra"])
+    .optional(),
+  sessionCount: zod.number().optional(),
+  priceCents: zod.number().optional(),
+  syllabusText: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateAuditionProgramResponse = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  title: zod.string(),
+  instrument: zod.string(),
+  targetLevel: zod.enum([
+    "undergraduate",
+    "postgrad",
+    "professional_orchestra",
+  ]),
+  sessionCount: zod.number(),
+  priceCents: zod.number(),
+  syllabusText: zod.string().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  teacher: zod
+    .object({
+      profileImageUrl: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Deactivate an audition prep program (teacher only)
+ */
+export const DeleteAuditionProgramParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Enroll in an audition prep program (creates pending enrollment)
+ */
+export const CreateProgramEnrollmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get a single enrollment with program details and session notes
+ */
+export const GetProgramEnrollmentParams = zod.object({
+  enrollmentId: zod.coerce.number(),
+});
+
+export const GetProgramEnrollmentResponse = zod.object({
+  id: zod.number(),
+  programId: zod.number(),
+  studentId: zod.string(),
+  sessionsCompleted: zod.number(),
+  status: zod.enum(["pending", "active", "completed", "cancelled"]),
+  paidAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  program: zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      instrument: zod.string(),
+      targetLevel: zod.enum([
+        "undergraduate",
+        "postgrad",
+        "professional_orchestra",
+      ]),
+      sessionCount: zod.number(),
+      priceCents: zod.number(),
+      syllabusText: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      teacher: zod
+        .object({
+          profileImageUrl: zod.string().nullish(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
+  teacherUser: zod
+    .object({
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+  studentUser: zod
+    .object({
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+  sessionNotes: zod.array(
+    zod.object({
+      id: zod.number(),
+      enrollmentId: zod.number(),
+      sessionNumber: zod.number(),
+      teacherNote: zod.string().nullish(),
+      feedbackFileKey: zod.string().nullish(),
+      completedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Mark a session complete (teacher only)
+ */
+export const CompleteSessionParams = zod.object({
+  enrollmentId: zod.coerce.number(),
+  sessionNumber: zod.coerce.number(),
+});
+
+export const CompleteSessionBody = zod.object({
+  teacherNote: zod.string().optional(),
+  feedbackFileKey: zod.string().optional(),
+});
+
+export const CompleteSessionResponse = zod.object({
+  id: zod.number(),
+  programId: zod.number(),
+  studentId: zod.string(),
+  sessionsCompleted: zod.number(),
+  status: zod.enum(["pending", "active", "completed", "cancelled"]),
+  paidAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  program: zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      instrument: zod.string(),
+      targetLevel: zod.enum([
+        "undergraduate",
+        "postgrad",
+        "professional_orchestra",
+      ]),
+      sessionCount: zod.number(),
+      priceCents: zod.number(),
+      syllabusText: zod.string().nullish(),
+      isActive: zod.boolean(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      teacher: zod
+        .object({
+          profileImageUrl: zod.string().nullish(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
+  teacherUser: zod
+    .object({
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+  studentUser: zod
+    .object({
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+    })
+    .nullish(),
+  sessionNotes: zod.array(
+    zod.object({
+      id: zod.number(),
+      enrollmentId: zod.number(),
+      sessionNumber: zod.number(),
+      teacherNote: zod.string().nullish(),
+      feedbackFileKey: zod.string().nullish(),
+      completedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Download completion certificate PDF
+ */
+export const DownloadCertificateParams = zod.object({
+  enrollmentId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get all enrollments across teacher's programs
+ */
+export const ListTeacherEnrollmentsResponse = zod.object({
+  enrollments: zod.array(
+    zod.object({
+      id: zod.number(),
+      programId: zod.number(),
+      studentId: zod.string(),
+      sessionsCompleted: zod.number(),
+      status: zod.enum(["pending", "active", "completed", "cancelled"]),
+      paidAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      program: zod
+        .object({
+          id: zod.number(),
+          teacherId: zod.string(),
+          title: zod.string(),
+          instrument: zod.string(),
+          targetLevel: zod.enum([
+            "undergraduate",
+            "postgrad",
+            "professional_orchestra",
+          ]),
+          sessionCount: zod.number(),
+          priceCents: zod.number(),
+          syllabusText: zod.string().nullish(),
+          isActive: zod.boolean(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+          teacher: zod
+            .object({
+              profileImageUrl: zod.string().nullish(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+            })
+            .nullish(),
+        })
+        .nullish(),
+      teacherUser: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+      studentUser: zod
+        .object({
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+        })
+        .nullish(),
+      sessionNotes: zod.array(
+        zod.object({
+          id: zod.number(),
+          enrollmentId: zod.number(),
+          sessionNumber: zod.number(),
+          teacherNote: zod.string().nullish(),
+          feedbackFileKey: zod.string().nullish(),
+          completedAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a Stripe Checkout session for a program enrollment
+ */
+export const CreateProgramEnrollmentCheckoutBody = zod.object({
+  enrollmentId: zod.number(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateProgramEnrollmentCheckoutResponse = zod.object({
+  checkoutUrl: zod.string().nullable(),
+});

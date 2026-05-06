@@ -36,6 +36,10 @@ import PaymentCancel from "@/pages/payment/cancel";
 import Concerts from "@/pages/concerts";
 import ConcertDetail from "@/pages/concerts/detail";
 import TeacherCampaigns from "@/pages/teacher/campaigns";
+import TeacherPrograms from "@/pages/teacher/programs";
+import StudentPrograms from "@/pages/student/programs";
+import AuditionPrep from "@/pages/audition-prep/index";
+import AuditionPrepDetail from "@/pages/audition-prep/detail";
 
 const queryClient = new QueryClient();
 
@@ -230,6 +234,12 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/concerts" component={Concerts} />
           <Route path="/concerts/:id" component={ConcertDetail} />
+
+          <Route path="/audition-prep" component={AuditionPrep} />
+          <Route path="/audition-prep/:id" component={AuditionPrepDetail} />
+
+          <Route path="/audition-programs" component={TeacherPrograms} />
+          <Route path="/my-programs" component={StudentPrograms} />
 
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/cancel" component={PaymentCancel} />

@@ -1323,6 +1323,172 @@ export interface CampaignTicketListResponse {
   tickets: CampaignTicket[];
 }
 
+export type AuditionProgramTargetLevel =
+  (typeof AuditionProgramTargetLevel)[keyof typeof AuditionProgramTargetLevel];
+
+export const AuditionProgramTargetLevel = {
+  undergraduate: "undergraduate",
+  postgrad: "postgrad",
+  professional_orchestra: "professional_orchestra",
+} as const;
+
+export type AuditionProgramTeacher = {
+  profileImageUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+} | null;
+
+export interface AuditionProgram {
+  id: number;
+  teacherId: string;
+  title: string;
+  instrument: string;
+  targetLevel: AuditionProgramTargetLevel;
+  sessionCount: number;
+  priceCents: number;
+  syllabusText?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  teacher?: AuditionProgramTeacher;
+}
+
+export interface AuditionProgramListResponse {
+  programs: AuditionProgram[];
+  total: number;
+}
+
+export interface TeacherProgramListResponse {
+  programs: AuditionProgram[];
+}
+
+export type CreateAuditionProgramBodyTargetLevel =
+  (typeof CreateAuditionProgramBodyTargetLevel)[keyof typeof CreateAuditionProgramBodyTargetLevel];
+
+export const CreateAuditionProgramBodyTargetLevel = {
+  undergraduate: "undergraduate",
+  postgrad: "postgrad",
+  professional_orchestra: "professional_orchestra",
+} as const;
+
+export interface CreateAuditionProgramBody {
+  title: string;
+  instrument: string;
+  targetLevel: CreateAuditionProgramBodyTargetLevel;
+  sessionCount: number;
+  priceCents: number;
+  syllabusText?: string;
+}
+
+export type UpdateAuditionProgramBodyTargetLevel =
+  (typeof UpdateAuditionProgramBodyTargetLevel)[keyof typeof UpdateAuditionProgramBodyTargetLevel];
+
+export const UpdateAuditionProgramBodyTargetLevel = {
+  undergraduate: "undergraduate",
+  postgrad: "postgrad",
+  professional_orchestra: "professional_orchestra",
+} as const;
+
+export interface UpdateAuditionProgramBody {
+  title?: string;
+  instrument?: string;
+  targetLevel?: UpdateAuditionProgramBodyTargetLevel;
+  sessionCount?: number;
+  priceCents?: number;
+  syllabusText?: string;
+  isActive?: boolean;
+}
+
+export type ProgramEnrollmentStatus =
+  (typeof ProgramEnrollmentStatus)[keyof typeof ProgramEnrollmentStatus];
+
+export const ProgramEnrollmentStatus = {
+  pending: "pending",
+  active: "active",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export interface ProgramEnrollment {
+  id: number;
+  programId: number;
+  studentId: string;
+  sessionsCompleted: number;
+  status: ProgramEnrollmentStatus;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProgramSessionNote {
+  id: number;
+  enrollmentId: number;
+  sessionNumber: number;
+  teacherNote?: string | null;
+  feedbackFileKey?: string | null;
+  completedAt: string;
+}
+
+export type ProgramEnrollmentDetailStatus =
+  (typeof ProgramEnrollmentDetailStatus)[keyof typeof ProgramEnrollmentDetailStatus];
+
+export const ProgramEnrollmentDetailStatus = {
+  pending: "pending",
+  active: "active",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export type ProgramEnrollmentDetailTeacherUser = {
+  firstName?: string | null;
+  lastName?: string | null;
+} | null;
+
+export type ProgramEnrollmentDetailStudentUser = {
+  firstName?: string | null;
+  lastName?: string | null;
+} | null;
+
+export interface ProgramEnrollmentDetail {
+  id: number;
+  programId: number;
+  studentId: string;
+  sessionsCompleted: number;
+  status: ProgramEnrollmentDetailStatus;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  program?: AuditionProgram | null;
+  teacherUser?: ProgramEnrollmentDetailTeacherUser;
+  studentUser?: ProgramEnrollmentDetailStudentUser;
+  sessionNotes: ProgramSessionNote[];
+}
+
+export interface EnrollmentListResponse {
+  enrollments: ProgramEnrollmentDetail[];
+}
+
+export interface TeacherEnrollmentListResponse {
+  enrollments: ProgramEnrollmentDetail[];
+}
+
+export interface CompleteSessionBody {
+  teacherNote?: string;
+  feedbackFileKey?: string;
+}
+
+export interface ProgramEnrollmentCheckoutBody {
+  enrollmentId: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface ProgramEnrollmentCheckoutResponse {
+  checkoutUrl: string | null;
+}
+
 /**
  * Unauthorized
  */
@@ -1460,3 +1626,19 @@ export type ListExpensesParams = {
   month?: number;
   year?: number;
 };
+
+export type ListAuditionProgramsParams = {
+  instrument?: string;
+  targetLevel?: ListAuditionProgramsTargetLevel;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListAuditionProgramsTargetLevel =
+  (typeof ListAuditionProgramsTargetLevel)[keyof typeof ListAuditionProgramsTargetLevel];
+
+export const ListAuditionProgramsTargetLevel = {
+  undergraduate: "undergraduate",
+  postgrad: "postgrad",
+  professional_orchestra: "professional_orchestra",
+} as const;
