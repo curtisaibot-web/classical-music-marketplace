@@ -35,6 +35,14 @@ tags:
     description: Object storage upload and serving endpoints
   - name: reels
     description: Booking reel upload and processing operations
+  - name: subscriptions
+    description: Business Suite SaaS subscription management
+  - name: contracts
+    description: Business Suite contract creation and e-signing
+  - name: invoices
+    description: Business Suite invoice generation and delivery
+  - name: expenses
+    description: Business Suite expense tracking
 
 paths:
   /healthz:
@@ -1280,6 +1288,634 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ── Business Suite: Subscriptions ──────────────────────────────────────────
+  /subscriptions/me:
+    get:
+      operationId: getMySubscription
+      tags: [subscriptions]
+      summary: Get current teacher's Business Suite subscription
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Subscription status and Pro flag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionMeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /subscriptions/checkout:
+    post:
+      operationId: createSubscriptionCheckout
+      tags: [subscriptions]
+      summary: Create a Stripe Checkout session for Business Suite
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionCheckoutBody"
+      responses:
+        "200":
+          description: Stripe Checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /subscriptions/portal:
+    post:
+      operationId: createBillingPortalSession
+      tags: [subscriptions]
+      summary: Create a Stripe Billing Portal session
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionPortalBody"
+      responses:
+        "200":
+          description: Stripe Billing Portal URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPortalUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /subscriptions/activate:
+    post:
+      operationId: activateSubscription
+      tags: [subscriptions]
+      summary: Activate a subscription after successful Stripe Checkout
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── Business Suite: Cancellation Policy ─────────────────────────────────────
+  /bookings/cancellations:
+    get:
+      operationId: getCancellationReport
+      tags: [bookings]
+      summary: Get all cancelled bookings with fee details (Pro only)
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Cancellation report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancellationReportResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /bookings/{id}/collect-cancellation-fee:
+    patch:
+      operationId: markCancellationFeeCollected
+      tags: [bookings]
+      summary: Mark a cancellation fee as collected (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking updated with fee collected flag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancellationFeeCollectedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Business Suite: Contracts ───────────────────────────────────────────────
+  /contracts:
+    get:
+      operationId: listContracts
+      tags: [contracts]
+      summary: List all contracts for the current teacher (Pro only)
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: List of contracts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createContract
+      tags: [contracts]
+      summary: Create a contract from a built-in template (Pro only)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContractBody"
+      responses:
+        "201":
+          description: Created contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /contracts/templates:
+    get:
+      operationId: listContractTemplates
+      tags: [contracts]
+      summary: "List built-in contract templates (Pro only). Templates are code-defined constants versioned with the application."
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Available templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractTemplateListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /contracts/{id}:
+    get:
+      operationId: getContract
+      tags: [contracts]
+      summary: Get a single contract (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateContract
+      tags: [contracts]
+      summary: Update a draft contract (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContractBody"
+      responses:
+        "200":
+          description: Updated contract
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteContract
+      tags: [contracts]
+      summary: Delete a contract (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /contracts/{id}/send:
+    post:
+      operationId: sendContract
+      tags: [contracts]
+      summary: Send contract to client for e-signature (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendContractResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /contracts/{id}/pdf:
+    get:
+      operationId: downloadContractPdf
+      tags: [contracts]
+      summary: Download contract as PDF (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Business Suite: Invoices ────────────────────────────────────────────────
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List all invoices for the current teacher (Pro only)
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create an invoice (Pro only)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get a single invoice (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update invoice status or notes (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceBody"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteInvoice
+      tags: [invoices]
+      summary: Delete an invoice (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /invoices/{id}/send:
+    post:
+      operationId: sendInvoice
+      tags: [invoices]
+      summary: Send invoice to client via email with PDF attachment (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendInvoiceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /invoices/{id}/pdf:
+    get:
+      operationId: downloadInvoicePdf
+      tags: [invoices]
+      summary: Download invoice as PDF (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Business Suite: Expenses ────────────────────────────────────────────────
+  /expenses/categories:
+    get:
+      operationId: listExpenseCategories
+      tags: [expenses]
+      summary: List available expense categories (Pro only)
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Expense categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseCategoriesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List expenses with optional month/year filter (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Expenses with totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      summary: Create an expense entry (Pro only)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExpenseBody"
+      responses:
+        "201":
+          description: Created expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /expenses/{id}:
+    put:
+      operationId: updateExpense
+      tags: [expenses]
+      summary: Update an expense entry (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExpenseBody"
+      responses:
+        "200":
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      summary: Delete an expense entry (Pro only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -1516,6 +2152,14 @@ components:
           type: string
         videoIntroUrl:
           type: string
+        cancellationPolicyHours:
+          type: integer
+          minimum: 1
+          maximum: 336
+        cancellationFeePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
 
     # ── Student Profile ──────────────────────────────────────────────────────
     StudentProfile:
@@ -2446,3 +3090,448 @@ components:
         downloadUrl:
           type: string
           description: Signed download URL for the file.
+
+    # ── Business Suite: Subscriptions ──────────────────────────────────────────
+    BusinessSuiteSubscription:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        stripeCustomerId:
+          type: ["string", "null"]
+        stripeSubscriptionId:
+          type: ["string", "null"]
+        stripePriceId:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, past_due, cancelled, trialing, incomplete]
+        currentPeriodEnd:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, status, createdAt, updatedAt]
+
+    BusinessSuiteSubscriptionOrNull:
+      oneOf:
+        - $ref: "#/components/schemas/BusinessSuiteSubscription"
+        - type: "null"
+
+    SubscriptionMeResponse:
+      type: object
+      properties:
+        subscription:
+          $ref: "#/components/schemas/BusinessSuiteSubscriptionOrNull"
+        isProSubscriber:
+          type: boolean
+      required: [isProSubscriber]
+
+    CreateSubscriptionCheckoutBody:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [monthly, annual]
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [successUrl, cancelUrl]
+
+    SubscriptionPortalBody:
+      type: object
+      properties:
+        returnUrl:
+          type: string
+      required: [returnUrl]
+
+    SubscriptionPortalUrlResponse:
+      type: object
+      properties:
+        portalUrl:
+          type: string
+      required: [portalUrl]
+
+    ActivateSubscriptionBody:
+      type: object
+      properties:
+        stripeSubscriptionId:
+          type: string
+      required: [stripeSubscriptionId]
+
+    # ── Business Suite: Cancellations ──────────────────────────────────────────
+    CancellationRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: ["string", "null"]
+        startTime:
+          type: ["string", "null"]
+          format: date-time
+        cancelledAt:
+          type: ["string", "null"]
+          format: date-time
+        cancellationPolicyHoursSnapshot:
+          type: ["integer", "null"]
+        cancellationFeePercentSnapshot:
+          type: ["integer", "null"]
+        cancellationFeeOwedInCents:
+          type: ["integer", "null"]
+        cancellationFeeCollected:
+          type: boolean
+        cancellationFeeCollectedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, cancellationFeeCollected]
+
+    CancellationReportResponse:
+      type: object
+      properties:
+        cancellations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CancellationRow"
+        totalFeeOwedInCents:
+          type: integer
+        lateCancellationCount:
+          type: integer
+      required: [cancellations, totalFeeOwedInCents, lateCancellationCount]
+
+    CancellationFeeCollectedResponse:
+      type: object
+      properties:
+        booking:
+          $ref: "#/components/schemas/CancellationRow"
+      required: [booking]
+
+    # ── Business Suite: Contracts ───────────────────────────────────────────────
+    Contract:
+      type: object
+      description: >
+        A music professional contract created from a built-in template.
+        Templates (lesson_package, single_event, masterclass) are code-defined
+        constants versioned with the application — no separate DB table is required.
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        templateType:
+          type: string
+          enum: [lesson_package, single_event, masterclass]
+        title:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        clientEmail:
+          type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, sent, signed]
+        signToken:
+          type: ["string", "null"]
+        signerName:
+          type: ["string", "null"]
+        signedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, templateType, title, fields, status, createdAt, updatedAt]
+
+    ContractResponse:
+      type: object
+      properties:
+        contract:
+          $ref: "#/components/schemas/Contract"
+      required: [contract]
+
+    ContractListResponse:
+      type: object
+      properties:
+        contracts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contract"
+      required: [contracts]
+
+    ContractTemplate:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        previewBody:
+          type: string
+      required: [type, title, previewBody]
+
+    ContractTemplateListResponse:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContractTemplate"
+      required: [templates]
+
+    CreateContractBody:
+      type: object
+      properties:
+        templateType:
+          type: string
+          enum: [lesson_package, single_event, masterclass]
+        title:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        clientEmail:
+          type: string
+        clientName:
+          type: string
+      required: [templateType]
+
+    UpdateContractBody:
+      type: object
+      properties:
+        title:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        clientEmail:
+          type: string
+        clientName:
+          type: string
+
+    SendContractResponse:
+      type: object
+      properties:
+        contract:
+          $ref: "#/components/schemas/Contract"
+        signUrl:
+          type: string
+        emailSent:
+          type: boolean
+        message:
+          type: string
+      required: [contract, signUrl, emailSent, message]
+
+    # ── Business Suite: Invoices ────────────────────────────────────────────────
+    InvoiceLineItem:
+      type: object
+      properties:
+        description:
+          type: string
+        amountInCents:
+          type: integer
+      required: [description, amountInCents]
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        bookingId:
+          type: ["integer", "null"]
+        clientEmail:
+          type: string
+        clientName:
+          type: string
+        amountInCents:
+          type: integer
+        currency:
+          type: string
+        notes:
+          type: ["string", "null"]
+        paymentNote:
+          type: ["string", "null"]
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+        dueDate:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          type: string
+          enum: [draft, sent, paid]
+        sentAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, clientEmail, clientName, amountInCents, currency, status, createdAt, updatedAt]
+
+    InvoiceResponse:
+      type: object
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+      required: [invoice]
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+      required: [invoices]
+
+    CreateInvoiceBody:
+      type: object
+      properties:
+        clientEmail:
+          type: string
+        clientName:
+          type: string
+        amountInCents:
+          type: integer
+        currency:
+          type: string
+        notes:
+          type: string
+        paymentNote:
+          type: string
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLineItem"
+        dueDate:
+          type: string
+          format: date-time
+        bookingId:
+          type: integer
+      required: [clientEmail, clientName]
+
+    UpdateInvoiceBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [draft, sent, paid]
+        notes:
+          type: string
+        paymentNote:
+          type: string
+
+    SendInvoiceResponse:
+      type: object
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+        emailSent:
+          type: boolean
+        message:
+          type: string
+      required: [invoice, emailSent, message]
+
+    # ── Business Suite: Expenses ────────────────────────────────────────────────
+    Expense:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        amountInCents:
+          type: integer
+        category:
+          type: string
+        description:
+          type: ["string", "null"]
+        date:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, amountInCents, category, date, createdAt, updatedAt]
+
+    ExpenseResponse:
+      type: object
+      properties:
+        expense:
+          $ref: "#/components/schemas/Expense"
+      required: [expense]
+
+    ExpenseListResponse:
+      type: object
+      properties:
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Expense"
+        totalInCents:
+          type: integer
+        byCategory:
+          type: object
+          additionalProperties:
+            type: integer
+      required: [expenses, totalInCents, byCategory]
+
+    ExpenseCategoriesResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+      required: [categories]
+
+    CreateExpenseBody:
+      type: object
+      properties:
+        amountInCents:
+          type: integer
+        category:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time
+      required: [amountInCents, category, date]
+
+    UpdateExpenseBody:
+      type: object
+      properties:
+        amountInCents:
+          type: integer
+        category:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date-time

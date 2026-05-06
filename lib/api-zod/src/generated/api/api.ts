@@ -168,9 +168,9 @@ export const GetTeacherResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -219,9 +219,9 @@ export const GetTeacherBySlugResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -279,9 +279,9 @@ export const UpdateMyTeacherSlugResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -364,9 +364,9 @@ export const GetMyTeacherProfileResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -390,6 +390,11 @@ export const GetMyTeacherProfileResponse = zod.object({
 /**
  * @summary Update current teacher profile
  */
+export const updateMyTeacherProfileBodyCancellationPolicyHoursMax = 336;
+
+export const updateMyTeacherProfileBodyCancellationFeePercentMin = 0;
+export const updateMyTeacherProfileBodyCancellationFeePercentMax = 100;
+
 export const UpdateMyTeacherProfileBody = zod.object({
   bio: zod.string().optional(),
   instruments: zod.array(zod.string()).optional(),
@@ -403,8 +408,16 @@ export const UpdateMyTeacherProfileBody = zod.object({
   profileImageUrl: zod.string().optional(),
   websiteUrl: zod.string().optional(),
   videoIntroUrl: zod.string().optional(),
-  cancellationPolicyHours: zod.number().int().min(1).max(336).optional(),
-  cancellationFeePercent: zod.number().int().min(0).max(100).optional(),
+  cancellationPolicyHours: zod
+    .number()
+    .min(1)
+    .max(updateMyTeacherProfileBodyCancellationPolicyHoursMax)
+    .optional(),
+  cancellationFeePercent: zod
+    .number()
+    .min(updateMyTeacherProfileBodyCancellationFeePercentMin)
+    .max(updateMyTeacherProfileBodyCancellationFeePercentMax)
+    .optional(),
 });
 
 export const UpdateMyTeacherProfileResponse = zod.object({
@@ -428,9 +441,9 @@ export const UpdateMyTeacherProfileResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -582,9 +595,9 @@ export const ListListingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -878,9 +891,9 @@ export const GetTeacherListingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -975,9 +988,9 @@ export const ListMasterclassesResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1236,9 +1249,9 @@ export const ListDigitalProductsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1467,6 +1480,7 @@ export const ListBookingsResponse = zod.object({
         "cancelled",
         "completed",
         "refunded",
+        "expired",
       ]),
       scheduledAt: zod.coerce.date().nullish(),
       durationMinutes: zod.number().nullish(),
@@ -1479,6 +1493,27 @@ export const ListBookingsResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      platformFeeInCents: zod
+        .number()
+        .describe("Platform fee charged on this booking (in cents)"),
+      surgePercent: zod
+        .number()
+        .nullish()
+        .describe(
+          "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+        ),
+      surgeAmountInCents: zod
+        .number()
+        .nullish()
+        .describe(
+          "Absolute surge premium in cents (surgePercent % of base price)",
+        ),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe(
+          "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+        ),
       hasReview: zod
         .boolean()
         .optional()
@@ -1507,9 +1542,9 @@ export const ListBookingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1571,6 +1606,7 @@ export const GetBookingResponse = zod.object({
     "cancelled",
     "completed",
     "refunded",
+    "expired",
   ]),
   scheduledAt: zod.coerce.date().nullish(),
   durationMinutes: zod.number().nullish(),
@@ -1583,6 +1619,25 @@ export const GetBookingResponse = zod.object({
   eventDate: zod.coerce.date().nullish(),
   eventLocation: zod.string().nullish(),
   cancelReason: zod.string().nullish(),
+  platformFeeInCents: zod
+    .number()
+    .describe("Platform fee charged on this booking (in cents)"),
+  surgePercent: zod
+    .number()
+    .nullish()
+    .describe(
+      "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+    ),
+  surgeAmountInCents: zod
+    .number()
+    .nullish()
+    .describe("Absolute surge premium in cents (surgePercent % of base price)"),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+    ),
   hasReview: zod
     .boolean()
     .optional()
@@ -1645,7 +1700,9 @@ export const UpdateBookingParams = zod.object({
 });
 
 export const UpdateBookingBody = zod.object({
-  status: zod.enum(["confirmed", "cancelled", "completed", "expired"]).optional(),
+  status: zod
+    .enum(["confirmed", "cancelled", "completed", "expired"])
+    .optional(),
   meetingUrl: zod.string().optional(),
   cancelReason: zod.string().optional(),
   scheduledAt: zod.coerce.date().optional(),
@@ -1663,6 +1720,7 @@ export const UpdateBookingResponse = zod.object({
     "cancelled",
     "completed",
     "refunded",
+    "expired",
   ]),
   scheduledAt: zod.coerce.date().nullish(),
   durationMinutes: zod.number().nullish(),
@@ -1675,6 +1733,25 @@ export const UpdateBookingResponse = zod.object({
   eventDate: zod.coerce.date().nullish(),
   eventLocation: zod.string().nullish(),
   cancelReason: zod.string().nullish(),
+  platformFeeInCents: zod
+    .number()
+    .describe("Platform fee charged on this booking (in cents)"),
+  surgePercent: zod
+    .number()
+    .nullish()
+    .describe(
+      "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+    ),
+  surgeAmountInCents: zod
+    .number()
+    .nullish()
+    .describe("Absolute surge premium in cents (surgePercent % of base price)"),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+    ),
   hasReview: zod
     .boolean()
     .optional()
@@ -1921,6 +1998,7 @@ export const GetTeacherDashboardResponse = zod.object({
         "cancelled",
         "completed",
         "refunded",
+        "expired",
       ]),
       scheduledAt: zod.coerce.date().nullish(),
       durationMinutes: zod.number().nullish(),
@@ -1933,6 +2011,27 @@ export const GetTeacherDashboardResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      platformFeeInCents: zod
+        .number()
+        .describe("Platform fee charged on this booking (in cents)"),
+      surgePercent: zod
+        .number()
+        .nullish()
+        .describe(
+          "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+        ),
+      surgeAmountInCents: zod
+        .number()
+        .nullish()
+        .describe(
+          "Absolute surge premium in cents (surgePercent % of base price)",
+        ),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe(
+          "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+        ),
       hasReview: zod
         .boolean()
         .optional()
@@ -1961,9 +2060,9 @@ export const GetTeacherDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2066,9 +2165,9 @@ export const GetTeacherDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2111,6 +2210,7 @@ export const GetStudentDashboardResponse = zod.object({
         "cancelled",
         "completed",
         "refunded",
+        "expired",
       ]),
       scheduledAt: zod.coerce.date().nullish(),
       durationMinutes: zod.number().nullish(),
@@ -2123,6 +2223,27 @@ export const GetStudentDashboardResponse = zod.object({
       eventDate: zod.coerce.date().nullish(),
       eventLocation: zod.string().nullish(),
       cancelReason: zod.string().nullish(),
+      platformFeeInCents: zod
+        .number()
+        .describe("Platform fee charged on this booking (in cents)"),
+      surgePercent: zod
+        .number()
+        .nullish()
+        .describe(
+          "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+        ),
+      surgeAmountInCents: zod
+        .number()
+        .nullish()
+        .describe(
+          "Absolute surge premium in cents (surgePercent % of base price)",
+        ),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe(
+          "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+        ),
       hasReview: zod
         .boolean()
         .optional()
@@ -2151,9 +2272,9 @@ export const GetStudentDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2243,9 +2364,9 @@ export const GetStudentDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
-      isProSubscriber: zod.boolean().optional(),
-      cancellationPolicyHours: zod.number().optional(),
-      cancellationFeePercent: zod.number().optional(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2473,30 +2594,37 @@ export const GetConnectDashboardResponse = zod.object({
   dashboardUrl: zod.string(),
 });
 
-// ─── Business Suite ────────────────────────────────────────────────────────────
-
 /**
- * @summary Get current user's Business Suite subscription status
+ * @summary Get current teacher's Business Suite subscription
  */
-export const GetSubscriptionMeResponse = zod.object({
+export const GetMySubscriptionResponse = zod.object({
   subscription: zod
-    .object({
-      id: zod.number(),
-      userId: zod.string(),
-      stripeCustomerId: zod.string().nullish(),
-      stripeSubscriptionId: zod.string().nullish(),
-      stripePriceId: zod.string().nullish(),
-      status: zod.enum(["active", "trialing", "past_due", "cancelled", "incomplete"]),
-      currentPeriodEnd: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
-    })
-    .nullable(),
+    .union([
+      zod.object({
+        id: zod.number(),
+        userId: zod.string(),
+        stripeCustomerId: zod.string().nullish(),
+        stripeSubscriptionId: zod.string().nullish(),
+        stripePriceId: zod.string().nullish(),
+        status: zod.enum([
+          "active",
+          "past_due",
+          "cancelled",
+          "trialing",
+          "incomplete",
+        ]),
+        currentPeriodEnd: zod.coerce.date().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
   isProSubscriber: zod.boolean(),
 });
 
 /**
- * @summary Create Business Suite Stripe Checkout session
+ * @summary Create a Stripe Checkout session for Business Suite
  */
 export const CreateSubscriptionCheckoutBody = zod.object({
   plan: zod.enum(["monthly", "annual"]).optional(),
@@ -2509,83 +2637,113 @@ export const CreateSubscriptionCheckoutResponse = zod.object({
 });
 
 /**
- * @summary Open Stripe Customer Portal to manage subscription
+ * @summary Create a Stripe Billing Portal session
  */
-export const CreateSubscriptionPortalBody = zod.object({
+export const CreateBillingPortalSessionBody = zod.object({
   returnUrl: zod.string(),
 });
 
-export const CreateSubscriptionPortalResponse = zod.object({
+export const CreateBillingPortalSessionResponse = zod.object({
   portalUrl: zod.string(),
 });
 
-// ─── Contracts ─────────────────────────────────────────────────────────────────
+/**
+ * @summary Activate a subscription after successful Stripe Checkout
+ */
+export const ActivateSubscriptionBody = zod.object({
+  stripeSubscriptionId: zod.string(),
+});
 
-const ContractSchema = zod.object({
-  id: zod.number(),
-  teacherId: zod.string(),
-  templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
-  title: zod.string(),
-  fields: zod.record(zod.string(), zod.string()),
-  clientEmail: zod.string().nullish(),
-  clientName: zod.string().nullish(),
-  status: zod.enum(["draft", "sent", "signed"]),
-  signToken: zod.string().nullish(),
-  signerName: zod.string().nullish(),
-  signedAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+export const ActivateSubscriptionResponse = zod.object({
+  success: zod.boolean(),
 });
 
 /**
- * @summary List all contracts for the authenticated teacher
+ * @summary Get all cancelled bookings with fee details (Pro only)
+ */
+export const GetCancellationReportResponse = zod.object({
+  cancellations: zod.array(
+    zod.object({
+      id: zod.number(),
+      studentId: zod.string().nullish(),
+      startTime: zod.coerce.date().nullish(),
+      cancelledAt: zod.coerce.date().nullish(),
+      cancellationPolicyHoursSnapshot: zod.number().nullish(),
+      cancellationFeePercentSnapshot: zod.number().nullish(),
+      cancellationFeeOwedInCents: zod.number().nullish(),
+      cancellationFeeCollected: zod.boolean(),
+      cancellationFeeCollectedAt: zod.coerce.date().nullish(),
+    }),
+  ),
+  totalFeeOwedInCents: zod.number(),
+  lateCancellationCount: zod.number(),
+});
+
+/**
+ * @summary Mark a cancellation fee as collected (Pro only)
+ */
+export const MarkCancellationFeeCollectedParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkCancellationFeeCollectedResponse = zod.object({
+  booking: zod.object({
+    id: zod.number(),
+    studentId: zod.string().nullish(),
+    startTime: zod.coerce.date().nullish(),
+    cancelledAt: zod.coerce.date().nullish(),
+    cancellationPolicyHoursSnapshot: zod.number().nullish(),
+    cancellationFeePercentSnapshot: zod.number().nullish(),
+    cancellationFeeOwedInCents: zod.number().nullish(),
+    cancellationFeeCollected: zod.boolean(),
+    cancellationFeeCollectedAt: zod.coerce.date().nullish(),
+  }),
+});
+
+/**
+ * @summary List all contracts for the current teacher (Pro only)
  */
 export const ListContractsResponse = zod.object({
-  contracts: zod.array(ContractSchema),
+  contracts: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        teacherId: zod.string(),
+        templateType: zod.enum([
+          "lesson_package",
+          "single_event",
+          "masterclass",
+        ]),
+        title: zod.string(),
+        fields: zod.record(zod.string(), zod.string()),
+        clientEmail: zod.string().nullish(),
+        clientName: zod.string().nullish(),
+        status: zod.enum(["draft", "sent", "signed"]),
+        signToken: zod.string().nullish(),
+        signerName: zod.string().nullish(),
+        signedAt: zod.coerce.date().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      })
+      .describe(
+        "A music professional contract created from a built-in template. Templates (lesson_package, single_event, masterclass) are code-defined constants versioned with the application — no separate DB table is required.\n",
+      ),
+  ),
 });
 
 /**
- * @summary Create a new contract from a template
+ * @summary Create a contract from a built-in template (Pro only)
  */
 export const CreateContractBody = zod.object({
   templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
   title: zod.string().optional(),
   fields: zod.record(zod.string(), zod.string()).optional(),
-  clientEmail: zod.string().email().optional(),
+  clientEmail: zod.string().optional(),
   clientName: zod.string().optional(),
 });
 
-export const CreateContractResponse = zod.object({ contract: ContractSchema });
-
 /**
- * @summary Get a single contract
- */
-export const GetContractResponse = zod.object({ contract: ContractSchema });
-
-/**
- * @summary Update a contract
- */
-export const UpdateContractBody = zod.object({
-  title: zod.string().optional(),
-  fields: zod.record(zod.string(), zod.string()).optional(),
-  clientEmail: zod.string().email().optional(),
-  clientName: zod.string().optional(),
-});
-
-export const UpdateContractResponse = zod.object({ contract: ContractSchema });
-
-/**
- * @summary Send a contract to client for signing
- */
-export const SendContractResponse = zod.object({
-  contract: ContractSchema,
-  signUrl: zod.string(),
-  emailSent: zod.boolean(),
-  message: zod.string(),
-});
-
-/**
- * @summary List available contract templates
+ * @summary List built-in contract templates (Pro only). Templates are code-defined constants versioned with the application.
  */
 export const ListContractTemplatesResponse = zod.object({
   templates: zod.array(
@@ -2597,134 +2755,369 @@ export const ListContractTemplatesResponse = zod.object({
   ),
 });
 
-// ─── Invoices ──────────────────────────────────────────────────────────────────
-
-const InvoiceLineItemSchema = zod.object({
-  description: zod.string(),
-  amountInCents: zod.number().int(),
+/**
+ * @summary Get a single contract (Pro only)
+ */
+export const GetContractParams = zod.object({
+  id: zod.coerce.number(),
 });
 
-const InvoiceSchema = zod.object({
-  id: zod.number(),
-  teacherId: zod.string(),
-  bookingId: zod.number().nullish(),
-  clientEmail: zod.string(),
-  clientName: zod.string(),
-  amountInCents: zod.number().int(),
-  currency: zod.string(),
-  status: zod.enum(["draft", "sent", "paid"]),
-  notes: zod.string().nullish(),
-  paymentNote: zod.string().nullish(),
-  lineItems: zod.array(InvoiceLineItemSchema).nullish(),
-  dueDate: zod.coerce.date().nullish(),
-  sentAt: zod.coerce.date().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+export const GetContractResponse = zod.object({
+  contract: zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
+      title: zod.string(),
+      fields: zod.record(zod.string(), zod.string()),
+      clientEmail: zod.string().nullish(),
+      clientName: zod.string().nullish(),
+      status: zod.enum(["draft", "sent", "signed"]),
+      signToken: zod.string().nullish(),
+      signerName: zod.string().nullish(),
+      signedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .describe(
+      "A music professional contract created from a built-in template. Templates (lesson_package, single_event, masterclass) are code-defined constants versioned with the application — no separate DB table is required.\n",
+    ),
 });
 
 /**
- * @summary List all invoices for the authenticated teacher
+ * @summary Update a draft contract (Pro only)
+ */
+export const UpdateContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateContractBody = zod.object({
+  title: zod.string().optional(),
+  fields: zod.record(zod.string(), zod.string()).optional(),
+  clientEmail: zod.string().optional(),
+  clientName: zod.string().optional(),
+});
+
+export const UpdateContractResponse = zod.object({
+  contract: zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
+      title: zod.string(),
+      fields: zod.record(zod.string(), zod.string()),
+      clientEmail: zod.string().nullish(),
+      clientName: zod.string().nullish(),
+      status: zod.enum(["draft", "sent", "signed"]),
+      signToken: zod.string().nullish(),
+      signerName: zod.string().nullish(),
+      signedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .describe(
+      "A music professional contract created from a built-in template. Templates (lesson_package, single_event, masterclass) are code-defined constants versioned with the application — no separate DB table is required.\n",
+    ),
+});
+
+/**
+ * @summary Delete a contract (Pro only)
+ */
+export const DeleteContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send contract to client for e-signature (Pro only)
+ */
+export const SendContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendContractResponse = zod.object({
+  contract: zod
+    .object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
+      title: zod.string(),
+      fields: zod.record(zod.string(), zod.string()),
+      clientEmail: zod.string().nullish(),
+      clientName: zod.string().nullish(),
+      status: zod.enum(["draft", "sent", "signed"]),
+      signToken: zod.string().nullish(),
+      signerName: zod.string().nullish(),
+      signedAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .describe(
+      "A music professional contract created from a built-in template. Templates (lesson_package, single_event, masterclass) are code-defined constants versioned with the application — no separate DB table is required.\n",
+    ),
+  signUrl: zod.string(),
+  emailSent: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Download contract as PDF (Pro only)
+ */
+export const DownloadContractPdfParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List all invoices for the current teacher (Pro only)
  */
 export const ListInvoicesResponse = zod.object({
-  invoices: zod.array(InvoiceSchema),
+  invoices: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      bookingId: zod.number().nullish(),
+      clientEmail: zod.string(),
+      clientName: zod.string(),
+      amountInCents: zod.number(),
+      currency: zod.string(),
+      notes: zod.string().nullish(),
+      paymentNote: zod.string().nullish(),
+      lineItems: zod
+        .array(
+          zod.object({
+            description: zod.string(),
+            amountInCents: zod.number(),
+          }),
+        )
+        .optional(),
+      dueDate: zod.coerce.date().nullish(),
+      status: zod.enum(["draft", "sent", "paid"]),
+      sentAt: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
 });
 
 /**
- * @summary Create a new invoice
+ * @summary Create an invoice (Pro only)
  */
 export const CreateInvoiceBody = zod.object({
-  clientEmail: zod.string().email(),
+  clientEmail: zod.string(),
   clientName: zod.string(),
-  amountInCents: zod.number().int().positive().optional(),
+  amountInCents: zod.number().optional(),
   currency: zod.string().optional(),
   notes: zod.string().optional(),
   paymentNote: zod.string().optional(),
-  lineItems: zod.array(InvoiceLineItemSchema).optional(),
-  dueDate: zod.string().optional(),
-  bookingId: zod.number().int().optional(),
+  lineItems: zod
+    .array(
+      zod.object({
+        description: zod.string(),
+        amountInCents: zod.number(),
+      }),
+    )
+    .optional(),
+  dueDate: zod.coerce.date().optional(),
+  bookingId: zod.number().optional(),
 });
 
-export const CreateInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+/**
+ * @summary Get a single invoice (Pro only)
+ */
+export const GetInvoiceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetInvoiceResponse = zod.object({
+  invoice: zod.object({
+    id: zod.number(),
+    teacherId: zod.string(),
+    bookingId: zod.number().nullish(),
+    clientEmail: zod.string(),
+    clientName: zod.string(),
+    amountInCents: zod.number(),
+    currency: zod.string(),
+    notes: zod.string().nullish(),
+    paymentNote: zod.string().nullish(),
+    lineItems: zod
+      .array(
+        zod.object({
+          description: zod.string(),
+          amountInCents: zod.number(),
+        }),
+      )
+      .optional(),
+    dueDate: zod.coerce.date().nullish(),
+    status: zod.enum(["draft", "sent", "paid"]),
+    sentAt: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
 
 /**
- * @summary Get a single invoice
+ * @summary Update invoice status or notes (Pro only)
  */
-export const GetInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+export const UpdateInvoiceParams = zod.object({
+  id: zod.coerce.number(),
+});
 
-/**
- * @summary Update an invoice (status, notes, paymentNote)
- */
 export const UpdateInvoiceBody = zod.object({
   status: zod.enum(["draft", "sent", "paid"]).optional(),
   notes: zod.string().optional(),
   paymentNote: zod.string().optional(),
 });
 
-export const UpdateInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+export const UpdateInvoiceResponse = zod.object({
+  invoice: zod.object({
+    id: zod.number(),
+    teacherId: zod.string(),
+    bookingId: zod.number().nullish(),
+    clientEmail: zod.string(),
+    clientName: zod.string(),
+    amountInCents: zod.number(),
+    currency: zod.string(),
+    notes: zod.string().nullish(),
+    paymentNote: zod.string().nullish(),
+    lineItems: zod
+      .array(
+        zod.object({
+          description: zod.string(),
+          amountInCents: zod.number(),
+        }),
+      )
+      .optional(),
+    dueDate: zod.coerce.date().nullish(),
+    status: zod.enum(["draft", "sent", "paid"]),
+    sentAt: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
 
 /**
- * @summary Send invoice to client with PDF attachment
+ * @summary Delete an invoice (Pro only)
  */
+export const DeleteInvoiceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send invoice to client via email with PDF attachment (Pro only)
+ */
+export const SendInvoiceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
 export const SendInvoiceResponse = zod.object({
-  invoice: InvoiceSchema,
+  invoice: zod.object({
+    id: zod.number(),
+    teacherId: zod.string(),
+    bookingId: zod.number().nullish(),
+    clientEmail: zod.string(),
+    clientName: zod.string(),
+    amountInCents: zod.number(),
+    currency: zod.string(),
+    notes: zod.string().nullish(),
+    paymentNote: zod.string().nullish(),
+    lineItems: zod
+      .array(
+        zod.object({
+          description: zod.string(),
+          amountInCents: zod.number(),
+        }),
+      )
+      .optional(),
+    dueDate: zod.coerce.date().nullish(),
+    status: zod.enum(["draft", "sent", "paid"]),
+    sentAt: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
   emailSent: zod.boolean(),
   message: zod.string(),
 });
 
-// ─── Expenses ──────────────────────────────────────────────────────────────────
-
-const ExpenseSchema = zod.object({
-  id: zod.number(),
-  teacherId: zod.string(),
-  amountInCents: zod.number().int(),
-  category: zod.string(),
-  description: zod.string().nullish(),
-  date: zod.coerce.date(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
-});
-
 /**
- * @summary List expenses with optional month/year filter
+ * @summary Download invoice as PDF (Pro only)
  */
-export const ListExpensesQueryParams = zod.object({
-  month: zod.string().optional(),
-  year: zod.string().optional(),
-});
-
-export const ListExpensesResponse = zod.object({
-  expenses: zod.array(ExpenseSchema),
-  totalInCents: zod.number().int(),
-  byCategory: zod.record(zod.string(), zod.number()),
+export const DownloadInvoicePdfParams = zod.object({
+  id: zod.coerce.number(),
 });
 
 /**
- * @summary List valid expense categories
+ * @summary List available expense categories (Pro only)
  */
 export const ListExpenseCategoriesResponse = zod.object({
   categories: zod.array(zod.string()),
 });
 
 /**
- * @summary Create a new expense entry
+ * @summary List expenses with optional month/year filter (Pro only)
  */
-export const CreateExpenseBody = zod.object({
-  amountInCents: zod.number().int().positive(),
-  category: zod.string(),
-  description: zod.string().optional(),
-  date: zod.string(),
+export const listExpensesQueryMonthMax = 12;
+
+export const ListExpensesQueryParams = zod.object({
+  month: zod.coerce.number().min(1).max(listExpensesQueryMonthMax).optional(),
+  year: zod.coerce.number().optional(),
 });
 
-export const CreateExpenseResponse = zod.object({ expense: ExpenseSchema });
+export const ListExpensesResponse = zod.object({
+  expenses: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      amountInCents: zod.number(),
+      category: zod.string(),
+      description: zod.string().nullish(),
+      date: zod.coerce.date(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  totalInCents: zod.number(),
+  byCategory: zod.record(zod.string(), zod.number()),
+});
 
 /**
- * @summary Update an expense entry
+ * @summary Create an expense entry (Pro only)
  */
-export const UpdateExpenseBody = zod.object({
-  amountInCents: zod.number().int().positive().optional(),
-  category: zod.string().optional(),
+export const CreateExpenseBody = zod.object({
+  amountInCents: zod.number(),
+  category: zod.string(),
   description: zod.string().optional(),
-  date: zod.string().optional(),
+  date: zod.coerce.date(),
 });
 
-export const UpdateExpenseResponse = zod.object({ expense: ExpenseSchema });
+/**
+ * @summary Update an expense entry (Pro only)
+ */
+export const UpdateExpenseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateExpenseBody = zod.object({
+  amountInCents: zod.number().optional(),
+  category: zod.string().optional(),
+  description: zod.string().optional(),
+  date: zod.coerce.date().optional(),
+});
+
+export const UpdateExpenseResponse = zod.object({
+  expense: zod.object({
+    id: zod.number(),
+    teacherId: zod.string(),
+    amountInCents: zod.number(),
+    category: zod.string(),
+    description: zod.string().nullish(),
+    date: zod.coerce.date(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Delete an expense entry (Pro only)
+ */
+export const DeleteExpenseParams = zod.object({
+  id: zod.coerce.number(),
+});

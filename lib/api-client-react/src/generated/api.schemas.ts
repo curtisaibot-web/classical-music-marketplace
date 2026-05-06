@@ -83,6 +83,9 @@ export interface TeacherProfile {
   /** @nullable */
   profileSlug?: string | null;
   stripeOnboarded: boolean;
+  isProSubscriber?: boolean;
+  cancellationPolicyHours?: number;
+  cancellationFeePercent?: number;
   user?: User;
   createdAt: string;
 }
@@ -136,6 +139,16 @@ export interface UpdateTeacherProfileBody {
   profileImageUrl?: string;
   websiteUrl?: string;
   videoIntroUrl?: string;
+  /**
+   * @minimum 1
+   * @maximum 336
+   */
+  cancellationPolicyHours?: number;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  cancellationFeePercent?: number;
 }
 
 export interface StudentProfile {
@@ -430,6 +443,7 @@ export const BookingStatus = {
   cancelled: "cancelled",
   completed: "completed",
   refunded: "refunded",
+  expired: "expired",
 } as const;
 
 export interface Booking {
@@ -460,6 +474,23 @@ export interface Booking {
   eventLocation?: string | null;
   /** @nullable */
   cancelReason?: string | null;
+  /** Platform fee charged on this booking (in cents) */
+  platformFeeInCents: number;
+  /**
+   * Surge percentage applied for last-minute bookings (e.g. 25 = 25%)
+   * @nullable
+   */
+  surgePercent?: number | null;
+  /**
+   * Absolute surge premium in cents (surgePercent % of base price)
+   * @nullable
+   */
+  surgeAmountInCents?: number | null;
+  /**
+   * Acceptance deadline for last-minute booking requests (null for standard bookings)
+   * @nullable
+   */
+  expiresAt?: string | null;
   /** Whether the student has already submitted a review for this booking */
   hasReview?: boolean;
   teacher?: TeacherProfile;
@@ -499,6 +530,7 @@ export const UpdateBookingBodyStatus = {
   confirmed: "confirmed",
   cancelled: "cancelled",
   completed: "completed",
+  expired: "expired",
 } as const;
 
 export interface UpdateBookingBody {
@@ -811,6 +843,312 @@ export interface DownloadRedirectResponse {
   downloadUrl: string;
 }
 
+export type BusinessSuiteSubscriptionStatus =
+  (typeof BusinessSuiteSubscriptionStatus)[keyof typeof BusinessSuiteSubscriptionStatus];
+
+export const BusinessSuiteSubscriptionStatus = {
+  active: "active",
+  past_due: "past_due",
+  cancelled: "cancelled",
+  trialing: "trialing",
+  incomplete: "incomplete",
+} as const;
+
+export interface BusinessSuiteSubscription {
+  id: number;
+  userId: string;
+  /** @nullable */
+  stripeCustomerId?: string | null;
+  /** @nullable */
+  stripeSubscriptionId?: string | null;
+  /** @nullable */
+  stripePriceId?: string | null;
+  status: BusinessSuiteSubscriptionStatus;
+  /** @nullable */
+  currentPeriodEnd?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BusinessSuiteSubscriptionOrNull = BusinessSuiteSubscription | null;
+
+export interface SubscriptionMeResponse {
+  subscription?: BusinessSuiteSubscriptionOrNull;
+  isProSubscriber: boolean;
+}
+
+export type CreateSubscriptionCheckoutBodyPlan =
+  (typeof CreateSubscriptionCheckoutBodyPlan)[keyof typeof CreateSubscriptionCheckoutBodyPlan];
+
+export const CreateSubscriptionCheckoutBodyPlan = {
+  monthly: "monthly",
+  annual: "annual",
+} as const;
+
+export interface CreateSubscriptionCheckoutBody {
+  plan?: CreateSubscriptionCheckoutBodyPlan;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface SubscriptionPortalBody {
+  returnUrl: string;
+}
+
+export interface SubscriptionPortalUrlResponse {
+  portalUrl: string;
+}
+
+export interface ActivateSubscriptionBody {
+  stripeSubscriptionId: string;
+}
+
+export interface CancellationRow {
+  id: number;
+  /** @nullable */
+  studentId?: string | null;
+  /** @nullable */
+  startTime?: string | null;
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancellationPolicyHoursSnapshot?: number | null;
+  /** @nullable */
+  cancellationFeePercentSnapshot?: number | null;
+  /** @nullable */
+  cancellationFeeOwedInCents?: number | null;
+  cancellationFeeCollected: boolean;
+  /** @nullable */
+  cancellationFeeCollectedAt?: string | null;
+}
+
+export interface CancellationReportResponse {
+  cancellations: CancellationRow[];
+  totalFeeOwedInCents: number;
+  lateCancellationCount: number;
+}
+
+export interface CancellationFeeCollectedResponse {
+  booking: CancellationRow;
+}
+
+export type ContractTemplateType =
+  (typeof ContractTemplateType)[keyof typeof ContractTemplateType];
+
+export const ContractTemplateType = {
+  lesson_package: "lesson_package",
+  single_event: "single_event",
+  masterclass: "masterclass",
+} as const;
+
+export type ContractFields = { [key: string]: string };
+
+export type ContractStatus =
+  (typeof ContractStatus)[keyof typeof ContractStatus];
+
+export const ContractStatus = {
+  draft: "draft",
+  sent: "sent",
+  signed: "signed",
+} as const;
+
+/**
+ * A music professional contract created from a built-in template. Templates (lesson_package, single_event, masterclass) are code-defined constants versioned with the application — no separate DB table is required.
+
+ */
+export interface Contract {
+  id: number;
+  teacherId: string;
+  templateType: ContractTemplateType;
+  title: string;
+  fields: ContractFields;
+  /** @nullable */
+  clientEmail?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  status: ContractStatus;
+  /** @nullable */
+  signToken?: string | null;
+  /** @nullable */
+  signerName?: string | null;
+  /** @nullable */
+  signedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractResponse {
+  contract: Contract;
+}
+
+export interface ContractListResponse {
+  contracts: Contract[];
+}
+
+export interface ContractTemplate {
+  type: string;
+  title: string;
+  previewBody: string;
+}
+
+export interface ContractTemplateListResponse {
+  templates: ContractTemplate[];
+}
+
+export type CreateContractBodyTemplateType =
+  (typeof CreateContractBodyTemplateType)[keyof typeof CreateContractBodyTemplateType];
+
+export const CreateContractBodyTemplateType = {
+  lesson_package: "lesson_package",
+  single_event: "single_event",
+  masterclass: "masterclass",
+} as const;
+
+export type CreateContractBodyFields = { [key: string]: string };
+
+export interface CreateContractBody {
+  templateType: CreateContractBodyTemplateType;
+  title?: string;
+  fields?: CreateContractBodyFields;
+  clientEmail?: string;
+  clientName?: string;
+}
+
+export type UpdateContractBodyFields = { [key: string]: string };
+
+export interface UpdateContractBody {
+  title?: string;
+  fields?: UpdateContractBodyFields;
+  clientEmail?: string;
+  clientName?: string;
+}
+
+export interface SendContractResponse {
+  contract: Contract;
+  signUrl: string;
+  emailSent: boolean;
+  message: string;
+}
+
+export interface InvoiceLineItem {
+  description: string;
+  amountInCents: number;
+}
+
+export type InvoiceStatus = (typeof InvoiceStatus)[keyof typeof InvoiceStatus];
+
+export const InvoiceStatus = {
+  draft: "draft",
+  sent: "sent",
+  paid: "paid",
+} as const;
+
+export interface Invoice {
+  id: number;
+  teacherId: string;
+  /** @nullable */
+  bookingId?: number | null;
+  clientEmail: string;
+  clientName: string;
+  amountInCents: number;
+  currency: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  paymentNote?: string | null;
+  lineItems?: InvoiceLineItem[];
+  /** @nullable */
+  dueDate?: string | null;
+  status: InvoiceStatus;
+  /** @nullable */
+  sentAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceResponse {
+  invoice: Invoice;
+}
+
+export interface InvoiceListResponse {
+  invoices: Invoice[];
+}
+
+export interface CreateInvoiceBody {
+  clientEmail: string;
+  clientName: string;
+  amountInCents?: number;
+  currency?: string;
+  notes?: string;
+  paymentNote?: string;
+  lineItems?: InvoiceLineItem[];
+  dueDate?: string;
+  bookingId?: number;
+}
+
+export type UpdateInvoiceBodyStatus =
+  (typeof UpdateInvoiceBodyStatus)[keyof typeof UpdateInvoiceBodyStatus];
+
+export const UpdateInvoiceBodyStatus = {
+  draft: "draft",
+  sent: "sent",
+  paid: "paid",
+} as const;
+
+export interface UpdateInvoiceBody {
+  status?: UpdateInvoiceBodyStatus;
+  notes?: string;
+  paymentNote?: string;
+}
+
+export interface SendInvoiceResponse {
+  invoice: Invoice;
+  emailSent: boolean;
+  message: string;
+}
+
+export interface Expense {
+  id: number;
+  teacherId: string;
+  amountInCents: number;
+  category: string;
+  /** @nullable */
+  description?: string | null;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseResponse {
+  expense: Expense;
+}
+
+export type ExpenseListResponseByCategory = { [key: string]: number };
+
+export interface ExpenseListResponse {
+  expenses: Expense[];
+  totalInCents: number;
+  byCategory: ExpenseListResponseByCategory;
+}
+
+export interface ExpenseCategoriesResponse {
+  categories: string[];
+}
+
+export interface CreateExpenseBody {
+  amountInCents: number;
+  category: string;
+  description?: string;
+  date: string;
+}
+
+export interface UpdateExpenseBody {
+  amountInCents?: number;
+  category?: string;
+  description?: string;
+  date?: string;
+}
+
 /**
  * Unauthorized
  */
@@ -934,4 +1272,17 @@ export type UploadReelBody = {
   genre?: string;
   /** Comma-separated list of instruments */
   instruments?: string;
+};
+
+export type ActivateSubscription200 = {
+  success: boolean;
+};
+
+export type ListExpensesParams = {
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month?: number;
+  year?: number;
 };
