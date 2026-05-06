@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or, desc } from "drizzle-orm";
-import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable, reviewsTable } from "@workspace/db";
+import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable, reviewsTable, studentProfilesTable, orgMembersTable, organisationsTable } from "@workspace/db";
 import { isProSubscriber } from "./subscriptions";
 import {
   GetBookingResponse,
@@ -94,6 +94,41 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
       if (tp) {
         cancellationPolicyHoursSnapshot = tp.cancellationPolicyHours ?? null;
         cancellationFeePercentSnapshot = tp.cancellationFeePercent ?? null;
+      }
+    }
+  }
+
+  // ── Org-scoped booking guard ──────────────────────────────────────────────
+  // If the student belongs to an org that is not a public marketplace, they can
+  // only book teachers who are members of the same org.
+  if (teacherId) {
+    const [studentProfile] = await db
+      .select({ orgId: studentProfilesTable.orgId })
+      .from(studentProfilesTable)
+      .where(eq(studentProfilesTable.userId, userId));
+
+    if (studentProfile?.orgId !== null && studentProfile?.orgId !== undefined) {
+      const [org] = await db
+        .select({ id: organisationsTable.id, isPublicMarketplace: organisationsTable.isPublicMarketplace })
+        .from(organisationsTable)
+        .where(eq(organisationsTable.id, studentProfile.orgId));
+
+      if (org && !org.isPublicMarketplace) {
+        // Check that teacher is in the same org
+        const [teacherMembership] = await db
+          .select({ id: orgMembersTable.id })
+          .from(orgMembersTable)
+          .where(
+            and(
+              eq(orgMembersTable.orgId, org.id),
+              eq(orgMembersTable.userId, teacherId),
+              eq(orgMembersTable.role, "teacher"),
+            ),
+          );
+        if (!teacherMembership) {
+          res.status(403).json({ error: "This teacher is not part of your school" });
+          return;
+        }
       }
     }
   }

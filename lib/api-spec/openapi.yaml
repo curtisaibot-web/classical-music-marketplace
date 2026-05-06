@@ -2609,11 +2609,11 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /orgs/{slug}/members/{memberId}:
+  /orgs/{slug}/members/{userId}:
     delete:
       operationId: removeOrgMember
       tags: [orgs]
-      summary: Remove a member from the organisation (admin only)
+      summary: Remove a member from the organisation by their user ID (admin only)
       security: [{ clerkAuth: [] }]
       parameters:
         - name: slug
@@ -2621,7 +2621,7 @@ paths:
           required: true
           schema:
             type: string
-        - name: memberId
+        - name: userId
           in: path
           required: true
           schema:

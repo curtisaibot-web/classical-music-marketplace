@@ -5,6 +5,7 @@ import { backfillMissingProfileSlugs } from "./backfillSlugs";
 import { db, bookingsTable } from "@workspace/db";
 import { and, eq, lte, isNotNull } from "drizzle-orm";
 import { expireDeadlinedCampaigns } from "./routes/campaigns";
+import { reconcileAllOrgSubscriptionQuantities } from "./routes/orgs";
 
 const rawPort = process.env["PORT"];
 
@@ -64,6 +65,11 @@ setInterval(expireStaleLastMinuteBookings, 5 * 60 * 1000);
 // Run hourly: process campaigns whose deadlines have passed.
 expireDeadlinedCampaigns();
 setInterval(expireDeadlinedCampaigns, 60 * 60 * 1000);
+
+// ── Org subscription quantity reconciliation ──────────────────────────────────
+// Run daily: reconcile Stripe per-seat subscription quantities with actual student counts.
+reconcileAllOrgSubscriptionQuantities();
+setInterval(reconcileAllOrgSubscriptionQuantities, 24 * 60 * 60 * 1000);
 
 app.listen(port, (err) => {
   if (err) {

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, gte, lte, sql, count, ilike, inArray } from "drizzle-orm";
-import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable, subscriptionsTable } from "@workspace/db";
+import { eq, and, gte, lte, sql, count, ilike, inArray, or } from "drizzle-orm";
+import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable, subscriptionsTable, orgMembersTable, organisationsTable } from "@workspace/db";
 import {
   GetTeacherResponse,
   GetMyTeacherProfileResponse,
@@ -42,6 +42,7 @@ router.get("/teachers", async (req, res): Promise<void> => {
   const listingType = params.success ? params.data.listingType : undefined;
   const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
   const onlineOnly = req.query.onlineOnly === "true";
+  const orgSlug = typeof req.query.orgSlug === "string" ? req.query.orgSlug : undefined;
 
   const resolvedInstruments = instrumentsRaw
     ? instrumentsRaw.split(",").map((s) => s.trim()).filter(Boolean)
@@ -117,6 +118,68 @@ router.get("/teachers", async (req, res): Promise<void> => {
       } else {
         conditions.push(inArray(teacherProfilesTable.userId, ids));
       }
+    }
+  }
+
+  // ── Org-scoped filtering ──────────────────────────────────────────────────
+  if (orgSlug) {
+    const [org] = await db
+      .select({ id: organisationsTable.id, isPublicMarketplace: organisationsTable.isPublicMarketplace })
+      .from(organisationsTable)
+      .where(eq(organisationsTable.slug, orgSlug));
+
+    if (!org) {
+      // Unknown org slug — return empty
+      res.json(ListTeachersResponse.parse({ teachers: [], total: 0 }));
+      return;
+    }
+
+    // Teachers who belong to this org
+    const orgTeacherRows = await db
+      .select({ userId: orgMembersTable.userId })
+      .from(orgMembersTable)
+      .where(and(eq(orgMembersTable.orgId, org.id), eq(orgMembersTable.role, "teacher")));
+    const orgTeacherIds = orgTeacherRows.map((r) => r.userId).filter((id): id is string => id !== null);
+
+    if (!org.isPublicMarketplace) {
+      // School-private: only show teachers who belong to this org
+      if (orgTeacherIds.length === 0) {
+        res.json(ListTeachersResponse.parse({ teachers: [], total: 0 }));
+        return;
+      }
+      conditions.push(inArray(teacherProfilesTable.userId, orgTeacherIds));
+    } else if (orgTeacherIds.length > 0) {
+      // Public marketplace org: show org teachers + teachers with no org
+      conditions.push(
+        or(
+          inArray(teacherProfilesTable.userId, orgTeacherIds),
+          sql`${teacherProfilesTable.orgId} IS NULL`,
+        )!,
+      );
+    }
+  } else {
+    // No org context — show only teachers with no org, or teachers whose org allows public marketplace
+    // (teachers with an org that is not public are only shown in their org portal)
+    const privateOrgTeacherRows = await db
+      .select({ userId: orgMembersTable.userId })
+      .from(orgMembersTable)
+      .innerJoin(organisationsTable, eq(orgMembersTable.orgId, organisationsTable.id))
+      .where(
+        and(
+          eq(orgMembersTable.role, "teacher"),
+          eq(organisationsTable.isPublicMarketplace, false),
+        ),
+      );
+    const privateOrgTeacherIds = privateOrgTeacherRows
+      .map((r) => r.userId)
+      .filter((id): id is string => id !== null);
+
+    if (privateOrgTeacherIds.length > 0) {
+      conditions.push(
+        or(
+          sql`${teacherProfilesTable.userId} NOT IN (${sql.raw(privateOrgTeacherIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(","))})`,
+        )!,
+      );
     }
   }
 

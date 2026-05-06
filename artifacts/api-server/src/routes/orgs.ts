@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, count, gte, sql, isNotNull } from "drizzle-orm";
+import { eq, and, count, gte, sql } from "drizzle-orm";
 import {
   db,
   organisationsTable,
@@ -174,10 +174,10 @@ router.post("/orgs/:slug/invite", requireAuth, async (req, res): Promise<void> =
   res.status(201).json({ message: "Member added" });
 });
 
-// DELETE /orgs/:slug/members/:memberId — remove member (admin only)
-router.delete("/orgs/:slug/members/:memberId", requireAuth, async (req, res): Promise<void> => {
+// DELETE /orgs/:slug/members/:userId — remove member by userId (admin only)
+router.delete("/orgs/:slug/members/:userId", requireAuth, async (req, res): Promise<void> => {
   const slug = paramStr(req.params.slug);
-  const memberId = paramStr(req.params.memberId);
+  const memberId = paramStr(req.params.userId);
   const ctx = await requireOrgAdmin(req, res, slug);
   if (!ctx) return;
 
@@ -395,6 +395,16 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
   }
 });
 
+export async function reconcileAllOrgSubscriptionQuantities(): Promise<void> {
+  const orgs = await db
+    .select()
+    .from(organisationsTable)
+    .where(sql`${organisationsTable.stripeSubscriptionId} IS NOT NULL AND ${organisationsTable.subscriptionStatus} NOT IN ('inactive', 'cancelled')`);
+  for (const org of orgs) {
+    await updateSubscriptionQuantity(org);
+  }
+}
+
 async function updateSubscriptionQuantity(org: typeof organisationsTable.$inferSelect): Promise<void> {
   if (!org.stripeSubscriptionId) return;
   try {
@@ -413,8 +423,5 @@ async function updateSubscriptionQuantity(org: typeof organisationsTable.$inferS
     // Non-fatal — subscription quantity sync can be retried
   }
 }
-
-// Remove unused import warning suppression
-void isNotNull;
 
 export default router;

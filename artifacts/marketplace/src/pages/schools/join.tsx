@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle2, Building2, Users, CreditCard, Rocket, ChevronRight, ChevronLeft } from "lucide-react";
+import { CheckCircle2, Building2, Users, CreditCard, Rocket, ChevronRight, ChevronLeft, UserPlus, Trash2 } from "lucide-react";
 import { Show } from "@clerk/react";
 
 const STEPS = [
@@ -19,6 +19,10 @@ const STEPS = [
 ];
 
 const SLUG_RE = /^[a-z0-9-]{3,64}$/;
+
+interface AddedTeacher {
+  userId: string;
+}
 
 export default function SchoolsJoin() {
   const [, setLocation] = useLocation();
@@ -31,13 +35,15 @@ export default function SchoolsJoin() {
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
 
-  // Step 1 — Invite teachers (email-based, non-binding at this stage)
-  const [teacherEmails, setTeacherEmails] = useState("");
-
-  // Step 2 — Billing (read-only summary)
+  // Step 1 — Invite teachers
+  const [inviteId, setInviteId] = useState("");
+  const [addedTeachers, setAddedTeachers] = useState<AddedTeacher[]>([]);
+  const [inviting, setInviting] = useState(false);
 
   // Created org data
   const [createdOrg, setCreatedOrg] = useState<{ id: number; slug: string; name: string } | null>(null);
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   function autoSlug(val: string) {
     return val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
@@ -49,7 +55,6 @@ export default function SchoolsJoin() {
 
     setSaving(true);
     try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       const res = await fetch(`${base}/api/orgs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -71,8 +76,45 @@ export default function SchoolsJoin() {
     }
   }
 
-  async function handleInviteTeachers() {
-    setStep(2);
+  async function handleAddTeacher() {
+    if (!createdOrg || !inviteId.trim()) { toast.error("Enter a Harmonia user ID"); return; }
+    if (addedTeachers.some((t) => t.userId === inviteId.trim())) {
+      toast.error("Already added"); return;
+    }
+    setInviting(true);
+    try {
+      const res = await fetch(`${base}/api/orgs/${createdOrg.slug}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ userId: inviteId.trim(), role: "teacher" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" })) as { error: string };
+        toast.error(err.error ?? "Failed to add teacher");
+        return;
+      }
+      setAddedTeachers((prev) => [...prev, { userId: inviteId.trim() }]);
+      setInviteId("");
+      toast.success("Teacher added to school");
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function handleRemoveTeacher(userId: string) {
+    if (!createdOrg) return;
+    try {
+      await fetch(`${base}/api/orgs/${createdOrg.slug}/members/${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      setAddedTeachers((prev) => prev.filter((t) => t.userId !== userId));
+    } catch {
+      toast.error("Network error");
+    }
   }
 
   async function handleLaunch() {
@@ -159,7 +201,7 @@ export default function SchoolsJoin() {
                     onChange={(e) => setLogoUrl(e.target.value)}
                     placeholder="https://yourschool.edu/logo.png"
                   />
-                  <p className="text-xs text-muted-foreground">Paste a direct link to your school logo (PNG or SVG, ideally on a light background).</p>
+                  <p className="text-xs text-muted-foreground">Paste a direct link to your school logo (PNG or SVG).</p>
                 </div>
                 <Show when="signed-in">
                   <Button className="w-full" onClick={handleCreateOrg} disabled={saving}>
@@ -180,31 +222,62 @@ export default function SchoolsJoin() {
           {step === 1 && createdOrg && (
             <Card>
               <CardHeader>
-                <CardTitle className="font-serif">Invite your teachers</CardTitle>
+                <CardTitle className="font-serif">Invite your first teachers</CardTitle>
                 <CardDescription>
-                  You can add teachers now or skip and do it from your admin dashboard. Teachers need to already have a Harmonia account — you'll use their Harmonia user ID to invite them.
+                  Add teachers to your school now, or skip and do it later from your admin dashboard. Teachers must already have a Harmonia account — use their Harmonia user ID (starts with <code className="text-xs bg-muted px-1 rounded">user_</code>).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-lg bg-muted/40 border border-border p-4 text-sm text-muted-foreground">
-                  <p>Your school portal is live at: <strong className="text-foreground">harmonia.app/?org={createdOrg.slug}</strong></p>
+                <div className="rounded-lg bg-muted/40 border border-border p-3 text-sm text-muted-foreground">
+                  Your portal is live at: <strong className="text-foreground">harmonia.app/?org={createdOrg.slug}</strong>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Teacher note (optional)</label>
-                  <Textarea
-                    value={teacherEmails}
-                    onChange={(e) => setTeacherEmails(e.target.value)}
-                    placeholder="Any notes for your first teacher invite..."
-                    rows={3}
+
+                {/* Add teacher form */}
+                <div className="flex gap-2">
+                  <Input
+                    value={inviteId}
+                    onChange={(e) => setInviteId(e.target.value)}
+                    placeholder="user_2abc… (Harmonia user ID)"
+                    className="flex-1"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddTeacher(); }}
                   />
-                  <p className="text-xs text-muted-foreground">You'll be able to invite teachers by user ID from the admin dashboard after setup.</p>
+                  <Button onClick={handleAddTeacher} disabled={inviting || !inviteId.trim()} size="sm">
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    {inviting ? "Adding…" : "Add"}
+                  </Button>
                 </div>
+
+                {/* Added teachers list */}
+                {addedTeachers.length > 0 && (
+                  <div className="rounded-lg border border-border divide-y divide-border">
+                    {addedTeachers.map((t) => (
+                      <div key={t.userId} className="flex items-center justify-between px-3 py-2">
+                        <span className="text-sm font-mono text-muted-foreground">{t.userId}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">Teacher</Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveTeacher(t.userId)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setStep(0)} className="flex items-center gap-1">
                     <ChevronLeft className="h-4 w-4" /> Back
                   </Button>
-                  <Button className="flex-1" onClick={handleInviteTeachers}>
-                    Continue to billing <ChevronRight className="h-4 w-4 ml-1" />
+                  <Button className="flex-1" onClick={() => setStep(2)}>
+                    {addedTeachers.length > 0
+                      ? `Continue with ${addedTeachers.length} teacher${addedTeachers.length > 1 ? "s" : ""}`
+                      : "Skip for now"}
+                    <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </div>
               </CardContent>
@@ -233,10 +306,10 @@ export default function SchoolsJoin() {
                     <span className="font-semibold">Included</span>
                   </div>
                   <div className="h-px bg-border" />
-                  <p className="text-xs text-muted-foreground">You'll be charged after your first student is added. You can manage billing and download invoices from your admin dashboard.</p>
+                  <p className="text-xs text-muted-foreground">Billing is activated from your admin dashboard once students are enrolled. No charge until your first student is added.</p>
                 </div>
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
-                  <strong>Billing is set up from your admin dashboard.</strong> After launching, go to Admin → Billing to connect your card and activate your subscription.
+                  <strong>Stripe setup:</strong> After launching, go to Admin → Billing to connect your card and activate your subscription.
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setStep(1)} className="flex items-center gap-1">
@@ -263,7 +336,9 @@ export default function SchoolsJoin() {
                   </div>
                 </div>
                 <p className="text-muted-foreground">
-                  Your school portal <strong className="text-foreground">{createdOrg.name}</strong> is live. Head to your admin dashboard to invite teachers, add students, and manage billing.
+                  Your school portal <strong className="text-foreground">{createdOrg.name}</strong> is live
+                  {addedTeachers.length > 0 && ` with ${addedTeachers.length} teacher${addedTeachers.length > 1 ? "s" : ""}`}.
+                  Head to your admin dashboard to enrol students, add more teachers, and manage billing.
                 </p>
                 <div className="rounded-lg bg-muted/40 border border-border p-4 text-sm text-left space-y-2">
                   <p className="font-medium text-foreground">Share your portal link:</p>
