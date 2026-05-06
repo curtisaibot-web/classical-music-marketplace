@@ -121,7 +121,21 @@ router.post("/orgs", requireAuth, async (req, res): Promise<void> => {
 router.get("/orgs/:slug", async (req, res): Promise<void> => {
   const slug = paramStr(req.params.slug);
   const [org] = await db
-    .select()
+    .select({
+      id: organisationsTable.id,
+      name: organisationsTable.name,
+      slug: organisationsTable.slug,
+      description: organisationsTable.description,
+      logoUrl: organisationsTable.logoUrl,
+      isPublicMarketplace: organisationsTable.isPublicMarketplace,
+      allowedListingTypes: organisationsTable.allowedListingTypes,
+      defaultLessonRateCents: organisationsTable.defaultLessonRateCents,
+      perSeatCents: organisationsTable.perSeatCents,
+      subscriptionStatus: organisationsTable.subscriptionStatus,
+      ownerId: organisationsTable.ownerId,
+      createdAt: organisationsTable.createdAt,
+      updatedAt: organisationsTable.updatedAt,
+    })
     .from(organisationsTable)
     .where(eq(organisationsTable.slug, slug));
   if (!org) {

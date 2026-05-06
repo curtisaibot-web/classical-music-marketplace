@@ -2902,12 +2902,18 @@ components:
           type: integer
         cancellationFeePercent:
           type: integer
+        isPubliclyVisible:
+          type: boolean
+          description: Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.
+        orgId:
+          type: ["integer", "null"]
+          description: The organisation this teacher belongs to, if any.
         user:
           $ref: "#/components/schemas/User"
         createdAt:
           type: string
           format: date-time
-      required: [id, userId, instruments, genres, currency, averageRating, reviewCount, isVerified, stripeOnboarded, createdAt]
+      required: [id, userId, instruments, genres, currency, averageRating, reviewCount, isVerified, stripeOnboarded, isPubliclyVisible, createdAt]
 
     TeacherListResponse:
       type: object
@@ -3011,6 +3017,9 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+        isPubliclyVisible:
+          type: boolean
+          description: Set to false to opt out of the public marketplace (only available within your school org).
 
     # ── Student Profile ──────────────────────────────────────────────────────
     StudentProfile:

@@ -178,26 +178,29 @@ router.get("/teachers", async (req, res): Promise<void> => {
       );
     }
   } else {
-    // No org context — show only teachers with no org, or teachers whose org allows public marketplace
-    // (teachers with an org that is not public are only shown in their org portal)
+    // No org context — hide teachers in private orgs UNLESS the teacher opted into public visibility.
+    // A private-org teacher with isPubliclyVisible=true may appear on the global marketplace
+    // and accept bookings from non-school students.
     const privateOrgTeacherRows = await db
-      .select({ userId: orgMembersTable.userId })
+      .select({ userId: orgMembersTable.userId, isPubliclyVisible: teacherProfilesTable.isPubliclyVisible })
       .from(orgMembersTable)
       .innerJoin(organisationsTable, eq(orgMembersTable.orgId, organisationsTable.id))
+      .innerJoin(teacherProfilesTable, eq(orgMembersTable.userId, teacherProfilesTable.userId))
       .where(
         and(
           eq(orgMembersTable.role, "teacher"),
           eq(organisationsTable.isPublicMarketplace, false),
+          eq(teacherProfilesTable.isPubliclyVisible, false), // only exclude those who did NOT opt in
         ),
       );
-    const privateOrgTeacherIds = privateOrgTeacherRows
+    const privateOrgHiddenTeacherIds = privateOrgTeacherRows
       .map((r) => r.userId)
       .filter((id): id is string => id !== null);
 
-    if (privateOrgTeacherIds.length > 0) {
+    if (privateOrgHiddenTeacherIds.length > 0) {
       conditions.push(
         or(
-          sql`${teacherProfilesTable.userId} NOT IN (${sql.raw(privateOrgTeacherIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(","))})`,
+          sql`${teacherProfilesTable.userId} NOT IN (${sql.raw(privateOrgHiddenTeacherIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(","))})`,
         )!,
       );
     }

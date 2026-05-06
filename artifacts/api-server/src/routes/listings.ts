@@ -215,6 +215,13 @@ router.post("/listings", requireAuth, requireRole("teacher"), async (req, res): 
     }
   }
 
+  // Final guard: priceInCents is optional in the schema (to allow org defaults to fill it in),
+  // but the DB column is NOT NULL. Reject if still missing after all defaults have been applied.
+  if (!parsed.data.priceInCents) {
+    res.status(400).json({ error: "priceInCents is required (or configure a default lesson rate on your school)" });
+    return;
+  }
+
   const [listing] = await db
     .insert(listingsTable)
     .values({ ...parsed.data, teacherId: userId })

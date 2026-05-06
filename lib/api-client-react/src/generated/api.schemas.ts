@@ -86,6 +86,13 @@ export interface TeacherProfile {
   isProSubscriber?: boolean;
   cancellationPolicyHours?: number;
   cancellationFeePercent?: number;
+  /** Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school. */
+  isPubliclyVisible: boolean;
+  /**
+   * The organisation this teacher belongs to, if any.
+   * @nullable
+   */
+  orgId?: number | null;
   user?: User;
   createdAt: string;
 }
@@ -149,6 +156,8 @@ export interface UpdateTeacherProfileBody {
    * @maximum 100
    */
   cancellationFeePercent?: number;
+  /** Set to false to opt out of the public marketplace (only available within your school org). */
+  isPubliclyVisible?: boolean;
 }
 
 export interface StudentProfile {

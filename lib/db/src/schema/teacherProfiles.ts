@@ -33,6 +33,7 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   cancellationPolicyHours: integer("cancellation_policy_hours").notNull().default(24),
   cancellationFeePercent: integer("cancellation_fee_percent").notNull().default(50),
   orgId: integer("org_id").references(() => organisationsTable.id, { onDelete: "set null" }),
+  isPubliclyVisible: boolean("is_publicly_visible").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

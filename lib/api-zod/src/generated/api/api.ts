@@ -123,6 +123,15 @@ export const ListTeachersResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -177,6 +186,15 @@ export const GetTeacherResponse = zod.object({
   isProSubscriber: zod.boolean().optional(),
   cancellationPolicyHours: zod.number().optional(),
   cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
   user: zod
     .object({
       id: zod.string(),
@@ -228,6 +246,15 @@ export const GetTeacherBySlugResponse = zod.object({
   isProSubscriber: zod.boolean().optional(),
   cancellationPolicyHours: zod.number().optional(),
   cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
   user: zod
     .object({
       id: zod.string(),
@@ -288,6 +315,15 @@ export const UpdateMyTeacherSlugResponse = zod.object({
   isProSubscriber: zod.boolean().optional(),
   cancellationPolicyHours: zod.number().optional(),
   cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
   user: zod
     .object({
       id: zod.string(),
@@ -373,6 +409,15 @@ export const GetMyTeacherProfileResponse = zod.object({
   isProSubscriber: zod.boolean().optional(),
   cancellationPolicyHours: zod.number().optional(),
   cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
   user: zod
     .object({
       id: zod.string(),
@@ -424,6 +469,12 @@ export const UpdateMyTeacherProfileBody = zod.object({
     .min(updateMyTeacherProfileBodyCancellationFeePercentMin)
     .max(updateMyTeacherProfileBodyCancellationFeePercentMax)
     .optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Set to false to opt out of the public marketplace (only available within your school org).",
+    ),
 });
 
 export const UpdateMyTeacherProfileResponse = zod.object({
@@ -450,6 +501,15 @@ export const UpdateMyTeacherProfileResponse = zod.object({
   isProSubscriber: zod.boolean().optional(),
   cancellationPolicyHours: zod.number().optional(),
   cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
   user: zod
     .object({
       id: zod.string(),
@@ -610,6 +670,15 @@ export const ListListingsResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -717,6 +786,15 @@ export const GetListingResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -813,6 +891,15 @@ export const UpdateListingResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -906,6 +993,15 @@ export const GetTeacherListingsResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -1003,6 +1099,15 @@ export const ListMasterclassesResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -1099,6 +1204,15 @@ export const GetMasterclassResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -1184,6 +1298,15 @@ export const UpdateMasterclassResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -1264,6 +1387,15 @@ export const ListDigitalProductsResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -1356,6 +1488,15 @@ export const GetDigitalProductResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -1442,6 +1583,15 @@ export const UpdateDigitalProductResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -1557,6 +1707,15 @@ export const ListBookingsResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -1681,6 +1840,15 @@ export const GetBookingResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -1795,6 +1963,15 @@ export const UpdateBookingResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),
@@ -2077,6 +2254,15 @@ export const GetTeacherDashboardResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -2182,6 +2368,15 @@ export const GetTeacherDashboardResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -2289,6 +2484,15 @@ export const GetStudentDashboardResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -2382,6 +2586,15 @@ export const GetStudentDashboardResponse = zod.object({
           isProSubscriber: zod.boolean().optional(),
           cancellationPolicyHours: zod.number().optional(),
           cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
           user: zod
             .object({
               id: zod.string(),
@@ -2432,6 +2645,15 @@ export const GetStudentDashboardResponse = zod.object({
       isProSubscriber: zod.boolean().optional(),
       cancellationPolicyHours: zod.number().optional(),
       cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
       user: zod
         .object({
           id: zod.string(),

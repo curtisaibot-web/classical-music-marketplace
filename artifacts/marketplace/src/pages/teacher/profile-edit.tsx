@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageCropModal } from "@/components/ui/image-crop-modal";
-import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon, Zap } from "lucide-react";
+import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon, Zap, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 interface UploadState {
@@ -32,6 +32,8 @@ export default function TeacherProfileEdit() {
   const recordings = recordingsData?.recordings ?? [];
   const createRecording = useCreateTeacherRecording();
   const deleteRecording = useDeleteTeacherRecording();
+
+  const [isPubliclyVisible, setIsPubliclyVisible] = useState(true);
 
   const [formData, setFormData] = useState({
     bio: "",
@@ -77,6 +79,7 @@ export default function TeacherProfileEdit() {
         profileImageUrl: profile.profileImageUrl || "",
       });
       setSlugInput(profile.profileSlug || "");
+      setIsPubliclyVisible(profile.isPubliclyVisible ?? true);
     }
   }, [profile]);
 
@@ -262,6 +265,7 @@ export default function TeacherProfileEdit() {
         yearsExperience: formData.yearsExperience,
         education: formData.education,
         profileImageUrl: formData.profileImageUrl || undefined,
+        isPubliclyVisible,
       },
     }, {
       onSuccess: () => toast.success("Profile updated successfully"),
@@ -624,6 +628,54 @@ export default function TeacherProfileEdit() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Public Marketplace Visibility — only relevant when teacher is in a school org */}
+            {profile?.orgId && (
+              <Card className="border-border">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="font-serif">Public Marketplace Visibility</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Your school has a private portal, but you can also appear on the public Harmonia marketplace. When enabled, students outside your school can discover and book you directly.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-muted/30">
+                    <div>
+                      <p className="font-medium text-sm text-foreground">Visible on public marketplace</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Allow anyone to find and book you, not just school students</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isPubliclyVisible}
+                      onClick={() => {
+                        const next = !isPubliclyVisible;
+                        setIsPubliclyVisible(next);
+                        updateProfile.mutate(
+                          { data: { isPubliclyVisible: next } },
+                          {
+                            onSuccess: () => toast.success(next ? "You're now visible on the public marketplace" : "Hidden from public marketplace"),
+                            onError: () => { setIsPubliclyVisible(!next); toast.error("Failed to update visibility"); },
+                          },
+                        );
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        isPubliclyVisible ? "bg-blue-500" : "bg-muted-foreground/30"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                          isPubliclyVisible ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Recordings — managed independently from the main form */}
             <Card className="border-border">

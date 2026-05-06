@@ -142,23 +142,33 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
     }
 
     if (teacherPrivateOrgId !== null) {
-      // Rule A: teacher in private org → student must be in same org
-      const studentInTeacherOrg = studentOrgId === teacherPrivateOrgId;
-      if (!studentInTeacherOrg) {
-        // Check org_members directly (student might be enrolled without profile orgId set yet)
-        const [membership] = await db
-          .select({ id: orgMembersTable.id })
-          .from(orgMembersTable)
-          .where(
-            and(
-              eq(orgMembersTable.orgId, teacherPrivateOrgId),
-              eq(orgMembersTable.userId, userId),
-              eq(orgMembersTable.role, "student"),
-            ),
-          );
-        if (!membership) {
-          res.status(403).json({ error: "You must be enrolled in this teacher's school to book them" });
-          return;
+      // Rule A: teacher in private org → student must be in same org,
+      // UNLESS the teacher has opted into public visibility (isPubliclyVisible=true).
+      const [teacherProfile] = await db
+        .select({ isPubliclyVisible: teacherProfilesTable.isPubliclyVisible })
+        .from(teacherProfilesTable)
+        .where(eq(teacherProfilesTable.userId, teacherId));
+
+      const teacherAllowsPublic = teacherProfile?.isPubliclyVisible ?? true;
+
+      if (!teacherAllowsPublic) {
+        const studentInTeacherOrg = studentOrgId === teacherPrivateOrgId;
+        if (!studentInTeacherOrg) {
+          // Check org_members directly (student might be enrolled without profile orgId set yet)
+          const [membership] = await db
+            .select({ id: orgMembersTable.id })
+            .from(orgMembersTable)
+            .where(
+              and(
+                eq(orgMembersTable.orgId, teacherPrivateOrgId),
+                eq(orgMembersTable.userId, userId),
+                eq(orgMembersTable.role, "student"),
+              ),
+            );
+          if (!membership) {
+            res.status(403).json({ error: "You must be enrolled in this teacher's school to book them" });
+            return;
+          }
         }
       }
     }
