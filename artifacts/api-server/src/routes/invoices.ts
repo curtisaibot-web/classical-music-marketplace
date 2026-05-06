@@ -194,6 +194,11 @@ router.get("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   const [invoice] = await db
     .select()
     .from(invoicesTable)
@@ -209,6 +214,11 @@ router.patch("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = auth.userId!;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
 
   const { status, notes, paymentNote } = req.body as { status?: "draft" | "sent" | "paid"; notes?: string; paymentNote?: string };
 
@@ -238,6 +248,11 @@ router.delete("/invoices/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   await db
     .delete(invoicesTable)
     .where(and(eq(invoicesTable.id, id), eq(invoicesTable.teacherId, userId)));
@@ -263,15 +278,46 @@ router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> =
 
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
 
-  const [updated] = await db
-    .update(invoicesTable)
-    .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
-    .where(eq(invoicesTable.id, id))
-    .returning();
+  const [[updated], [teacherRow]] = await Promise.all([
+    db.update(invoicesTable)
+      .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoicesTable.id, id))
+      .returning(),
+    db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId)),
+  ]);
 
-  logger.info({ invoiceId: id, clientEmail: invoice.clientEmail }, "[NOTIFICATION] Invoice sent to client — email with PDF link");
+  const teacherName = [teacherRow?.firstName, teacherRow?.lastName].filter(Boolean).join(" ") || "Teacher";
+  const baseUrl = process.env.PUBLIC_API_URL ?? process.env.PUBLIC_APP_URL ?? "https://harmonia.app";
+  const lineItems = (invoice.lineItems ?? []) as Array<{ description: string; amountInCents: number }>;
+  const total = lineItems.length > 0
+    ? lineItems.reduce((s, i) => s + i.amountInCents, 0)
+    : invoice.amountInCents;
 
-  res.json({ invoice: updated, message: `Invoice marked as sent to ${invoice.clientEmail}` });
+  const { sendEmail } = await import("../lib/email");
+  const { generateInvoicePdf } = await import("../lib/pdfGenerator");
+  const pdfBuffer = await generateInvoicePdf(invoice, teacherName);
+
+  const emailResult = await sendEmail({
+    to: invoice.clientEmail,
+    subject: `Invoice #${String(invoice.id).padStart(4, "0")} from ${escapeHtml(teacherName)} — $${(total / 100).toFixed(2)} ${invoice.currency ?? "USD"}`,
+    html: `<p>Hello ${escapeHtml(invoice.clientName)},</p>
+<p>Please find your invoice attached from <strong>${escapeHtml(teacherName)}</strong>.</p>
+<table style="border-collapse:collapse;width:100%;max-width:500px;">
+  <tr><td style="padding:6px 0;color:#555;">Invoice #</td><td style="padding:6px 0;font-weight:bold;">${String(invoice.id).padStart(4, "0")}</td></tr>
+  <tr><td style="padding:6px 0;color:#555;">Amount</td><td style="padding:6px 0;font-weight:bold;">$${(total / 100).toFixed(2)} ${invoice.currency ?? "USD"}</td></tr>
+  ${invoice.dueDate ? `<tr><td style="padding:6px 0;color:#555;">Due Date</td><td style="padding:6px 0;">${new Date(invoice.dueDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</td></tr>` : ""}
+</table>
+${invoice.paymentNote ? `<p><strong>Payment Instructions:</strong> ${escapeHtml(invoice.paymentNote)}</p>` : ""}
+${invoice.notes ? `<p><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</p>` : ""}
+<p>You can also <a href="${escapeHtml(baseUrl)}/api/invoices/${invoice.id}/pdf">download the invoice PDF</a>.</p>
+<p style="color:#999;font-size:12px;">Powered by Harmonia Business Suite</p>`,
+    attachments: [{ filename: `invoice-${invoice.id}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+  });
+
+  logger.info({ invoiceId: id, clientEmail: invoice.clientEmail, emailSent: emailResult.sent }, "Invoice sent to client");
+  res.json({ invoice: updated, emailSent: emailResult.sent, message: `Invoice sent to ${invoice.clientEmail}` });
 });
 
 router.get("/invoices/:id/pdf", requireAuth, async (req, res): Promise<void> => {
@@ -279,6 +325,11 @@ router.get("/invoices/:id/pdf", requireAuth, async (req, res): Promise<void> => 
   const userId = auth.userId!;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
 
   const [[invoice], [teacherRow]] = await Promise.all([
     db.select().from(invoicesTable).where(and(eq(invoicesTable.id, id), eq(invoicesTable.teacherId, userId))),
@@ -288,10 +339,11 @@ router.get("/invoices/:id/pdf", requireAuth, async (req, res): Promise<void> => 
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
 
   const teacherName = [teacherRow?.firstName, teacherRow?.lastName].filter(Boolean).join(" ") || "Teacher";
-  const html = generateInvoiceHtml(invoice, teacherName);
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Content-Disposition", `inline; filename="invoice-${invoice.id}.html"`);
-  res.send(html);
+  const { generateInvoicePdf } = await import("../lib/pdfGenerator");
+  const pdfBuffer = await generateInvoicePdf(invoice, teacherName);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="invoice-${invoice.id}.pdf"`);
+  res.end(pdfBuffer);
 });
 
 export default router;

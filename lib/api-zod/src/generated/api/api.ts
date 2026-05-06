@@ -2470,3 +2470,258 @@ export const GetConnectStatusResponse = zod.object({
 export const GetConnectDashboardResponse = zod.object({
   dashboardUrl: zod.string(),
 });
+
+// ─── Business Suite ────────────────────────────────────────────────────────────
+
+/**
+ * @summary Get current user's Business Suite subscription status
+ */
+export const GetSubscriptionMeResponse = zod.object({
+  subscription: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      stripeCustomerId: zod.string().nullish(),
+      stripeSubscriptionId: zod.string().nullish(),
+      stripePriceId: zod.string().nullish(),
+      status: zod.enum(["active", "trialing", "past_due", "cancelled", "incomplete"]),
+      currentPeriodEnd: zod.coerce.date().nullish(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    })
+    .nullable(),
+  isProSubscriber: zod.boolean(),
+});
+
+/**
+ * @summary Create Business Suite Stripe Checkout session
+ */
+export const CreateSubscriptionCheckoutBody = zod.object({
+  plan: zod.enum(["monthly", "annual"]),
+  returnUrl: zod.string(),
+});
+
+export const CreateSubscriptionCheckoutResponse = zod.object({
+  checkoutUrl: zod.string(),
+});
+
+/**
+ * @summary Open Stripe Customer Portal to manage subscription
+ */
+export const CreateSubscriptionPortalBody = zod.object({
+  returnUrl: zod.string(),
+});
+
+export const CreateSubscriptionPortalResponse = zod.object({
+  portalUrl: zod.string(),
+});
+
+// ─── Contracts ─────────────────────────────────────────────────────────────────
+
+const ContractSchema = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
+  title: zod.string(),
+  fields: zod.record(zod.string(), zod.string()),
+  clientEmail: zod.string().nullish(),
+  clientName: zod.string().nullish(),
+  status: zod.enum(["draft", "sent", "signed"]),
+  signToken: zod.string().nullish(),
+  signerName: zod.string().nullish(),
+  signedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List all contracts for the authenticated teacher
+ */
+export const ListContractsResponse = zod.object({
+  contracts: zod.array(ContractSchema),
+});
+
+/**
+ * @summary Create a new contract from a template
+ */
+export const CreateContractBody = zod.object({
+  templateType: zod.enum(["lesson_package", "single_event", "masterclass"]),
+  title: zod.string().optional(),
+  fields: zod.record(zod.string(), zod.string()).optional(),
+  clientEmail: zod.string().email().optional(),
+  clientName: zod.string().optional(),
+});
+
+export const CreateContractResponse = zod.object({ contract: ContractSchema });
+
+/**
+ * @summary Get a single contract
+ */
+export const GetContractResponse = zod.object({ contract: ContractSchema });
+
+/**
+ * @summary Update a contract
+ */
+export const UpdateContractBody = zod.object({
+  title: zod.string().optional(),
+  fields: zod.record(zod.string(), zod.string()).optional(),
+  clientEmail: zod.string().email().optional(),
+  clientName: zod.string().optional(),
+});
+
+export const UpdateContractResponse = zod.object({ contract: ContractSchema });
+
+/**
+ * @summary Send a contract to client for signing
+ */
+export const SendContractResponse = zod.object({
+  contract: ContractSchema,
+  signUrl: zod.string(),
+  emailSent: zod.boolean(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List available contract templates
+ */
+export const ListContractTemplatesResponse = zod.object({
+  templates: zod.array(
+    zod.object({
+      type: zod.string(),
+      title: zod.string(),
+      previewBody: zod.string(),
+    }),
+  ),
+});
+
+// ─── Invoices ──────────────────────────────────────────────────────────────────
+
+const InvoiceLineItemSchema = zod.object({
+  description: zod.string(),
+  amountInCents: zod.number().int(),
+});
+
+const InvoiceSchema = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  bookingId: zod.number().nullish(),
+  clientEmail: zod.string(),
+  clientName: zod.string(),
+  amountInCents: zod.number().int(),
+  currency: zod.string(),
+  status: zod.enum(["draft", "sent", "paid"]),
+  notes: zod.string().nullish(),
+  paymentNote: zod.string().nullish(),
+  lineItems: zod.array(InvoiceLineItemSchema).nullish(),
+  dueDate: zod.coerce.date().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List all invoices for the authenticated teacher
+ */
+export const ListInvoicesResponse = zod.object({
+  invoices: zod.array(InvoiceSchema),
+});
+
+/**
+ * @summary Create a new invoice
+ */
+export const CreateInvoiceBody = zod.object({
+  clientEmail: zod.string().email(),
+  clientName: zod.string(),
+  amountInCents: zod.number().int().positive().optional(),
+  currency: zod.string().optional(),
+  notes: zod.string().optional(),
+  paymentNote: zod.string().optional(),
+  lineItems: zod.array(InvoiceLineItemSchema).optional(),
+  dueDate: zod.string().optional(),
+  bookingId: zod.number().int().optional(),
+});
+
+export const CreateInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+
+/**
+ * @summary Get a single invoice
+ */
+export const GetInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+
+/**
+ * @summary Update an invoice (status, notes, paymentNote)
+ */
+export const UpdateInvoiceBody = zod.object({
+  status: zod.enum(["draft", "sent", "paid"]).optional(),
+  notes: zod.string().optional(),
+  paymentNote: zod.string().optional(),
+});
+
+export const UpdateInvoiceResponse = zod.object({ invoice: InvoiceSchema });
+
+/**
+ * @summary Send invoice to client with PDF attachment
+ */
+export const SendInvoiceResponse = zod.object({
+  invoice: InvoiceSchema,
+  emailSent: zod.boolean(),
+  message: zod.string(),
+});
+
+// ─── Expenses ──────────────────────────────────────────────────────────────────
+
+const ExpenseSchema = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  amountInCents: zod.number().int(),
+  category: zod.string(),
+  description: zod.string().nullish(),
+  date: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List expenses with optional month/year filter
+ */
+export const ListExpensesQueryParams = zod.object({
+  month: zod.string().optional(),
+  year: zod.string().optional(),
+});
+
+export const ListExpensesResponse = zod.object({
+  expenses: zod.array(ExpenseSchema),
+  totalInCents: zod.number().int(),
+  byCategory: zod.record(zod.string(), zod.number()),
+});
+
+/**
+ * @summary List valid expense categories
+ */
+export const ListExpenseCategoriesResponse = zod.object({
+  categories: zod.array(zod.string()),
+});
+
+/**
+ * @summary Create a new expense entry
+ */
+export const CreateExpenseBody = zod.object({
+  amountInCents: zod.number().int().positive(),
+  category: zod.string(),
+  description: zod.string().optional(),
+  date: zod.string(),
+});
+
+export const CreateExpenseResponse = zod.object({ expense: ExpenseSchema });
+
+/**
+ * @summary Update an expense entry
+ */
+export const UpdateExpenseBody = zod.object({
+  amountInCents: zod.number().int().positive().optional(),
+  category: zod.string().optional(),
+  description: zod.string().optional(),
+  date: zod.string().optional(),
+});
+
+export const UpdateExpenseResponse = zod.object({ expense: ExpenseSchema });

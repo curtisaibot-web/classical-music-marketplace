@@ -22,7 +22,13 @@ const EXPENSE_CATEGORIES = [
   "Other",
 ];
 
-router.get("/expenses/categories", requireAuth, async (_req, res): Promise<void> => {
+router.get("/expenses/categories", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
   res.json({ categories: EXPENSE_CATEGORIES });
 });
 
@@ -158,6 +164,11 @@ router.delete("/expenses/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = auth.userId!;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
 
   await db
     .delete(expensesTable)

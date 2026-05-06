@@ -65,6 +65,11 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
 
   // Get listing price if provided
   let priceInCents = 0;
+  let cancellationPolicyHoursSnapshot: number | null = null;
+  let cancellationFeePercentSnapshot: number | null = null;
+
+  const teacherId = parsed.data.teacherId as string | undefined;
+
   if (parsed.data.listingId) {
     const [listing] = await db
       .select()
@@ -72,6 +77,20 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
       .where(eq(listingsTable.id, parsed.data.listingId));
     if (listing) {
       priceInCents = listing.priceInCents;
+    }
+  }
+
+  if (teacherId) {
+    const [tp] = await db
+      .select({
+        cancellationPolicyHours: teacherProfilesTable.cancellationPolicyHours,
+        cancellationFeePercent: teacherProfilesTable.cancellationFeePercent,
+      })
+      .from(teacherProfilesTable)
+      .where(eq(teacherProfilesTable.userId, teacherId));
+    if (tp) {
+      cancellationPolicyHoursSnapshot = tp.cancellationPolicyHours ?? null;
+      cancellationFeePercentSnapshot = tp.cancellationFeePercent ?? null;
     }
   }
 
@@ -84,6 +103,8 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
       studentId: userId,
       priceInCents,
       platformFeeInCents,
+      cancellationPolicyHoursSnapshot,
+      cancellationFeePercentSnapshot,
     })
     .returning();
 
@@ -135,14 +156,35 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   const extra: Record<string, unknown> = {};
+
   if (parsed.data.status === "cancelled") {
     extra.cancelledAt = new Date();
+
+    const [current] = await db
+      .select()
+      .from(bookingsTable)
+      .where(and(
+        eq(bookingsTable.id, id),
+        or(eq(bookingsTable.studentId, userId), eq(bookingsTable.teacherId, userId)),
+      ));
+
+    if (current && current.cancellationPolicyHoursSnapshot && current.cancellationFeePercentSnapshot) {
+      const scheduledAt = current.scheduledAt ? new Date(current.scheduledAt) : null;
+      if (scheduledAt) {
+        const hoursUntilLesson = (scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntilLesson < current.cancellationPolicyHoursSnapshot) {
+          extra.cancellationFeeOwedInCents = Math.round(
+            current.priceInCents * (current.cancellationFeePercentSnapshot / 100),
+          );
+        }
+      }
+    }
   }
+
   if (parsed.data.status === "completed") {
     extra.completedAt = new Date();
   }
   if (parsed.data.status === "expired") {
-    // Log notification to client — replace with real email when provider is configured
     console.log(`[NOTIFICATION][expired] Booking ${id} has expired. Client should be notified.`);
   }
 

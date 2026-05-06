@@ -226,6 +226,11 @@ router.get("/contracts/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   const [contract] = await db
     .select()
     .from(contractsTable)
@@ -277,6 +282,11 @@ router.delete("/contracts/:id", requireAuth, async (req, res): Promise<void> => 
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   await db
     .delete(contractsTable)
     .where(and(eq(contractsTable.id, id), eq(contractsTable.teacherId, userId)));
@@ -318,9 +328,20 @@ router.post("/contracts/:id/send", requireAuth, async (req, res): Promise<void> 
   const baseUrl = process.env.PUBLIC_API_URL ?? process.env.PUBLIC_APP_URL ?? "https://harmonia.app";
   const signUrl = `${baseUrl}/api/contracts/sign/${signToken}`;
 
-  logger.info({ contractId: id, clientEmail: contract.clientEmail, signUrl }, "[NOTIFICATION] Contract sent for signature — email client with sign URL");
+  const { sendEmail } = await import("../lib/email");
+  const emailResult = await sendEmail({
+    to: contract.clientEmail,
+    subject: `Please sign: ${contract.title}`,
+    html: `<p>Hello ${escapeHtml(contract.clientName ?? "")},</p>
+<p>You have been sent a contract to review and sign:</p>
+<p><strong>${escapeHtml(contract.title)}</strong></p>
+<p><a href="${escapeHtml(signUrl)}" style="background:#16a34a;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;display:inline-block;">Review &amp; Sign Contract</a></p>
+<p>Or copy this link: ${escapeHtml(signUrl)}</p>
+<p style="color:#999;font-size:12px;">Powered by Harmonia Business Suite</p>`,
+  });
+  logger.info({ contractId: id, clientEmail: contract.clientEmail, signUrl, emailSent: emailResult.sent }, "Contract sent for signature");
 
-  res.json({ contract: updated, signUrl, message: `Contract sent to ${contract.clientEmail}. Signing link: ${signUrl}` });
+  res.json({ contract: updated, signUrl, emailSent: emailResult.sent, message: `Contract sent to ${contract.clientEmail}. Signing link: ${signUrl}` });
 });
 
 router.get("/contracts/:id/pdf", requireAuth, async (req, res): Promise<void> => {
@@ -329,6 +350,11 @@ router.get("/contracts/:id/pdf", requireAuth, async (req, res): Promise<void> =>
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   const [contract] = await db
     .select()
     .from(contractsTable)
@@ -336,10 +362,11 @@ router.get("/contracts/:id/pdf", requireAuth, async (req, res): Promise<void> =>
 
   if (!contract) { res.status(404).json({ error: "Contract not found" }); return; }
 
-  const html = generateHtmlDocument(contract, "Teacher");
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Content-Disposition", `inline; filename="contract-${contract.id}.html"`);
-  res.send(html);
+  const { generateContractPdf } = await import("../lib/pdfGenerator");
+  const pdfBuffer = await generateContractPdf(contract);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="contract-${contract.id}.pdf"`);
+  res.end(pdfBuffer);
 });
 
 router.get("/contracts/sign/:token", async (req, res): Promise<void> => {
