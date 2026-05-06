@@ -18,3 +18,4 @@ export * from "./concertCampaigns";
 export * from "./auditionPrograms";
 export * from "./organisations";
 export * from "./scores";
+export * from "./coachProfiles";

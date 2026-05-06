@@ -7,7 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2 } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -411,6 +411,155 @@ function AuditionPrepCard() {
   );
 }
 
+type CoachingBooking = {
+  id: number;
+  studentId: string;
+  scheduledAt: string | null;
+  priceInCents: number;
+  status: string;
+  meetingUrl: string | null;
+  student: { firstName: string | null; lastName: string | null } | null;
+};
+
+function CoachingCard() {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const apiBase = basePath.replace(/\/[^/]*$/, "");
+  const [bookings, setBookings] = useState<CoachingBooking[]>([]);
+  const [isCoach, setIsCoach] = useState<boolean | null>(null);
+  const [editingUrl, setEditingUrl] = useState<Record<number, string>>({});
+  const [savingUrl, setSavingUrl] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch(`${apiBase}/api/coaches/me`, { credentials: "include" })
+      .then(async (r) => {
+        if (r.status === 404) { setIsCoach(false); return; }
+        if (!r.ok) { setIsCoach(false); return; }
+        const data = await r.json() as { approvalStatus: string };
+        setIsCoach(data.approvalStatus === "approved");
+      })
+      .catch(() => setIsCoach(false));
+
+    fetch(`${apiBase}/api/coaches/me/bookings`, { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json() as { bookings: CoachingBooking[] };
+        setBookings(data.bookings);
+      })
+      .catch(() => {});
+  }, [apiBase]);
+
+  const handleSaveUrl = async (bookingId: number) => {
+    const url = editingUrl[bookingId];
+    if (!url) return;
+    setSavingUrl(bookingId);
+    try {
+      const r = await fetch(`${apiBase}/api/coaches/me/bookings/${bookingId}/meeting-url`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingUrl: url }),
+      });
+      if (!r.ok) throw new Error("Failed to save");
+      setBookings((prev) => prev.map((b) => b.id === bookingId ? { ...b, meetingUrl: url } : b));
+      setEditingUrl((prev) => { const n = { ...prev }; delete n[bookingId]; return n; });
+      toast.success("Meeting link saved");
+    } catch {
+      toast.error("Failed to save meeting link");
+    } finally {
+      setSavingUrl(null);
+    }
+  };
+
+  if (isCoach === null) return null;
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif text-lg flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-primary" />
+          Career Coaching
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+          <Link href="/coaching/apply">
+            {isCoach ? "My Profile" : "Apply"}
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!isCoach ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Share your industry expertise as a career coach. Help musicians navigate auditions, management, and the music business.
+            </p>
+            <Button size="sm" className="w-full" asChild>
+              <Link href="/coaching/apply">Apply to Coach</Link>
+            </Button>
+          </>
+        ) : bookings.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No coaching sessions booked yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {bookings.slice(0, 5).map((b) => {
+              const studentName = b.student ? `${b.student.firstName ?? ""} ${b.student.lastName ?? ""}`.trim() : "Student";
+              const isEditing = (bookingId: number) => editingUrl[bookingId] !== undefined;
+              return (
+                <div key={b.id} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{studentName}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3" />
+                        {b.scheduledAt ? format(new Date(b.scheduledAt), "MMM d, yyyy") : "Date TBD"}
+                        <span className="text-border mx-0.5">·</span>
+                        ${(b.priceInCents / 100).toFixed(0)}
+                      </p>
+                    </div>
+                    <Badge variant={b.status === "confirmed" ? "default" : "secondary"} className="text-xs shrink-0">
+                      {b.status}
+                    </Badge>
+                  </div>
+                  {b.status === "confirmed" && (
+                    <div className="flex gap-2">
+                      {isEditing(b.id) ? (
+                        <>
+                          <input
+                            type="url"
+                            className="flex-1 text-xs px-2 py-1 rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="https://zoom.us/j/..."
+                            value={editingUrl[b.id]}
+                            onChange={(e) => setEditingUrl((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                          />
+                          <Button size="sm" className="h-7 text-xs" onClick={() => handleSaveUrl(b.id)} disabled={savingUrl === b.id}>
+                            {savingUrl === b.id ? "Saving…" : "Save"}
+                          </Button>
+                        </>
+                      ) : (
+                        <button
+                          className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                          onClick={() => setEditingUrl((prev) => ({ ...prev, [b.id]: b.meetingUrl ?? "" }))}
+                        >
+                          <Link2 className="h-3 w-3" />
+                          {b.meetingUrl ? "Edit meeting link" : "Add Zoom/Meet link"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {b.meetingUrl && !isEditing(b.id) && (
+                    <a href={b.meetingUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 truncate">
+                      <Link2 className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{b.meetingUrl}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function TeacherDashboard() {
   const { data: dashboard, isLoading } = useGetTeacherDashboard();
   const { data: connectStatus } = useGetConnectStatus();
@@ -753,6 +902,9 @@ export default function TeacherDashboard() {
             <AuditionPrepCard />
 
             <ComposerRoyaltyCard />
+
+            <CoachingCard />
+
 
             <Card className="border-border shadow-sm">
               <CardHeader>

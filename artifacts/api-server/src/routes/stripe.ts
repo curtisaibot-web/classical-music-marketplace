@@ -57,7 +57,7 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
           price_data: {
             currency: booking.currency.toLowerCase(),
             product_data: {
-              name: `${booking.type === "lesson" ? "Private Lesson" : "Event Booking"}`,
+              name: `${booking.type === "lesson" ? "Private Lesson" : booking.type === "coaching" ? "Coaching Session" : "Event Booking"}`,
               description: booking.notes ?? undefined,
             },
             unit_amount: booking.priceInCents,

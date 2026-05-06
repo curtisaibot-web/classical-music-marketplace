@@ -1,6 +1,6 @@
 # Classical Music Marketplace (Harmonia)
 
-A full-stack marketplace connecting classical musicians, teachers, students, and fans across six modules: lesson booking, event/wedding musician booking, live masterclass ticketing, digital products store, fan-funded concert crowdfunding, and an original score marketplace with tiered licensing.
+A full-stack marketplace connecting classical musicians, teachers, students, and fans across seven modules: lesson booking, event/wedding musician booking, live masterclass ticketing, digital products store, fan-funded concert crowdfunding, original score marketplace with tiered licensing, and career coaching from industry insiders.
 
 ## Run & Operate
 
@@ -42,7 +42,8 @@ artifacts/api-server/src/
 
 artifacts/marketplace/src/
   pages/scores/    — /scores browse + /scores/:id detail
-  pages/teacher/dashboard.tsx — includes ComposerRoyaltyCard
+  pages/coaching/  — /coaching browse, /coaching/:userId profile, /coaching/apply
+  pages/teacher/dashboard.tsx — includes ComposerRoyaltyCard + CoachingCard
   pages/student/score-licenses.tsx — /my-score-licenses
 
 lib/db/src/schema/ — source-of-truth for all DB tables
@@ -57,7 +58,8 @@ lib/api-client-react/src/generated/api.ts — generated React Query hooks
 - **Score license expiry**: personal and performance licenses are perpetual (`expiresAt = null`); sync licenses expire after 1 year (set at checkout time, enforced at download time).
 - **Drizzle-kit push**: Has TTY issues in CI — use `psql $DATABASE_URL` directly for all schema migrations.
 - **OG prerendering**: Not full SSR. A tiny Express server (`server.mjs`) proxies crawler UAs to `/api/og/musicians/:slug`; regular users get the SPA.
-- **Platform fee**: 15% on all purchases (bookings, digital products, score licenses); 8% on crowdfunding campaigns.
+- **Platform fee**: 15% on bookings/digital products/score licenses; 20% on coaching sessions (constant in `coaches.ts`); 8% on crowdfunding campaigns.
+- **Coach profiles**: `coach_profiles` table (approval_status pending→approved→rejected). Admin approves via DB (no UI). Only approved coaches appear in `/coaching` browse; only approved coaches can create coaching listings.
 
 ## Product
 
@@ -66,6 +68,7 @@ lib/api-client-react/src/generated/api.ts — generated React Query hooks
 - `/events` + `/gigs` — event/wedding musician booking with availability calendar
 - `/store` — digital products (sheet music, lesson plans, recordings)
 - `/scores` — original score marketplace with 3-tier licensing (personal/performance/sync)
+- `/coaching` — career coaching from industry insiders; `/coaching/apply` — coach application form
 - `/concerts` — fan-funded concert crowdfunding (all-or-nothing, Stripe manual capture)
 - `/audition-prep` — audition coaching programs with session tracking
 - `/schools/join` + `/org-admin` — music school white-label organisations
@@ -86,7 +89,8 @@ lib/api-client-react/src/generated/api.ts — generated React Query hooks
 
 ## Pointers
 
-- DB schema: `lib/db/src/schema/` (scores.ts for score marketplace tables)
+- DB schema: `lib/db/src/schema/` (scores.ts, coachProfiles.ts)
+- Rebuild db declarations after schema changes: `cd lib/db && npx tsc --build`
 - API spec: `lib/api-spec/openapi.yaml`
 - Stripe checkout patterns: `artifacts/api-server/src/routes/stripe.ts`
 - Webhook handlers: `artifacts/api-server/src/webhookHandlers.ts`

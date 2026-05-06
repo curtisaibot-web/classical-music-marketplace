@@ -13,7 +13,7 @@ export const bookingStatusEnum = pgEnum("booking_status", [
   "expired",
 ]);
 
-export const bookingTypeEnum = pgEnum("booking_type", ["lesson", "event"]);
+export const bookingTypeEnum = pgEnum("booking_type", ["lesson", "event", "coaching"]);
 
 export const bookingsTable = pgTable("bookings", {
   id: serial("id").primaryKey(),

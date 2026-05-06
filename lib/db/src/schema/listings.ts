@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 
-export const listingTypeEnum = pgEnum("listing_type", ["lesson", "event", "masterclass", "digital_product"]);
+export const listingTypeEnum = pgEnum("listing_type", ["lesson", "event", "masterclass", "digital_product", "coaching"]);
 export const listingStatusEnum = pgEnum("listing_status", ["active", "inactive", "draft"]);
 export const skillLevelEnum = pgEnum("skill_level", ["beginner", "intermediate", "advanced", "all"]);
 
