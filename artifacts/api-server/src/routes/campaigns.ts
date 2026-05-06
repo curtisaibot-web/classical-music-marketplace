@@ -9,8 +9,6 @@ import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/email";
 import { randomUUID } from "crypto";
 
-const PLATFORM_FEE_RATE = 0.08;
-
 const router: IRouter = Router();
 
 // Only count authorised + captured tickets (not pending/abandoned sessions)
@@ -109,7 +107,7 @@ export async function processCampaignFailure(campaignId: number): Promise<void> 
   logger.info({ campaignId }, "Campaign failed — all authorisations cancelled");
 }
 
-// ─── Public routes ────────────────────────────────────────────────────────────
+// ─── Public routes (specific paths before parameterized :id routes) ───────────
 
 router.get("/campaigns", async (req, res): Promise<void> => {
   try {
@@ -144,6 +142,40 @@ router.get("/campaigns", async (req, res): Promise<void> => {
     res.json({ campaigns: withCounts, total: withCounts.length });
   } catch (err) {
     logger.error({ err }, "Failed to list campaigns");
+    res.status(500).json({ error: "Failed to list campaigns" });
+  }
+});
+
+// IMPORTANT: /campaigns/my must be declared BEFORE /campaigns/:id so Express
+// does not treat the literal string "my" as a numeric :id parameter.
+router.get("/campaigns/my", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  try {
+    const campaigns = await db
+      .select()
+      .from(concertCampaignsTable)
+      .where(eq(concertCampaignsTable.teacherId, userId))
+      .orderBy(concertCampaignsTable.createdAt);
+
+    const withStats = await Promise.all(campaigns.map(async (c) => {
+      const ticketsSold = await getCampaignTicketCount(c.id);
+      const [backerCount] = await db
+        .select({ count: count() })
+        .from(campaignTicketsTable)
+        .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
+      return {
+        ...c,
+        ticketsSold,
+        backerCount: Number(backerCount?.count ?? 0),
+        grossRaisedCents: ticketsSold * c.ticketPriceCents,
+      };
+    }));
+
+    res.json({ campaigns: withStats });
+  } catch (err) {
+    logger.error({ err }, "Failed to list my campaigns");
     res.status(500).json({ error: "Failed to list campaigns" });
   }
 });
@@ -189,39 +221,7 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
   }
 });
 
-// ─── Teacher-only routes ──────────────────────────────────────────────────────
-
-router.get("/campaigns/my", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth.userId!;
-
-  try {
-    const campaigns = await db
-      .select()
-      .from(concertCampaignsTable)
-      .where(eq(concertCampaignsTable.teacherId, userId))
-      .orderBy(concertCampaignsTable.createdAt);
-
-    const withStats = await Promise.all(campaigns.map(async (c) => {
-      const ticketsSold = await getCampaignTicketCount(c.id);
-      const [backerCount] = await db
-        .select({ count: count() })
-        .from(campaignTicketsTable)
-        .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
-      return {
-        ...c,
-        ticketsSold,
-        backerCount: Number(backerCount?.count ?? 0),
-        grossRaisedCents: ticketsSold * c.ticketPriceCents,
-      };
-    }));
-
-    res.json({ campaigns: withStats });
-  } catch (err) {
-    logger.error({ err }, "Failed to list my campaigns");
-    res.status(500).json({ error: "Failed to list campaigns" });
-  }
-});
+// ─── Teacher-only mutation routes ─────────────────────────────────────────────
 
 router.post("/campaigns", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -380,8 +380,6 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
 
   const [buyer] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   const accessCode = randomUUID();
-  const totalPriceCents = campaign.ticketPriceCents * quantity;
-  const platformFee = Math.round(totalPriceCents * PLATFORM_FEE_RATE);
   const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
 
   try {
@@ -411,7 +409,6 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
           buyer_email: buyer?.email ?? "",
           buyer_name: buyerName,
         },
-        application_fee_amount: platformFee,
       },
       metadata: {
         type: "campaign_ticket",

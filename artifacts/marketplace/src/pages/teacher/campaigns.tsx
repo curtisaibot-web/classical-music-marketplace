@@ -34,6 +34,7 @@ const TICKET_STATUS_BADGE: Record<string, string> = {
 interface CreateFormData {
   title: string;
   description: string;
+  coverImageUrl: string;
   venueName: string;
   scheduledDate: string;
   ticketPriceCents: string;
@@ -44,6 +45,7 @@ interface CreateFormData {
 const EMPTY_FORM: CreateFormData = {
   title: "",
   description: "",
+  coverImageUrl: "",
   venueName: "",
   scheduledDate: "",
   ticketPriceCents: "",
@@ -155,6 +157,7 @@ export default function TeacherCampaigns() {
         data: {
           title: form.title,
           description: form.description || undefined,
+          coverImageUrl: form.coverImageUrl || undefined,
           venueName: form.venueName || undefined,
           scheduledDate: form.scheduledDate || undefined,
           ticketPriceCents: priceCents,
@@ -372,6 +375,27 @@ export default function TeacherCampaigns() {
                 onChange={(e) => setField("description", e.target.value)}
                 className="mt-1 min-h-[80px]"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="cc-cover">Cover Photo URL</Label>
+              <Input
+                id="cc-cover"
+                type="url"
+                placeholder="https://example.com/concert-cover.jpg"
+                value={form.coverImageUrl}
+                onChange={(e) => setField("coverImageUrl", e.target.value)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Paste a public image URL to show on your campaign page</p>
+              {form.coverImageUrl && (
+                <img
+                  src={form.coverImageUrl}
+                  alt="Cover preview"
+                  className="mt-2 w-full h-28 object-cover rounded-md border border-border"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
