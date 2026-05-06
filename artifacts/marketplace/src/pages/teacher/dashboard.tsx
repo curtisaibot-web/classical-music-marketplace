@@ -267,7 +267,7 @@ function ComposerRoyaltyCard() {
           Composer Royalties
         </CardTitle>
         <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
-          <Link href="/scores">Browse Marketplace</Link>
+          <Link href="/my-scores">Manage</Link>
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -316,7 +316,7 @@ function ComposerRoyaltyCard() {
               </p>
             )}
             <Button size="sm" className="w-full" asChild>
-              <Link href="/scores">{myScores.length === 0 ? "List Your First Score" : "Manage My Scores"}</Link>
+              <Link href="/my-scores">{myScores.length === 0 ? "List Your First Score" : "Manage My Scores"}</Link>
             </Button>
           </>
         )}

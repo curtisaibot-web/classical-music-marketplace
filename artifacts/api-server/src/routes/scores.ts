@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, ilike, count, desc, sum } from "drizzle-orm";
+import { eq, and, ilike, count, desc, sum, inArray } from "drizzle-orm";
 import {
   db,
   scoresTable,
@@ -25,6 +25,18 @@ function validateFileKey(key: string | null | undefined, userId: string): boolea
   return key.startsWith(`/objects/uploads/${userId}/`) || key.startsWith(`/objects/images/${userId}/`);
 }
 
+async function buildSignedUrl(fileKey: string): Promise<string> {
+  const storageService = new ObjectStorageService();
+  const objectFile = await storageService.getObjectEntityFile(fileKey);
+  const gcsFile = objectFile as unknown as { name: string; bucket: { name: string } };
+  return signObjectURL({
+    bucketName: gcsFile.bucket.name,
+    objectName: gcsFile.name,
+    method: "GET",
+    ttlSec: 3600,
+  });
+}
+
 // ── GET /scores — public browse ───────────────────────────────────────────────
 router.get("/scores", async (req, res): Promise<void> => {
   const limit = paramInt(req.query.limit) ?? 20;
@@ -33,11 +45,25 @@ router.get("/scores", async (req, res): Promise<void> => {
   const difficulty = typeof req.query.difficulty === "string" ? req.query.difficulty : undefined;
   const instrumentation = typeof req.query.instrumentation === "string" ? req.query.instrumentation : undefined;
   const licenseType = typeof req.query.licenseType === "string" ? req.query.licenseType : undefined;
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : undefined;
 
   const conditions = [eq(scoresTable.isActive, true)];
   if (genre) conditions.push(ilike(scoresTable.genre, `%${genre}%`));
   if (difficulty) conditions.push(eq(scoresTable.difficulty, difficulty));
   if (instrumentation) conditions.push(ilike(scoresTable.instrumentation, `%${instrumentation}%`));
+  if (q) conditions.push(ilike(scoresTable.title, `%${q}%`));
+
+  // licenseType filter at DB level using subquery so total count is accurate
+  if (licenseType) {
+    const licSubq = db
+      .selectDistinct({ scoreId: scoreLicensesTable.scoreId })
+      .from(scoreLicensesTable)
+      .where(and(
+        eq(scoreLicensesTable.licenseType, licenseType),
+        eq(scoreLicensesTable.isActive, true),
+      ));
+    conditions.push(inArray(scoresTable.id, licSubq));
+  }
 
   const where = and(...conditions);
 
@@ -54,36 +80,34 @@ router.get("/scores", async (req, res): Promise<void> => {
       .offset(offset),
   ]);
 
-  // Load licenses for all scores
   const scoreIds = scoreRows.map((r) => r.scores.id);
   let licenses: Array<typeof scoreLicensesTable.$inferSelect> = [];
   if (scoreIds.length > 0) {
     licenses = await db
       .select()
       .from(scoreLicensesTable)
-      .where(and(eq(scoreLicensesTable.isActive, true)));
+      .where(and(
+        inArray(scoreLicensesTable.scoreId, scoreIds),
+        eq(scoreLicensesTable.isActive, true),
+      ));
   }
 
   const licensesByScore = new Map<number, Array<typeof scoreLicensesTable.$inferSelect>>();
   for (const lic of licenses) {
-    if (!scoreIds.includes(lic.scoreId)) continue;
     if (!licensesByScore.has(lic.scoreId)) licensesByScore.set(lic.scoreId, []);
     licensesByScore.get(lic.scoreId)!.push(lic);
   }
 
-  const scores = scoreRows
-    .map((r) => {
-      const scoreLicenses = licensesByScore.get(r.scores.id) ?? [];
-      if (licenseType && !scoreLicenses.some((l) => l.licenseType === licenseType)) return null;
-      return {
-        ...r.scores,
-        fullPdfKey: null, // never expose full PDF key publicly
-        composer: r.users ? { ...r.teacher_profiles, user: r.users } : undefined,
-        licenses: scoreLicenses,
-        minPriceCents: scoreLicenses.length > 0 ? Math.min(...scoreLicenses.map((l) => l.priceCents)) : null,
-      };
-    })
-    .filter(Boolean);
+  const scores = scoreRows.map((r) => {
+    const scoreLicenses = licensesByScore.get(r.scores.id) ?? [];
+    return {
+      ...r.scores,
+      fullPdfKey: null,
+      composer: r.users ? { ...r.teacher_profiles, user: r.users } : undefined,
+      licenses: scoreLicenses,
+      minPriceCents: scoreLicenses.length > 0 ? Math.min(...scoreLicenses.map((l) => l.priceCents)) : null,
+    };
+  });
 
   res.json({ scores, total: totalRow[0]?.count ?? 0 });
 });
@@ -105,7 +129,7 @@ router.get("/scores/mine", requireAuth, requireRole("teacher"), async (req, res)
   if (scoreIds.length > 0) {
     type PurchaseSummary = { scoreId: number; totalCents: string | null; count: number | null };
     const [allLics, rawPurchases] = await Promise.all([
-      db.select().from(scoreLicensesTable).where(eq(scoreLicensesTable.isActive, true)),
+      db.select().from(scoreLicensesTable).where(inArray(scoreLicensesTable.scoreId, scoreIds)),
       db
         .select({
           scoreId: purchasedLicensesTable.scoreId,
@@ -129,7 +153,6 @@ router.get("/scores/mine", requireAuth, requireRole("teacher"), async (req, res)
 
   const licensesByScore = new Map<number, Array<typeof scoreLicensesTable.$inferSelect>>();
   for (const lic of licenses) {
-    if (!scoreIds.includes(lic.scoreId)) continue;
     if (!licensesByScore.has(lic.scoreId)) licensesByScore.set(lic.scoreId, []);
     licensesByScore.get(lic.scoreId)!.push(lic);
   }
@@ -140,6 +163,9 @@ router.get("/scores/mine", requireAuth, requireRole("teacher"), async (req, res)
 
   const scores = scoreRows.map((s) => ({
     ...s,
+    // Return fullPdfKey to composer for their own scores (needed for management UI to show upload state)
+    hasFullPdf: !!s.fullPdfKey,
+    fullPdfKey: null as null,
     licenses: licensesByScore.get(s.id) ?? [],
     salesCount: purchasesByScore.get(s.id)?.count ?? 0,
     revenueCents: purchasesByScore.get(s.id)?.totalCents ?? 0,
@@ -170,9 +196,54 @@ router.get("/scores/:id", async (req, res): Promise<void> => {
   res.json({
     ...row.scores,
     fullPdfKey: null,
+    hasPreviewPdf: !!row.scores.previewPdfKey,
+    hasAudioDemo: !!row.scores.audioDemoKey,
+    hasFullPdf: !!row.scores.fullPdfKey,
     composer: row.users ? { ...row.teacher_profiles, user: row.users } : undefined,
     licenses,
   });
+});
+
+// ── GET /scores/:id/preview-url — public signed preview PDF URL ───────────────
+router.get("/scores/:id/preview-url", async (req, res): Promise<void> => {
+  const id = paramInt(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid score id" }); return; }
+
+  const [score] = await db
+    .select({ previewPdfKey: scoresTable.previewPdfKey, isActive: scoresTable.isActive })
+    .from(scoresTable)
+    .where(eq(scoresTable.id, id));
+
+  if (!score || !score.isActive) { res.status(404).json({ error: "Score not found" }); return; }
+  if (!score.previewPdfKey) { res.status(404).json({ error: "No preview available for this score" }); return; }
+
+  try {
+    const url = await buildSignedUrl(score.previewPdfKey);
+    res.json({ url });
+  } catch {
+    res.status(500).json({ error: "Failed to generate preview URL" });
+  }
+});
+
+// ── GET /scores/:id/audio-url — public signed audio demo URL ──────────────────
+router.get("/scores/:id/audio-url", async (req, res): Promise<void> => {
+  const id = paramInt(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid score id" }); return; }
+
+  const [score] = await db
+    .select({ audioDemoKey: scoresTable.audioDemoKey, isActive: scoresTable.isActive })
+    .from(scoresTable)
+    .where(eq(scoresTable.id, id));
+
+  if (!score || !score.isActive) { res.status(404).json({ error: "Score not found" }); return; }
+  if (!score.audioDemoKey) { res.status(404).json({ error: "No audio demo available for this score" }); return; }
+
+  try {
+    const url = await buildSignedUrl(score.audioDemoKey);
+    res.json({ url });
+  } catch {
+    res.status(500).json({ error: "Failed to generate audio URL" });
+  }
 });
 
 // ── POST /scores — composer creates a score ───────────────────────────────────
@@ -197,6 +268,7 @@ router.post("/scores", requireAuth, requireRole("teacher"), async (req, res): Pr
   if (!title?.trim()) { res.status(400).json({ error: "title is required" }); return; }
   if (!instrumentation?.trim()) { res.status(400).json({ error: "instrumentation is required" }); return; }
   if (!genre?.trim()) { res.status(400).json({ error: "genre is required" }); return; }
+  if (!fullPdfKey) { res.status(400).json({ error: "fullPdfKey (full score PDF) is required" }); return; }
   if (!licenses || !Array.isArray(licenses) || licenses.length === 0) {
     res.status(400).json({ error: "At least one license tier is required" }); return;
   }
@@ -211,7 +283,11 @@ router.post("/scores", requireAuth, requireRole("teacher"), async (req, res): Pr
     }
   }
 
-  if (!validateFileKey(previewPdfKey, userId) || !validateFileKey(fullPdfKey, userId) || !validateFileKey(audioDemoKey, userId)) {
+  if (
+    !validateFileKey(previewPdfKey, userId) ||
+    !validateFileKey(fullPdfKey, userId) ||
+    !validateFileKey(audioDemoKey, userId)
+  ) {
     res.status(403).json({ error: "File key does not belong to this composer" }); return;
   }
 
@@ -229,7 +305,7 @@ router.post("/scores", requireAuth, requireRole("teacher"), async (req, res): Pr
       genre: genre.trim(),
       description: description?.trim() ?? null,
       previewPdfKey: previewPdfKey ?? null,
-      fullPdfKey: fullPdfKey ?? null,
+      fullPdfKey: fullPdfKey,
       audioDemoKey: audioDemoKey ?? null,
     })
     .returning();
@@ -243,7 +319,7 @@ router.post("/scores", requireAuth, requireRole("teacher"), async (req, res): Pr
     })))
     .returning();
 
-  res.status(201).json({ ...score, fullPdfKey: null, licenses: insertedLicenses });
+  res.status(201).json({ ...score, fullPdfKey: null, hasFullPdf: true, licenses: insertedLicenses });
 });
 
 // ── PUT /scores/:id — composer updates a score ────────────────────────────────
@@ -265,9 +341,11 @@ router.put("/scores/:id", requireAuth, requireRole("teacher"), async (req, res):
     description, previewPdfKey, fullPdfKey, audioDemoKey, isActive, licenses,
   } = req.body as Record<string, unknown>;
 
-  if (!validateFileKey(previewPdfKey as string | null | undefined, userId) ||
-      !validateFileKey(fullPdfKey as string | null | undefined, userId) ||
-      !validateFileKey(audioDemoKey as string | null | undefined, userId)) {
+  if (
+    !validateFileKey(previewPdfKey as string | null | undefined, userId) ||
+    !validateFileKey(fullPdfKey as string | null | undefined, userId) ||
+    !validateFileKey(audioDemoKey as string | null | undefined, userId)
+  ) {
     res.status(403).json({ error: "File key does not belong to this composer" }); return;
   }
 
@@ -290,7 +368,6 @@ router.put("/scores/:id", requireAuth, requireRole("teacher"), async (req, res):
     .where(eq(scoresTable.id, id))
     .returning();
 
-  // Update license tiers if provided
   let updatedLicenses: Array<typeof scoreLicensesTable.$inferSelect> = [];
   if (Array.isArray(licenses) && licenses.length > 0) {
     const VALID_LICENSE_TYPES = ["personal", "performance", "sync"];
@@ -308,7 +385,7 @@ router.put("/scores/:id", requireAuth, requireRole("teacher"), async (req, res):
     updatedLicenses = await db.select().from(scoreLicensesTable).where(eq(scoreLicensesTable.scoreId, id));
   }
 
-  res.json({ ...updated, fullPdfKey: null, licenses: updatedLicenses });
+  res.json({ ...updated, fullPdfKey: null, hasFullPdf: !!updated.fullPdfKey, licenses: updatedLicenses });
 });
 
 // ── GET /score-licenses/purchased — buyer's purchased licenses ────────────────
@@ -320,13 +397,16 @@ router.get("/score-licenses/purchased", requireAuth, async (req, res): Promise<v
     .from(purchasedLicensesTable)
     .leftJoin(scoresTable, eq(purchasedLicensesTable.scoreId, scoresTable.id))
     .leftJoin(usersTable, eq(purchasedLicensesTable.composerId, usersTable.id))
+    .leftJoin(teacherProfilesTable, eq(purchasedLicensesTable.composerId, teacherProfilesTable.userId))
     .where(eq(purchasedLicensesTable.buyerId, userId))
     .orderBy(desc(purchasedLicensesTable.createdAt));
 
   const licenses = rows.map((r) => ({
     ...r.purchased_licenses,
-    score: r.scores ? { ...r.scores, fullPdfKey: null } : null,
-    composer: r.users ?? null,
+    score: r.scores ? { ...r.scores, fullPdfKey: null, hasFullPdf: !!r.scores.fullPdfKey } : null,
+    composerName: r.users
+      ? [r.users.firstName, r.users.lastName].filter(Boolean).join(" ") || r.users.email
+      : null,
   }));
 
   res.json({ licenses });
@@ -352,29 +432,20 @@ router.get("/score-licenses/:id/download", requireAuth, async (req, res): Promis
     res.status(404).json({ error: "Full score PDF not yet available" }); return;
   }
 
-  // Check sync license expiry (1 year)
   if (license.purchased_licenses.expiresAt && new Date(license.purchased_licenses.expiresAt) < new Date()) {
     await db.update(purchasedLicensesTable).set({ status: "expired" }).where(eq(purchasedLicensesTable.id, id));
     res.status(410).json({ error: "This sync license has expired. Please renew to continue downloading." }); return;
   }
 
   try {
-    const storageService = new ObjectStorageService();
-    const objectFile = await storageService.getObjectEntityFile(license.scores.fullPdfKey);
-    const gcsFile = objectFile as unknown as { name: string; bucket: { name: string } };
-    const signedUrl = await signObjectURL({
-      bucketName: gcsFile.bucket.name,
-      objectName: gcsFile.name,
-      method: "GET",
-      ttlSec: 300,
-    });
+    const url = await buildSignedUrl(license.scores.fullPdfKey);
 
     await db
       .update(purchasedLicensesTable)
       .set({ downloadCount: (license.purchased_licenses.downloadCount ?? 0) + 1 })
       .where(eq(purchasedLicensesTable.id, id));
 
-    res.json({ downloadUrl: signedUrl, licenseType: license.purchased_licenses.licenseType });
+    res.json({ downloadUrl: url, licenseType: license.purchased_licenses.licenseType });
   } catch {
     res.status(500).json({ error: "Failed to generate download URL" });
   }

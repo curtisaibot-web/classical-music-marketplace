@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useUser } from "@clerk/react";
 import { Navbar } from "@/components/layout/navbar";
@@ -7,15 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Music, Clock, BarChart3, Download, Play, CheckCircle2, Loader2, AlertCircle, ArrowLeft, FileText } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Music, Clock, BarChart3, Download, Play, Pause, CheckCircle2, Loader2, AlertCircle, ArrowLeft, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 import { usePageMeta } from "@/hooks/use-page-meta";
 
 const DIFFICULTY_LABELS: Record<string, string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
-  professional: "Professional",
+  beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced", professional: "Professional",
 };
 const DIFFICULTY_COLORS: Record<string, string> = {
   beginner: "bg-green-100 text-green-800",
@@ -56,8 +54,9 @@ interface Score {
   genre: string;
   durationSeconds?: number | null;
   description?: string | null;
-  previewPdfKey?: string | null;
-  audioDemoKey?: string | null;
+  hasPreviewPdf?: boolean;
+  hasAudioDemo?: boolean;
+  hasFullPdf?: boolean;
   licenses: ScoreLicense[];
   composer?: { user?: { firstName?: string | null; lastName?: string | null } | null; bio?: string | null } | null;
 }
@@ -67,6 +66,139 @@ function formatDuration(seconds?: number | null): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function AudioPlayer({ scoreId, apiBase }: { scoreId: number; apiBase: string }) {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const loadAndPlay = async () => {
+    if (audioUrl) {
+      if (audioRef.current) {
+        if (isPlaying) {
+          audioRef.current.pause();
+        } else {
+          audioRef.current.play();
+        }
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const resp = await fetch(`${apiBase}/api/scores/${scoreId}/audio-url`);
+      if (!resp.ok) { toast.error("Audio demo not available"); return; }
+      const { url } = await resp.json() as { url: string };
+      setAudioUrl(url);
+    } catch {
+      toast.error("Failed to load audio demo");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!audioUrl) return;
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    audio.onplay = () => setIsPlaying(true);
+    audio.onpause = () => setIsPlaying(false);
+    audio.onended = () => { setIsPlaying(false); setCurrentTime(0); };
+    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+    audio.onloadedmetadata = () => setDuration(audio.duration);
+    audio.play();
+    return () => { audio.pause(); audio.src = ""; };
+  }, [audioUrl]);
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const t = Number(e.target.value);
+    if (audioRef.current) audioRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+  return (
+    <Card className="bg-muted/30">
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-center gap-3">
+          <Play className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-sm">Audio Demo</p>
+            <p className="text-xs text-muted-foreground">Listen to a performance excerpt</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={loadAndPlay} disabled={isLoading} className="shrink-0">
+            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : isPlaying ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+            {isLoading ? "Loading…" : isPlaying ? "Pause" : "Play"}
+          </Button>
+        </div>
+        {audioUrl && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="shrink-0 w-8 text-right">{fmt(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 1}
+              step={0.1}
+              value={currentTime}
+              onChange={handleSeek}
+              className="flex-1 h-1.5 accent-primary"
+            />
+            <span className="shrink-0 w-8">{duration ? fmt(duration) : "--:--"}</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PreviewModal({ scoreId, apiBase, onClose }: { scoreId: number; apiBase: string; onClose: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${apiBase}/api/scores/${scoreId}/preview-url`)
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then((d: { url: string }) => setUrl(d.url))
+      .catch(() => setError("Preview not available"))
+      .finally(() => setIsLoading(false));
+  }, [scoreId, apiBase]);
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl w-full h-[85vh] flex flex-col p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <p className="font-medium text-sm">Score Preview</p>
+          <Button size="sm" variant="ghost" onClick={onClose} className="h-7 w-7 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-1 min-h-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <AlertCircle className="h-8 w-8 mb-2" />
+              <p>{error}</p>
+            </div>
+          ) : (
+            <iframe
+              src={url ?? ""}
+              className="w-full h-full border-0"
+              title="Score Preview"
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function ScoreDetail() {
@@ -79,6 +211,7 @@ export default function ScoreDetail() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchasedLicenseTypes, setPurchasedLicenseTypes] = useState<Set<string>>(new Set());
   const [isLoadingPurchased, setIsLoadingPurchased] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const apiBase = import.meta.env.VITE_API_URL ?? "";
 
   usePageMeta({ title: score?.title ?? "Score Detail" });
@@ -126,7 +259,7 @@ export default function ScoreDetail() {
         credentials: "include",
         body: JSON.stringify({
           licenseId: selectedLicense.id,
-          successUrl: `${baseUrl}/payment/success`,
+          successUrl: `${baseUrl}/orders`,
           cancelUrl: `${baseUrl}/scores/${id}`,
         }),
       });
@@ -181,6 +314,10 @@ export default function ScoreDetail() {
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
 
+      {showPreview && (
+        <PreviewModal scoreId={Number(id)} apiBase={apiBase} onClose={() => setShowPreview(false)} />
+      )}
+
       <div className="container mx-auto px-4 max-w-5xl py-8 flex-1">
         <button
           onClick={() => navigate("/scores")}
@@ -223,36 +360,24 @@ export default function ScoreDetail() {
               </div>
             )}
 
-            {score.previewPdfKey && (
+            {score.hasPreviewPdf && (
               <Card className="bg-muted/30">
                 <CardContent className="p-4 flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-primary" />
+                  <FileText className="h-5 w-5 text-primary shrink-0" />
                   <div className="flex-1">
                     <p className="font-medium text-sm">Preview Score</p>
-                    <p className="text-xs text-muted-foreground">View the first few pages</p>
+                    <p className="text-xs text-muted-foreground">View the first few pages before purchasing</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("Preview available after upload")}>
-                    <Download className="h-3 w-3 mr-1" />
+                  <Button size="sm" variant="outline" onClick={() => setShowPreview(true)}>
+                    <FileText className="h-3 w-3 mr-1" />
                     Preview
                   </Button>
                 </CardContent>
               </Card>
             )}
 
-            {score.audioDemoKey && (
-              <Card className="bg-muted/30">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <Play className="h-5 w-5 text-primary" />
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">Audio Demo</p>
-                    <p className="text-xs text-muted-foreground">Listen to a performance excerpt</p>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => toast.info("Audio player coming soon")}>
-                    <Play className="h-3 w-3 mr-1" />
-                    Play
-                  </Button>
-                </CardContent>
-              </Card>
+            {score.hasAudioDemo && (
+              <AudioPlayer scoreId={Number(id)} apiBase={apiBase} />
             )}
 
             <div>
@@ -317,9 +442,17 @@ export default function ScoreDetail() {
                     </div>
 
                     {alreadyOwned ? (
-                      <div className="flex items-center gap-2 text-sm text-green-600 font-medium p-3 bg-green-50 rounded-lg">
-                        <CheckCircle2 className="h-4 w-4" />
-                        You already own this license
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-green-600 font-medium p-3 bg-green-50 rounded-lg">
+                          <CheckCircle2 className="h-4 w-4" />
+                          You already own this license
+                        </div>
+                        <Button variant="outline" className="w-full" asChild>
+                          <a href={`${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/orders`}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Go to My Orders to Download
+                          </a>
+                        </Button>
                       </div>
                     ) : (
                       <Button

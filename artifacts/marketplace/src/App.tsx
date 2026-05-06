@@ -46,6 +46,7 @@ import { OrgProvider } from "@/context/OrgContext";
 import ScoresBrowse from "@/pages/scores/index";
 import ScoreDetail from "@/pages/scores/detail";
 import StudentScoreLicenses from "@/pages/student/score-licenses";
+import MyScores from "@/pages/teacher/my-scores";
 
 const queryClient = new QueryClient();
 
@@ -233,6 +234,7 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/scores" component={ScoresBrowse} />
           <Route path="/scores/:id" component={ScoreDetail} />
+          <Route path="/my-scores" component={MyScores} />
           
           <Route path="/dashboard" component={StudentDashboard} />
           <Route path="/bookings" component={StudentBookings} />
