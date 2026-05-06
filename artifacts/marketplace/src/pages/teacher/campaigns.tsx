@@ -191,6 +191,9 @@ export default function TeacherCampaigns() {
   const minDeadline = new Date();
   minDeadline.setDate(minDeadline.getDate() + 1);
   const minDeadlineStr = minDeadline.toISOString().slice(0, 16);
+  const maxDeadline = new Date();
+  maxDeadline.setDate(maxDeadline.getDate() + 7);
+  const maxDeadlineStr = maxDeadline.toISOString().slice(0, 16);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -458,11 +461,12 @@ export default function TeacherCampaigns() {
                 id="cc-deadline"
                 type="datetime-local"
                 min={minDeadlineStr}
+                max={maxDeadlineStr}
                 value={form.deadlineAt}
                 onChange={(e) => setField("deadlineAt", e.target.value)}
                 className="mt-1"
               />
-              <p className="text-xs text-muted-foreground mt-1">Up to 60 days from today</p>
+              <p className="text-xs text-muted-foreground mt-1">Up to 7 days — card authorizations expire after ~7 days</p>
             </div>
 
             {form.ticketPriceCents && form.goalCount && (

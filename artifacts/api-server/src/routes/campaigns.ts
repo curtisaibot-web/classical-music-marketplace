@@ -23,6 +23,13 @@ async function getCampaignTicketCount(campaignId: number): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
+// MAX_CAMPAIGN_DAYS must stay at or below Stripe's manual-capture authorization
+// validity window (~7 days for most card networks). Campaigns that run longer
+// risk authorization expiry and capture failures on success.
+// TODO: migrate to SetupIntent + deferred PaymentIntent creation to support
+// longer campaigns without expiry risk.
+const MAX_CAMPAIGN_DAYS = 7;
+
 export async function processCampaignSuccess(campaignId: number): Promise<void> {
   const [campaign] = await db
     .select()
@@ -33,6 +40,7 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
   const ticketsSold = await getCampaignTicketCount(campaignId);
   if (ticketsSold < campaign.goalCount) return;
 
+  // Mark succeeded first to prevent new backers; captures follow.
   await db.update(concertCampaignsTable).set({ status: "succeeded", updatedAt: new Date() }).where(eq(concertCampaignsTable.id, campaignId));
 
   const tickets = await db.select().from(campaignTicketsTable).where(
@@ -40,14 +48,19 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
   );
 
   const stripe = await getUncachableStripeClient();
+  let captured = 0;
+  let captureFailures = 0;
+
   for (const ticket of tickets) {
+    if (!ticket.stripePaymentIntentId) {
+      logger.warn({ campaignId, ticketId: ticket.id }, "Skipping capture — ticket has no PaymentIntent ID");
+      captureFailures++;
+      continue;
+    }
     try {
-      if (!ticket.stripePaymentIntentId) {
-        logger.warn({ ticketId: ticket.id }, "Skipping capture — ticket has no PaymentIntent ID");
-        continue;
-      }
       await stripe.paymentIntents.capture(ticket.stripePaymentIntentId);
       await db.update(campaignTicketsTable).set({ status: "captured", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
+      captured++;
       if (ticket.buyerEmail) {
         await sendEmail({
           to: ticket.buyerEmail,
@@ -59,14 +72,22 @@ ${campaign.venueName ? `<p><strong>Venue:</strong> ${campaign.venueName}</p>` : 
 <p><strong>Access Code:</strong> <code>${ticket.accessCode}</code></p>
 <p>Enjoy the concert!</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
-        });
+        }).catch((emailErr) => logger.error({ emailErr, ticketId: ticket.id }, "Failed to send confirmation email"));
       }
     } catch (err) {
-      logger.error({ err, ticketId: ticket.id }, "Failed to capture payment intent for ticket");
+      // Ticket remains 'authorised' — can be retried manually or via a future sweep job.
+      captureFailures++;
+      logger.error({ err, campaignId, ticketId: ticket.id, paymentIntentId: ticket.stripePaymentIntentId },
+        "Capture failed — ticket remains authorised for manual reconciliation");
     }
   }
 
-  logger.info({ campaignId, ticketsSold }, "Campaign succeeded — all payments captured");
+  if (captureFailures > 0) {
+    logger.warn({ campaignId, captured, captureFailures, total: tickets.length },
+      "Campaign succeeded with partial capture failures — manual reconciliation required");
+  } else {
+    logger.info({ campaignId, captured, ticketsSold }, "Campaign succeeded — all payments captured");
+  }
 }
 
 export async function processCampaignFailure(campaignId: number): Promise<void> {
@@ -248,8 +269,8 @@ router.post("/campaigns", requireAuth, requireRole("teacher"), async (req, res):
 
   const deadline = new Date(deadlineAt);
   if (isNaN(deadline.getTime())) { res.status(400).json({ error: "Invalid deadlineAt date" }); return; }
-  const maxDeadline = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-  if (deadline > maxDeadline) { res.status(400).json({ error: "Deadline cannot be more than 60 days from now" }); return; }
+  const maxDeadline = new Date(Date.now() + MAX_CAMPAIGN_DAYS * 24 * 60 * 60 * 1000);
+  if (deadline > maxDeadline) { res.status(400).json({ error: `Deadline cannot be more than ${MAX_CAMPAIGN_DAYS} days from now` }); return; }
   if (deadline <= new Date()) { res.status(400).json({ error: "Deadline must be in the future" }); return; }
 
   try {
