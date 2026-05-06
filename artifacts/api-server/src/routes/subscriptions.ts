@@ -44,18 +44,26 @@ router.get("/subscriptions/me", requireAuth, async (req, res): Promise<void> => 
     .from(subscriptionsTable)
     .where(eq(subscriptionsTable.userId, userId));
 
+  const isProSubscriber = sub?.status === "active" || sub?.status === "trialing";
+
   if (!sub) {
-    res.json({ status: null, isActive: false, currentPeriodEnd: null });
+    res.json({ subscription: null, isProSubscriber: false });
     return;
   }
 
-  const isActive = sub.status === "active" || sub.status === "trialing";
   res.json({
-    id: sub.id,
-    status: sub.status,
-    isActive,
-    currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
-    stripeCustomerId: sub.stripeCustomerId,
+    subscription: {
+      id: sub.id,
+      userId: sub.userId,
+      stripeCustomerId: sub.stripeCustomerId,
+      stripeSubscriptionId: sub.stripeSubscriptionId,
+      stripePriceId: sub.stripePriceId,
+      status: sub.status,
+      currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    },
+    isProSubscriber,
   });
 });
 
@@ -160,6 +168,18 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
   try {
     const stripe = await getUncachableStripeClient();
     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const stripeCustomerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+    const [existing] = await db
+      .select({ stripeCustomerId: subscriptionsTable.stripeCustomerId })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, userId));
+
+    if (existing?.stripeCustomerId && existing.stripeCustomerId !== stripeCustomerId) {
+      logger.warn({ userId, stripeCustomerId, existingCustomerId: existing.stripeCustomerId }, "Subscription activate: customer mismatch — rejecting");
+      res.status(403).json({ error: "This subscription does not belong to your account" });
+      return;
+    }
 
     const periodEnd = new Date(sub.current_period_end * 1000);
 
@@ -168,7 +188,7 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
       .values({
         userId,
         stripeSubscriptionId,
-        stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
+        stripeCustomerId,
         stripePriceId: sub.items.data[0]?.price.id ?? null,
         status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
         currentPeriodEnd: periodEnd,
@@ -177,6 +197,7 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
         target: subscriptionsTable.userId,
         set: {
           stripeSubscriptionId,
+          stripeCustomerId,
           status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
           currentPeriodEnd: periodEnd,
           updatedAt: new Date(),

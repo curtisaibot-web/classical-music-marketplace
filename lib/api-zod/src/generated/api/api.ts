@@ -2485,7 +2485,7 @@ export const GetSubscriptionMeResponse = zod.object({
       stripeSubscriptionId: zod.string().nullish(),
       stripePriceId: zod.string().nullish(),
       status: zod.enum(["active", "trialing", "past_due", "cancelled", "incomplete"]),
-      currentPeriodEnd: zod.coerce.date().nullish(),
+      currentPeriodEnd: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     })

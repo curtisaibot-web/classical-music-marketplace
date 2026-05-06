@@ -112,14 +112,23 @@ function fieldKey(label: string): string {
   return label.charAt(0).toLowerCase() + label.slice(1).replace(/\s+(.)/g, (_, c) => c.toUpperCase());
 }
 
+type SubResponse = {
+  subscription: {
+    id: number; status: string; currentPeriodEnd: string | null;
+    stripeCustomerId: string | null; stripeSubscriptionId: string | null;
+    createdAt: string; updatedAt: string;
+  } | null;
+  isProSubscriber: boolean;
+};
+
 function SubscriptionTab() {
-  const [sub, setSub] = useState<{ status: string | null; isActive: boolean; currentPeriodEnd: string | null } | null>(null);
+  const [sub, setSub] = useState<SubResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<"monthly" | "annual" | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
-    apiFetch("/subscriptions/me").then(setSub).catch(() => setSub({ status: null, isActive: false, currentPeriodEnd: null })).finally(() => setLoading(false));
+    apiFetch("/subscriptions/me").then(setSub).catch(() => setSub({ subscription: null, isProSubscriber: false })).finally(() => setLoading(false));
   }, []);
 
   const handleSubscribe = async (plan: "monthly" | "annual") => {
@@ -160,7 +169,7 @@ function SubscriptionTab() {
 
   if (loading) return <div className="animate-pulse space-y-4"><div className="h-32 bg-muted rounded-xl" /></div>;
 
-  if (sub?.isActive) {
+  if (sub?.isProSubscriber) {
     return (
       <div className="space-y-6">
         <Card className="border-amber-200 bg-amber-50">
@@ -172,8 +181,8 @@ function SubscriptionTab() {
                 <Badge className="bg-amber-500 text-white text-xs">PRO</Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                {sub.currentPeriodEnd
-                  ? `Your subscription renews on ${format(new Date(sub.currentPeriodEnd), "MMMM d, yyyy")}.`
+                {sub.subscription?.currentPeriodEnd
+                  ? `Your subscription renews on ${format(new Date(sub.subscription.currentPeriodEnd), "MMMM d, yyyy")}.`
                   : "Your subscription is active."}
               </p>
             </div>
@@ -897,11 +906,29 @@ function ExpensesTab({ isPro }: { isPro: boolean }) {
   );
 }
 
+type CancellationRecord = {
+  id: number;
+  studentName: string;
+  studentEmail: string | null;
+  scheduledAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  priceInCents: number;
+  currency: string;
+  instrument: string | null;
+  cancellationPolicyHoursSnapshot: number | null;
+  cancellationFeePercentSnapshot: number | null;
+  cancellationFeeOwedInCents: number | null;
+};
+
 function PolicyTab({ isPro }: { isPro: boolean }) {
   const { data: profile, isLoading } = useGetMyTeacherProfile();
   const [hours, setHours] = useState(24);
   const [feePercent, setFeePercent] = useState(50);
   const [saving, setSaving] = useState(false);
+  const [cancellations, setCancellations] = useState<CancellationRecord[]>([]);
+  const [cancelStats, setCancelStats] = useState<{ totalFeeOwedInCents: number; lateCancellationCount: number } | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(true);
 
   useEffect(() => {
     if (profile) {
@@ -909,6 +936,17 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
       setFeePercent((profile as { cancellationFeePercent?: number }).cancellationFeePercent ?? 50);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!isPro) return;
+    apiFetch("/bookings/cancellations")
+      .then((d: { cancellations: CancellationRecord[]; totalFeeOwedInCents: number; lateCancellationCount: number }) => {
+        setCancellations(d.cancellations ?? []);
+        setCancelStats({ totalFeeOwedInCents: d.totalFeeOwedInCents, lateCancellationCount: d.lateCancellationCount });
+      })
+      .catch(() => setCancellations([]))
+      .finally(() => setCancelLoading(false));
+  }, [isPro]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -977,6 +1015,84 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Cancellation tracking dashboard */}
+      <div>
+        <h3 className="text-base font-serif font-semibold mb-1">Cancellation History</h3>
+        <p className="text-sm text-muted-foreground mb-4">Track cancelled bookings and any fees owed by students.</p>
+
+        {cancelStats && (cancelStats.lateCancellationCount > 0 || cancelStats.totalFeeOwedInCents > 0) && (
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Late Cancellations</p>
+                <p className="text-2xl font-bold text-amber-800 mt-1">{cancelStats.lateCancellationCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Total Fees Owed</p>
+                <p className="text-2xl font-bold text-amber-800 mt-1">${(cancelStats.totalFeeOwedInCents / 100).toFixed(2)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {cancelLoading ? (
+          <div className="animate-pulse h-32 bg-muted rounded-xl" />
+        ) : cancellations.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="p-8 text-center text-muted-foreground text-sm">
+              <Shield className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              No cancelled bookings yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+                {cancellations.map(c => {
+                  const feeOwed = c.cancellationFeeOwedInCents ?? 0;
+                  const isLate = feeOwed > 0;
+                  return (
+                    <div key={c.id} className="px-5 py-4 flex items-start justify-between gap-4">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{c.studentName}</span>
+                          {isLate && (
+                            <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">Late cancel</Badge>
+                          )}
+                        </div>
+                        {c.scheduledAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Lesson: {format(new Date(c.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                          </p>
+                        )}
+                        {c.cancelledAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Cancelled: {format(new Date(c.cancelledAt), "MMM d, yyyy")}
+                          </p>
+                        )}
+                        {c.cancelReason && (
+                          <p className="text-xs text-muted-foreground italic">"{c.cancelReason}"</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-medium">${(c.priceInCents / 100).toFixed(2)}</p>
+                        {isLate ? (
+                          <p className="text-xs text-amber-700 font-medium">Fee owed: ${(feeOwed / 100).toFixed(2)}</p>
+                        ) : (
+                          <p className="text-xs text-green-700">No fee</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
@@ -1002,7 +1118,7 @@ export default function BusinessSuite() {
 
   useEffect(() => {
     apiFetch("/subscriptions/me")
-      .then(d => setIsPro(d?.isActive ?? false))
+      .then((d: SubResponse) => setIsPro(d?.isProSubscriber ?? false))
       .catch(() => setIsPro(false));
   }, []);
 

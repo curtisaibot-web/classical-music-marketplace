@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { db, bookingsTable, teacherProfilesTable, usersTable, listingsTable, reviewsTable } from "@workspace/db";
 import {
   GetBookingResponse,
@@ -203,6 +203,59 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json(GetBookingResponse.parse({ ...booking, teacher: undefined }));
+});
+
+router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const rows = await db
+    .select({
+      id: bookingsTable.id,
+      studentId: bookingsTable.studentId,
+      scheduledAt: bookingsTable.scheduledAt,
+      priceInCents: bookingsTable.priceInCents,
+      currency: bookingsTable.currency,
+      instrument: bookingsTable.instrument,
+      cancelledAt: bookingsTable.cancelledAt,
+      cancelReason: bookingsTable.cancelReason,
+      cancellationPolicyHoursSnapshot: bookingsTable.cancellationPolicyHoursSnapshot,
+      cancellationFeePercentSnapshot: bookingsTable.cancellationFeePercentSnapshot,
+      cancellationFeeOwedInCents: bookingsTable.cancellationFeeOwedInCents,
+      studentFirstName: usersTable.firstName,
+      studentLastName: usersTable.lastName,
+      studentEmail: usersTable.email,
+    })
+    .from(bookingsTable)
+    .leftJoin(usersTable, eq(bookingsTable.studentId, usersTable.id))
+    .where(and(
+      eq(bookingsTable.teacherId, userId),
+      eq(bookingsTable.status, "cancelled"),
+    ))
+    .orderBy(desc(bookingsTable.cancelledAt))
+    .limit(50);
+
+  const totalFeeOwedInCents = rows.reduce((s, r) => s + (r.cancellationFeeOwedInCents ?? 0), 0);
+  const lateCancellations = rows.filter(r => (r.cancellationFeeOwedInCents ?? 0) > 0);
+
+  res.json({
+    cancellations: rows.map(r => ({
+      id: r.id,
+      studentName: [r.studentFirstName, r.studentLastName].filter(Boolean).join(" ") || r.studentEmail || "Unknown",
+      studentEmail: r.studentEmail,
+      scheduledAt: r.scheduledAt,
+      cancelledAt: r.cancelledAt,
+      cancelReason: r.cancelReason,
+      priceInCents: r.priceInCents,
+      currency: r.currency,
+      instrument: r.instrument,
+      cancellationPolicyHoursSnapshot: r.cancellationPolicyHoursSnapshot,
+      cancellationFeePercentSnapshot: r.cancellationFeePercentSnapshot,
+      cancellationFeeOwedInCents: r.cancellationFeeOwedInCents,
+    })),
+    totalFeeOwedInCents,
+    lateCancellationCount: lateCancellations.length,
+  });
 });
 
 export default router;
