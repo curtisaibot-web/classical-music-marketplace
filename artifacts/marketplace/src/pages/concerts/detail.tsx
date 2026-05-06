@@ -2,12 +2,11 @@ import { useParams, useLocation } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, MapPin, Users, Target, AlertCircle, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Calendar, MapPin, Users, Target, AlertCircle, CheckCircle2, XCircle, Clock, Share2 } from "lucide-react";
 import { useGetCampaign, useCreateCampaignCheckout } from "@workspace/api-client-react";
 import { useUser } from "@clerk/react";
-import { formatDistanceToNow, parseISO, format } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { resolveImageUrl } from "@/lib/image-url";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -36,6 +35,28 @@ export default function ConcertDetail() {
     title: campaign?.title ?? "Concert Campaign",
     description: campaign?.description ?? "Back this fan-funded concert campaign.",
   });
+
+  async function handleShare() {
+    const url = window.location.href;
+    const title = campaign?.title ?? "Concert Campaign";
+    const text = `Back "${title}" — a fan-funded live classical music concert on Harmonia!`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch {
+        // User dismissed — fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  }
 
   if (isLoading) {
     return (
@@ -76,6 +97,9 @@ export default function ConcertDetail() {
   const isActive = campaign.status === "active" && deadline > new Date();
   const totalCents = campaign.ticketPriceCents * quantity;
   const platformFeeCents = Math.round(totalCents * 0.08);
+
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`Back "${campaign.title}" — a fan-funded live classical music concert! ${window.location.href}`)}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`Back "${campaign.title}" on Harmonia — a fan-funded live classical music concert! ${window.location.href}`)}`;
 
   async function handleCheckout() {
     if (!isSignedIn) {
@@ -159,6 +183,36 @@ export default function ConcertDetail() {
                   <Target className="h-4 w-4 text-primary" />
                   <span>{campaign.ticketsSold} / {campaign.goalCount} tickets sold</span>
                 </div>
+              </div>
+
+              {/* Share section */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <span className="text-sm font-medium text-muted-foreground">Share this campaign:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleShare}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Copy link
+                </Button>
+                <a
+                  href={twitterUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  𝕏 Twitter
+                </a>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  WhatsApp
+                </a>
               </div>
 
               <Card className="border-border">

@@ -1286,7 +1286,6 @@ export interface CampaignCheckoutBody {
 
 export interface CampaignCheckoutResponse {
   checkoutUrl: string | null;
-  ticketId: number;
 }
 
 export type CampaignTicketStatus =

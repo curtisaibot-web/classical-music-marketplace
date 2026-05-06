@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, Redirect } from "wouter";
 import { useUser } from "@clerk/react";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, useGetCampaignTickets } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Music, Plus, Target, Users, DollarSign, Calendar, AlertCircle, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
+import { Music, Plus, Target, Users, DollarSign, Calendar, AlertCircle, CheckCircle2, XCircle, ChevronRight, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { useGetMyCampaigns, useCreateCampaign, useCancelCampaign } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -23,6 +23,12 @@ const STATUS_BADGE: Record<string, { label: string; class: string }> = {
   succeeded: { label: "Goal Met!", class: "bg-blue-100 text-blue-700 border-blue-200" },
   failed: { label: "Not Funded", class: "bg-red-100 text-red-700 border-red-200" },
   cancelled: { label: "Cancelled", class: "bg-gray-100 text-gray-600 border-gray-200" },
+};
+
+const TICKET_STATUS_BADGE: Record<string, string> = {
+  authorised: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  captured: "bg-green-100 text-green-700 border-green-200",
+  cancelled: "bg-gray-100 text-gray-500 border-gray-200",
 };
 
 interface CreateFormData {
@@ -45,6 +51,47 @@ const EMPTY_FORM: CreateFormData = {
   deadlineAt: "",
 };
 
+function BackerList({ campaignId }: { campaignId: number }) {
+  const { data, isLoading, isError } = useGetCampaignTickets(campaignId);
+  const tickets = data?.tickets ?? [];
+
+  if (isLoading) {
+    return <div className="text-xs text-muted-foreground py-3 px-4 animate-pulse">Loading backers…</div>;
+  }
+
+  if (isError) {
+    return <div className="text-xs text-destructive py-3 px-4">Failed to load backer list.</div>;
+  }
+
+  if (tickets.length === 0) {
+    return <div className="text-xs text-muted-foreground py-3 px-4 italic">No backers yet.</div>;
+  }
+
+  return (
+    <div className="divide-y divide-border">
+      {tickets.map((t) => (
+        <div key={t.id} className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground truncate">{t.buyerName || "Anonymous"}</p>
+            {t.buyerEmail && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <Mail className="h-3 w-3 shrink-0" />
+                <span className="truncate">{t.buyerEmail}</span>
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-muted-foreground text-xs">{t.quantity} ticket{t.quantity !== 1 ? "s" : ""}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TICKET_STATUS_BADGE[t.status] ?? ""}`}>
+              {t.status}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TeacherCampaigns() {
   usePageMeta({ title: "My Concert Campaigns" });
 
@@ -58,6 +105,7 @@ export default function TeacherCampaigns() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [expandedBackers, setExpandedBackers] = useState<Set<number>>(new Set());
   const [form, setForm] = useState<CreateFormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
@@ -77,6 +125,18 @@ export default function TeacherCampaigns() {
 
   function setField(key: keyof CreateFormData, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleBackers(id: number) {
+    setExpandedBackers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }
 
   async function handleCreate() {
@@ -182,6 +242,7 @@ export default function TeacherCampaigns() {
               const badge = STATUS_BADGE[c.status];
               const deadline = parseISO(c.deadlineAt);
               const isActive = c.status === "active";
+              const showBackers = expandedBackers.has(c.id);
 
               return (
                 <Card key={c.id} className="border-border overflow-hidden">
@@ -240,6 +301,16 @@ export default function TeacherCampaigns() {
                             <span>Deadline {format(deadline, "MMM d, yyyy")}</span>
                           </div>
                         </div>
+
+                        {/* Backer list toggle */}
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => toggleBackers(c.id)}
+                        >
+                          {showBackers ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          {showBackers ? "Hide" : "Show"} backer list
+                        </button>
                       </div>
 
                       {isActive && (
@@ -255,6 +326,17 @@ export default function TeacherCampaigns() {
                         </div>
                       )}
                     </div>
+
+                    {/* Expandable backer roster */}
+                    {showBackers && (
+                      <div className="border-t border-border bg-muted/30">
+                        <div className="px-4 py-2 flex items-center gap-2 border-b border-border/50">
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Backers</span>
+                        </div>
+                        <BackerList campaignId={c.id} />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

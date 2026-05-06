@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { eq, and, ne, count, sum, lt } from "drizzle-orm";
 import { db, concertCampaignsTable, campaignTicketsTable, usersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireRole";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/email";
@@ -12,6 +13,7 @@ const PLATFORM_FEE_RATE = 0.08;
 
 const router: IRouter = Router();
 
+// Only count authorised + captured tickets (not pending/abandoned sessions)
 async function getCampaignTicketCount(campaignId: number): Promise<number> {
   const [row] = await db
     .select({ total: sum(campaignTicketsTable.quantity) })
@@ -42,9 +44,11 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
   const stripe = await getUncachableStripeClient();
   for (const ticket of tickets) {
     try {
-      if (ticket.stripePaymentIntentId) {
-        await stripe.paymentIntents.capture(ticket.stripePaymentIntentId);
+      if (!ticket.stripePaymentIntentId) {
+        logger.warn({ ticketId: ticket.id }, "Skipping capture — ticket has no PaymentIntent ID");
+        continue;
       }
+      await stripe.paymentIntents.capture(ticket.stripePaymentIntentId);
       await db.update(campaignTicketsTable).set({ status: "captured", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
       if (ticket.buyerEmail) {
         await sendEmail({
@@ -105,6 +109,8 @@ export async function processCampaignFailure(campaignId: number): Promise<void> 
   logger.info({ campaignId }, "Campaign failed — all authorisations cancelled");
 }
 
+// ─── Public routes ────────────────────────────────────────────────────────────
+
 router.get("/campaigns", async (req, res): Promise<void> => {
   try {
     const campaigns = await db
@@ -138,38 +144,6 @@ router.get("/campaigns", async (req, res): Promise<void> => {
     res.json({ campaigns: withCounts, total: withCounts.length });
   } catch (err) {
     logger.error({ err }, "Failed to list campaigns");
-    res.status(500).json({ error: "Failed to list campaigns" });
-  }
-});
-
-router.get("/campaigns/my", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth.userId!;
-
-  try {
-    const campaigns = await db
-      .select()
-      .from(concertCampaignsTable)
-      .where(eq(concertCampaignsTable.teacherId, userId))
-      .orderBy(concertCampaignsTable.createdAt);
-
-    const withStats = await Promise.all(campaigns.map(async (c) => {
-      const ticketsSold = await getCampaignTicketCount(c.id);
-      const [backerCount] = await db
-        .select({ count: count() })
-        .from(campaignTicketsTable)
-        .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
-      return {
-        ...c,
-        ticketsSold,
-        backerCount: Number(backerCount?.count ?? 0),
-        grossRaisedCents: ticketsSold * c.ticketPriceCents,
-      };
-    }));
-
-    res.json({ campaigns: withStats });
-  } catch (err) {
-    logger.error({ err }, "Failed to list my campaigns");
     res.status(500).json({ error: "Failed to list campaigns" });
   }
 });
@@ -215,7 +189,41 @@ router.get("/campaigns/:id", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
+// ─── Teacher-only routes ──────────────────────────────────────────────────────
+
+router.get("/campaigns/my", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  try {
+    const campaigns = await db
+      .select()
+      .from(concertCampaignsTable)
+      .where(eq(concertCampaignsTable.teacherId, userId))
+      .orderBy(concertCampaignsTable.createdAt);
+
+    const withStats = await Promise.all(campaigns.map(async (c) => {
+      const ticketsSold = await getCampaignTicketCount(c.id);
+      const [backerCount] = await db
+        .select({ count: count() })
+        .from(campaignTicketsTable)
+        .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
+      return {
+        ...c,
+        ticketsSold,
+        backerCount: Number(backerCount?.count ?? 0),
+        grossRaisedCents: ticketsSold * c.ticketPriceCents,
+      };
+    }));
+
+    res.json({ campaigns: withStats });
+  } catch (err) {
+    logger.error({ err }, "Failed to list my campaigns");
+    res.status(500).json({ error: "Failed to list campaigns" });
+  }
+});
+
+router.post("/campaigns", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
 
@@ -250,14 +258,14 @@ router.post("/campaigns", requireAuth, async (req, res): Promise<void> => {
       .values({ teacherId: userId, title, description, coverImageUrl, scheduledDate, venueName, ticketPriceCents, goalCount, deadlineAt: deadline })
       .returning();
 
-    res.status(201).json({ campaign });
+    res.status(201).json({ campaign: { ...campaign, ticketsSold: 0, backerCount: 0, grossRaisedCents: 0 } });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign");
     res.status(500).json({ error: "Failed to create campaign" });
   }
 });
 
-router.patch("/campaigns/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/campaigns/:id", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const id = parseInt(String(req.params.id), 10);
@@ -275,10 +283,11 @@ router.patch("/campaigns/:id", requireAuth, async (req, res): Promise<void> => {
     .where(eq(concertCampaignsTable.id, id))
     .returning();
 
-  res.json({ campaign: updated });
+  const ticketsSold = await getCampaignTicketCount(id);
+  res.json({ campaign: { ...updated, ticketsSold, backerCount: 0, grossRaisedCents: ticketsSold * updated.ticketPriceCents } });
 });
 
-router.post("/campaigns/:id/cancel", requireAuth, async (req, res): Promise<void> => {
+router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const id = parseInt(String(req.params.id), 10);
@@ -323,6 +332,29 @@ router.post("/campaigns/:id/cancel", requireAuth, async (req, res): Promise<void
   }
 });
 
+router.get("/campaigns/:id/tickets", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
+
+  const [campaign] = await db.select().from(concertCampaignsTable).where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found or access denied" }); return; }
+
+  const tickets = await db
+    .select()
+    .from(campaignTicketsTable)
+    .where(and(eq(campaignTicketsTable.campaignId, id), ne(campaignTicketsTable.status, "cancelled")))
+    .orderBy(campaignTicketsTable.createdAt);
+
+  res.json({ tickets });
+});
+
+// ─── Fan checkout ─────────────────────────────────────────────────────────────
+// Note: any authenticated user can back a campaign.
+// Ticket record is created ONLY in the webhook after Stripe confirms the session.
+// This prevents abandoned/failed checkouts from counting toward the campaign goal.
+
 router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
@@ -350,6 +382,7 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
   const accessCode = randomUUID();
   const totalPriceCents = campaign.ticketPriceCents * quantity;
   const platformFee = Math.round(totalPriceCents * PLATFORM_FEE_RATE);
+  const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
 
   try {
     const stripe = await getUncachableStripeClient();
@@ -361,7 +394,7 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
           currency: "usd",
           product_data: {
             name: `${campaign.title} — Crowdfunding Ticket${quantity > 1 ? `s (×${quantity})` : ""}`,
-            description: `Your payment will only be captured if the campaign reaches its goal of ${campaign.goalCount} tickets by ${campaign.deadlineAt.toLocaleDateString()}.`,
+            description: `Only charged if the campaign reaches ${campaign.goalCount} tickets by ${campaign.deadlineAt.toLocaleDateString()}.`,
           },
           unit_amount: campaign.ticketPriceCents,
         },
@@ -375,6 +408,8 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
           buyer_id: userId,
           quantity: String(quantity),
           access_code: accessCode,
+          buyer_email: buyer?.email ?? "",
+          buyer_name: buyerName,
         },
         application_fee_amount: platformFee,
       },
@@ -384,51 +419,22 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
         buyer_id: userId,
         quantity: String(quantity),
         access_code: accessCode,
+        buyer_email: buyer?.email ?? "",
+        buyer_name: buyerName,
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
 
-    const [ticket] = await db
-      .insert(campaignTicketsTable)
-      .values({
-        campaignId: id,
-        buyerId: userId,
-        buyerEmail: buyer?.email,
-        buyerName: [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ") || undefined,
-        quantity,
-        totalPriceCents,
-        stripeCheckoutSessionId: session.id,
-        accessCode,
-        status: "authorised",
-      })
-      .returning();
-
-    logger.info({ campaignId: id, ticketId: ticket.id, sessionId: session.id }, "Campaign ticket checkout created");
-    res.json({ checkoutUrl: session.url, ticketId: ticket.id });
+    logger.info({ campaignId: id, sessionId: session.id }, "Campaign ticket checkout session created");
+    res.json({ checkoutUrl: session.url });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign checkout");
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
 
-router.get("/campaigns/:id/tickets", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth.userId!;
-  const id = parseInt(String(req.params.id), 10);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
-
-  const [campaign] = await db.select().from(concertCampaignsTable).where(and(eq(concertCampaignsTable.id, id), eq(concertCampaignsTable.teacherId, userId)));
-  if (!campaign) { res.status(404).json({ error: "Campaign not found or access denied" }); return; }
-
-  const tickets = await db
-    .select()
-    .from(campaignTicketsTable)
-    .where(and(eq(campaignTicketsTable.campaignId, id), ne(campaignTicketsTable.status, "cancelled")))
-    .orderBy(campaignTicketsTable.createdAt);
-
-  res.json({ tickets });
-});
+// ─── Deadline sweep ───────────────────────────────────────────────────────────
 
 export async function expireDeadlinedCampaigns(): Promise<void> {
   try {

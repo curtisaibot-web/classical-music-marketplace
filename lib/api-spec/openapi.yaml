@@ -3955,9 +3955,7 @@ components:
         checkoutUrl:
           type: string
           nullable: true
-        ticketId:
-          type: integer
-      required: [checkoutUrl, ticketId]
+      required: [checkoutUrl]
 
     CampaignTicket:
       type: object

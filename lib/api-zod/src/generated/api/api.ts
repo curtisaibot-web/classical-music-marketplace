@@ -3268,7 +3268,6 @@ export const CreateCampaignCheckoutBody = zod.object({
 
 export const CreateCampaignCheckoutResponse = zod.object({
   checkoutUrl: zod.string().nullable(),
-  ticketId: zod.number(),
 });
 
 /**

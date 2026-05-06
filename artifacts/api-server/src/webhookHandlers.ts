@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable } from "@workspace/db";
+import { randomUUID } from "crypto";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable } from "@workspace/db";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -170,18 +171,56 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Invalid campaign_id in session metadata: ${metadata.campaign_id}`);
     }
 
-    const updated = await db
-      .update(campaignTicketsTable)
-      .set({ stripePaymentIntentId: paymentIntentId, updatedAt: new Date() })
-      .where(eq(campaignTicketsTable.stripeCheckoutSessionId, session.id))
-      .returning({ id: campaignTicketsTable.id, campaignId: campaignTicketsTable.campaignId });
-
-    if (updated.length > 0) {
-      logger.info({ campaignId, sessionId: session.id, eventId }, "Campaign ticket authorised via checkout.session.completed");
-      await processCampaignSuccess(campaignId).catch((err) => {
-        logger.error({ err, campaignId }, "Failed to check campaign success after ticket authorisation");
-      });
+    const buyerId = metadata.buyer_id as string | undefined;
+    if (!buyerId) {
+      logger.warn({ sessionId: session.id, eventId }, "Campaign ticket checkout without buyer_id in metadata");
+      return;
     }
+
+    // Idempotency check — skip if ticket already recorded for this session
+    const [existing] = await db
+      .select({ id: campaignTicketsTable.id })
+      .from(campaignTicketsTable)
+      .where(eq(campaignTicketsTable.stripeCheckoutSessionId, session.id));
+
+    if (existing) {
+      // Already recorded — just update PaymentIntent ID if missing
+      if (paymentIntentId) {
+        await db.update(campaignTicketsTable).set({ stripePaymentIntentId: paymentIntentId, updatedAt: new Date() }).where(eq(campaignTicketsTable.id, existing.id));
+      }
+      logger.info({ ticketId: existing.id, sessionId: session.id, eventId }, "Campaign ticket already recorded — idempotent skip");
+    } else {
+      // First time — create the ticket record now that payment is authorised
+      const quantity = parseInt(String(metadata.quantity ?? "1"), 10);
+      const accessCode = (metadata.access_code as string | undefined) ?? randomUUID();
+      const buyerEmail = (metadata.buyer_email as string | undefined) || undefined;
+      const buyerName = (metadata.buyer_name as string | undefined) || undefined;
+
+      const [campaign] = await db.select({ ticketPriceCents: concertCampaignsTable.ticketPriceCents }).from(concertCampaignsTable).where(eq(concertCampaignsTable.id, campaignId));
+      const totalPriceCents = (campaign?.ticketPriceCents ?? 0) * quantity;
+
+      const [ticket] = await db
+        .insert(campaignTicketsTable)
+        .values({
+          campaignId,
+          buyerId,
+          buyerEmail: buyerEmail || null,
+          buyerName: buyerName || null,
+          quantity,
+          totalPriceCents,
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+          accessCode,
+          status: "authorised",
+        })
+        .returning();
+
+      logger.info({ campaignId, ticketId: ticket.id, sessionId: session.id, eventId }, "Campaign ticket authorised via checkout.session.completed");
+    }
+
+    await processCampaignSuccess(campaignId).catch((err) => {
+      logger.error({ err, campaignId }, "Failed to check campaign success after ticket authorisation");
+    });
   }
 }
 
