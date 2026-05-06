@@ -125,9 +125,24 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
     .where(and(eq(campaignTicketsTable.campaignId, campaignId), eq(campaignTicketsTable.status, "captured")));
   const allPiIds = capturedRows.map((r) => r.piId).filter(Boolean) as string[];
 
-  await db.update(concertCampaignsTable)
+  // Policy: campaign succeeds based on the original pledge count reaching goal, even if
+  // some captures fail permanently after settlement begins (e.g., card decline post-auth).
+  // Those tickets are cancelled and no charge is made; successfully captured tickets proceed.
+  // This is consistent with standard crowdfunding practice.
+
+  // Atomically claim the settling → succeeded transition.
+  // Only the invocation that wins this update sends confirmation emails,
+  // preventing duplicate emails under concurrent webhook + sweep execution.
+  const [transitioned] = await db
+    .update(concertCampaignsTable)
     .set({ status: "succeeded", stripePaymentIntentIds: allPiIds, updatedAt: new Date() })
-    .where(and(eq(concertCampaignsTable.id, campaignId), eq(concertCampaignsTable.status, "settling")));
+    .where(and(eq(concertCampaignsTable.id, campaignId), eq(concertCampaignsTable.status, "settling")))
+    .returning({ id: concertCampaignsTable.id });
+
+  if (!transitioned) {
+    logger.info({ campaignId }, "settling → succeeded transition already claimed by another invocation — skipping emails");
+    return;
+  }
 
   logger.info({ campaignId, captured: allPiIds.length }, "Campaign succeeded");
 
