@@ -3209,9 +3209,14 @@ components:
     CancellationFeeCollectedResponse:
       type: object
       properties:
-        booking:
-          $ref: "#/components/schemas/CancellationRow"
-      required: [booking]
+        id:
+          type: integer
+        cancellationFeeCollected:
+          type: integer
+        cancellationFeeCollectedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, cancellationFeeCollected]
 
     # ── Business Suite: Contracts ───────────────────────────────────────────────
     Contract:

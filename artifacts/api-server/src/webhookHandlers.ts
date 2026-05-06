@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable } from "@workspace/db";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
+import { normalizeStripeStatus } from "./routes/subscriptions";
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -80,7 +81,7 @@ async function handleCheckoutSessionCompleted(
         stripeCustomerId: customerId,
         stripeSubscriptionId: sub.id,
         stripePriceId: sub.items.data[0]?.price.id ?? null,
-        status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+        status: normalizeStripeStatus(sub.status),
         currentPeriodEnd: periodEnd,
       })
       .onConflictDoUpdate({
@@ -88,7 +89,7 @@ async function handleCheckoutSessionCompleted(
         set: {
           stripeSubscriptionId: sub.id,
           stripePriceId: sub.items.data[0]?.price.id ?? null,
-          status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+          status: normalizeStripeStatus(sub.status),
           currentPeriodEnd: periodEnd,
           updatedAt: new Date(),
         },
@@ -275,7 +276,7 @@ async function syncSubscription(
       stripeCustomerId: customerId,
       stripeSubscriptionId: sub.id,
       stripePriceId: sub.items.data[0]?.price.id ?? null,
-      status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+      status: normalizeStripeStatus(sub.status),
       currentPeriodEnd: periodEnd,
     })
     .onConflictDoUpdate({
@@ -283,7 +284,7 @@ async function syncSubscription(
       set: {
         stripeSubscriptionId: sub.id,
         stripePriceId: sub.items.data[0]?.price.id ?? null,
-        status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+        status: normalizeStripeStatus(sub.status),
         currentPeriodEnd: periodEnd,
         updatedAt: new Date(),
       },

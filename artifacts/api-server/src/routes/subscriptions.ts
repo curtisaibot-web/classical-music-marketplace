@@ -9,6 +9,23 @@ import { logger } from "../lib/logger";
 const BUSINESS_SUITE_MONTHLY_PRICE_USD_CENTS = 2900;
 const BUSINESS_SUITE_ANNUAL_PRICE_USD_CENTS = 27900;
 
+export function normalizeStripeStatus(
+  raw: string,
+): "active" | "past_due" | "cancelled" | "trialing" | "incomplete" {
+  switch (raw) {
+    case "active":             return "active";
+    case "trialing":           return "trialing";
+    case "past_due":           return "past_due";
+    case "unpaid":             return "past_due";
+    case "incomplete":         return "incomplete";
+    case "canceled":           return "cancelled";
+    case "cancelled":          return "cancelled";
+    case "incomplete_expired": return "cancelled";
+    case "paused":             return "past_due";
+    default:                   return "past_due";
+  }
+}
+
 const router: IRouter = Router();
 
 async function getOrCreateStripeCustomer(stripe: import("stripe").default, userId: string, email?: string): Promise<string> {
@@ -207,7 +224,7 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
         stripeSubscriptionId,
         stripeCustomerId,
         stripePriceId: sub.items.data[0]?.price.id ?? null,
-        status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+        status: normalizeStripeStatus(sub.status),
         currentPeriodEnd: periodEnd,
       })
       .onConflictDoUpdate({
@@ -215,7 +232,7 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
         set: {
           stripeSubscriptionId,
           stripeCustomerId,
-          status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+          status: normalizeStripeStatus(sub.status),
           currentPeriodEnd: periodEnd,
           updatedAt: new Date(),
         },

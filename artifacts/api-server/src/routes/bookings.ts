@@ -119,6 +119,11 @@ router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<voi
   const auth = getAuth(req);
   const userId = auth.userId!;
 
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   const rows = await db
     .select({
       id: bookingsTable.id,
@@ -269,6 +274,12 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
 router.patch("/bookings/:id/collect-cancellation-fee", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
+
+  if (!await isProSubscriber(userId)) {
+    res.status(403).json({ error: "Business Suite subscription required" });
+    return;
+  }
+
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid booking id" }); return; }
 

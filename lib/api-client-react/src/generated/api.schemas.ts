@@ -929,7 +929,10 @@ export interface CancellationReportResponse {
 }
 
 export interface CancellationFeeCollectedResponse {
-  booking: CancellationRow;
+  id: number;
+  cancellationFeeCollected: number;
+  /** @nullable */
+  cancellationFeeCollectedAt?: string | null;
 }
 
 export type ContractTemplateType =

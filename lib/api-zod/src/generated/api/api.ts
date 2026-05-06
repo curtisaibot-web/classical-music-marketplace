@@ -2687,17 +2687,9 @@ export const MarkCancellationFeeCollectedParams = zod.object({
 });
 
 export const MarkCancellationFeeCollectedResponse = zod.object({
-  booking: zod.object({
-    id: zod.number(),
-    studentId: zod.string().nullish(),
-    startTime: zod.coerce.date().nullish(),
-    cancelledAt: zod.coerce.date().nullish(),
-    cancellationPolicyHoursSnapshot: zod.number().nullish(),
-    cancellationFeePercentSnapshot: zod.number().nullish(),
-    cancellationFeeOwedInCents: zod.number().nullish(),
-    cancellationFeeCollected: zod.boolean(),
-    cancellationFeeCollectedAt: zod.coerce.date().nullish(),
-  }),
+  id: zod.number(),
+  cancellationFeeCollected: zod.number(),
+  cancellationFeeCollectedAt: zod.coerce.date().nullish(),
 });
 
 /**
