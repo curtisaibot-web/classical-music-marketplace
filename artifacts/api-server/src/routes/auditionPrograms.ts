@@ -256,6 +256,15 @@ router.post(
 
     const { teacherNote, feedbackFileKey } = req.body as { teacherNote?: string; feedbackFileKey?: string };
 
+    // Validate ownership of feedback file key — keys are scoped to the uploader's userId
+    if (feedbackFileKey !== undefined && feedbackFileKey !== null && feedbackFileKey !== "") {
+      const expectedPrefix = `/objects/uploads/${userId}/`;
+      if (!feedbackFileKey.startsWith(expectedPrefix)) {
+        res.status(400).json({ error: "Invalid feedback file key" });
+        return;
+      }
+    }
+
     const existing = await db
       .select({ id: programSessionNotesTable.id })
       .from(programSessionNotesTable)
@@ -597,8 +606,11 @@ router.get("/audition-programs/:id", async (req, res): Promise<void> => {
 
   if (!row) { res.status(404).json({ error: "Program not found" }); return; }
 
-  // Hide inactive programs from public callers; owners may still view them
-  const requestingUserId = getAuth(req).userId ?? null;
+  // Hide inactive programs from public callers; owners may still view them.
+  // getAuth is safe here: Clerk middleware populates req.auth for all requests;
+  // userId is null when unauthenticated.
+  let requestingUserId: string | null = null;
+  try { requestingUserId = getAuth(req).userId ?? null; } catch { /* unauthenticated */ }
   if (!row.audition_programs.isActive && row.audition_programs.teacherId !== requestingUserId) {
     res.status(404).json({ error: "Program not found" });
     return;

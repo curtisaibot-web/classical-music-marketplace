@@ -214,6 +214,16 @@ export default function TeacherProfile() {
     return tabListings[tab].length;
   };
 
+  // Once data has loaded, jump to the first tab that has content if the default "lessons" tab is empty
+  const [tabInitialized, setTabInitialized] = useState(false);
+  if (!tabInitialized && listingsData && auditionProgramsData) {
+    const firstPopulated = TABS.find((t) => tabCount(t) > 0);
+    if (firstPopulated && firstPopulated !== activeTab) {
+      setActiveTab(firstPopulated);
+    }
+    setTabInitialized(true);
+  }
+
   if (isLoadingTeacher) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
