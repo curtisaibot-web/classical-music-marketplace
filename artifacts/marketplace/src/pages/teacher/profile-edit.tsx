@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetMyTeacherProfile, useUpdateMyTeacherProfile, useGetTeacherRecordings, useCreateTeacherRecording, useDeleteTeacherRecording, getGetTeacherRecordingsQueryKey } from "@workspace/api-client-react";
+import { useGetMyTeacherProfile, useUpdateMyTeacherProfile, useUpdateMyTeacherSlug, getGetMyTeacherProfileQueryKey, useGetTeacherRecordings, useCreateTeacherRecording, useDeleteTeacherRecording, getGetTeacherRecordingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -21,6 +21,7 @@ export default function TeacherProfileEdit() {
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useGetMyTeacherProfile();
   const updateProfile = useUpdateMyTeacherProfile();
+  const updateSlug = useUpdateMyTeacherSlug();
 
   const teacherId = profile?.userId ?? "";
   const { data: recordingsData } = useGetTeacherRecordings(teacherId, {
@@ -42,7 +43,6 @@ export default function TeacherProfileEdit() {
   });
 
   const [slugInput, setSlugInput] = useState("");
-  const [slugLoading, setSlugLoading] = useState(false);
 
   const [newRecUrl, setNewRecUrl] = useState("");
   const [newRecTitle, setNewRecTitle] = useState("");
@@ -53,7 +53,6 @@ export default function TeacherProfileEdit() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  const apiUrl = import.meta.env.VITE_API_URL ?? "";
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   useEffect(() => {
@@ -72,34 +71,31 @@ export default function TeacherProfileEdit() {
     }
   }, [profile]);
 
-  const handleSaveSlug = async () => {
+  const handleSaveSlug = () => {
     const slug = slugInput.trim().toLowerCase();
     if (!slug) { toast.error("Please enter a URL handle"); return; }
     if (!/^[a-z0-9-]{3,64}$/.test(slug)) {
       toast.error("Handle must be 3–64 characters: lowercase letters, numbers and hyphens only");
       return;
     }
-    setSlugLoading(true);
-    try {
-      const res = await fetch(`${apiUrl}/api/teachers/me/slug`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug }),
-      });
-      if (res.status === 409) {
-        toast.error("That handle is already taken. Please choose another.");
-      } else if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast.error((err as { error?: string }).error ?? "Failed to save handle");
-      } else {
-        toast.success("Profile URL handle saved!");
+    updateSlug.mutate(
+      { data: { slug } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetMyTeacherProfileQueryKey() });
+          toast.success("Profile URL handle saved!");
+        },
+        onError: (err: unknown) => {
+          const status = (err as { status?: number })?.status;
+          if (status === 409) {
+            toast.error("That handle is already taken. Please choose another.");
+          } else {
+            const msg = (err as { payload?: { error?: string } })?.payload?.error;
+            toast.error(msg ?? "Failed to save handle");
+          }
+        },
       }
-    } catch {
-      toast.error("Network error saving handle");
-    } finally {
-      setSlugLoading(false);
-    }
+    );
   };
 
   const handleAddRecording = () => {
@@ -302,10 +298,10 @@ export default function TeacherProfileEdit() {
                     type="button"
                     variant="outline"
                     onClick={handleSaveSlug}
-                    disabled={slugLoading || !slugInput.trim()}
+                    disabled={updateSlug.isPending || !slugInput.trim()}
                     className="shrink-0"
                   >
-                    {slugLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {updateSlug.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Save Handle
                   </Button>
                 </div>
