@@ -447,16 +447,20 @@ export default function TeacherPrograms() {
                         <span className="text-border">·</span>
                         <span>{enrolledCount} student{enrolledCount !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="flex gap-2">
-                        <Badge variant="outline" className="text-xs">Active</Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-xs text-muted-foreground hover:text-destructive ml-auto"
-                          onClick={() => handleDeactivate(program.id)}
-                        >
-                          Deactivate
-                        </Button>
+                      <div className="flex gap-2 items-center">
+                        <Badge variant={program.isActive ? "outline" : "secondary"} className="text-xs">
+                          {program.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        {program.isActive && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-muted-foreground hover:text-destructive ml-auto"
+                            onClick={() => handleDeactivate(program.id)}
+                          >
+                            Deactivate
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

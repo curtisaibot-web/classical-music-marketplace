@@ -123,7 +123,7 @@ router.get("/audition-programs/my-programs", requireAuth, requireRole("teacher")
   const rows = await db
     .select()
     .from(auditionProgramsTable)
-    .where(and(eq(auditionProgramsTable.teacherId, userId), eq(auditionProgramsTable.isActive, true)))
+    .where(eq(auditionProgramsTable.teacherId, userId))
     .orderBy(desc(auditionProgramsTable.createdAt));
 
   res.json({ programs: rows });
@@ -141,21 +141,28 @@ router.get("/audition-programs/my-enrollments", requireAuth, async (req, res): P
     .where(eq(programEnrollmentsTable.studentId, userId))
     .orderBy(desc(programEnrollmentsTable.createdAt));
 
-  const enrollments = await Promise.all(
-    rows.map(async (r) => {
-      const notes = await db
+  const enrollmentIds = rows.map((r) => r.program_enrollments.id);
+  const allNotes = enrollmentIds.length
+    ? await db
         .select()
         .from(programSessionNotesTable)
-        .where(eq(programSessionNotesTable.enrollmentId, r.program_enrollments.id))
-        .orderBy(programSessionNotesTable.sessionNumber);
-      return {
-        ...r.program_enrollments,
-        program: r.audition_programs ?? null,
-        teacherUser: r.users ? { firstName: r.users.firstName, lastName: r.users.lastName } : null,
-        sessionNotes: notes,
-      };
-    }),
-  );
+        .where(inArray(programSessionNotesTable.enrollmentId, enrollmentIds))
+        .orderBy(programSessionNotesTable.enrollmentId, programSessionNotesTable.sessionNumber)
+    : [];
+
+  const notesByEnrollment = new Map<number, typeof allNotes>();
+  for (const note of allNotes) {
+    const bucket = notesByEnrollment.get(note.enrollmentId) ?? [];
+    bucket.push(note);
+    notesByEnrollment.set(note.enrollmentId, bucket);
+  }
+
+  const enrollments = rows.map((r) => ({
+    ...r.program_enrollments,
+    program: r.audition_programs ?? null,
+    teacherUser: r.users ? { firstName: r.users.firstName, lastName: r.users.lastName } : null,
+    sessionNotes: notesByEnrollment.get(r.program_enrollments.id) ?? [],
+  }));
 
   res.json({ enrollments });
 });
@@ -184,21 +191,28 @@ router.get("/audition-programs/teacher-enrollments", requireAuth, requireRole("t
     .where(inArray(programEnrollmentsTable.programId, programIds))
     .orderBy(desc(programEnrollmentsTable.createdAt));
 
-  const enrollments = await Promise.all(
-    rows.map(async (r) => {
-      const notes = await db
+  const enrollmentIds = rows.map((r) => r.program_enrollments.id);
+  const allNotes = enrollmentIds.length
+    ? await db
         .select()
         .from(programSessionNotesTable)
-        .where(eq(programSessionNotesTable.enrollmentId, r.program_enrollments.id))
-        .orderBy(programSessionNotesTable.sessionNumber);
-      return {
-        ...r.program_enrollments,
-        program: r.audition_programs ?? null,
-        studentUser: r.users ? { firstName: r.users.firstName, lastName: r.users.lastName } : null,
-        sessionNotes: notes,
-      };
-    }),
-  );
+        .where(inArray(programSessionNotesTable.enrollmentId, enrollmentIds))
+        .orderBy(programSessionNotesTable.enrollmentId, programSessionNotesTable.sessionNumber)
+    : [];
+
+  const notesByEnrollment = new Map<number, typeof allNotes>();
+  for (const note of allNotes) {
+    const bucket = notesByEnrollment.get(note.enrollmentId) ?? [];
+    bucket.push(note);
+    notesByEnrollment.set(note.enrollmentId, bucket);
+  }
+
+  const enrollments = rows.map((r) => ({
+    ...r.program_enrollments,
+    program: r.audition_programs ?? null,
+    studentUser: r.users ? { firstName: r.users.firstName, lastName: r.users.lastName } : null,
+    sessionNotes: notesByEnrollment.get(r.program_enrollments.id) ?? [],
+  }));
 
   res.json({ enrollments });
 });
