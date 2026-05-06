@@ -686,6 +686,14 @@ export default function MusicianPublicProfile() {
             <DialogDescription>
               Pick a date and time slot. {firstName} will review and confirm your request.
             </DialogDescription>
+            {((teacher as { cancellationPolicyHours?: number; cancellationFeePercent?: number }).cancellationPolicyHours ?? 0) > 0 && (
+              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <strong>Cancellation policy:</strong>{" "}
+                {(teacher as { cancellationFeePercent?: number }).cancellationFeePercent
+                  ? `Cancellations within ${(teacher as { cancellationPolicyHours?: number }).cancellationPolicyHours} hours of the lesson incur a ${(teacher as { cancellationFeePercent?: number }).cancellationFeePercent}% fee.`
+                  : `Free cancellation up to ${(teacher as { cancellationPolicyHours?: number }).cancellationPolicyHours} hours before the lesson.`}
+              </div>
+            )}
           </DialogHeader>
           <form onSubmit={handleBookLesson} className="space-y-6 pt-2">
             <div className="space-y-2">

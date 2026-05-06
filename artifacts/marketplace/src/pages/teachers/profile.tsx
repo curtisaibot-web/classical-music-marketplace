@@ -592,6 +592,14 @@ export default function TeacherProfile() {
                 <p className="text-xs text-center text-muted-foreground">
                   You won't be charged until the teacher confirms.
                 </p>
+                {((teacher as { cancellationPolicyHours?: number; cancellationFeePercent?: number }).cancellationPolicyHours ?? 0) > 0 && (
+                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 text-left">
+                    <strong>Cancellation policy:</strong>{" "}
+                    {(teacher as { cancellationFeePercent?: number }).cancellationFeePercent
+                      ? `Cancellations within ${(teacher as { cancellationPolicyHours?: number }).cancellationPolicyHours} hours incur a ${(teacher as { cancellationFeePercent?: number }).cancellationFeePercent}% fee.`
+                      : `Free cancellation up to ${(teacher as { cancellationPolicyHours?: number }).cancellationPolicyHours} hours before the lesson.`}
+                  </div>
+                )}
 
                 {/* Quick stats */}
                 {(teacher.reviewCount > 0 || teacher.yearsExperience != null) && (

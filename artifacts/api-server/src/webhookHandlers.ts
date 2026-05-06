@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
-import { db, bookingsTable, ordersTable, digitalProductsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable } from "@workspace/db";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
 
@@ -35,6 +35,15 @@ async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   } else if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     await handlePaymentIntentSucceeded(paymentIntent, event.id);
+  } else if (
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.created"
+  ) {
+    const sub = event.data.object as Stripe.Subscription;
+    await handleSubscriptionUpdated(sub, event.id);
+  } else if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    await handleSubscriptionDeleted(sub, event.id);
   }
 }
 
@@ -45,6 +54,48 @@ async function handleCheckoutSessionCompleted(
   const metadata = session.metadata ?? {};
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+  if (metadata.type === "business_suite") {
+    const userId = metadata.userId as string | undefined;
+    if (!userId) {
+      logger.warn({ sessionId: session.id, eventId }, "Business Suite checkout without userId in metadata");
+      return;
+    }
+    const stripe = await getUncachableStripeClient();
+    const rawSub = session.subscription;
+    const subscriptionId = typeof rawSub === "string" ? rawSub : (rawSub as { id?: string } | null)?.id ?? null;
+    if (!subscriptionId) {
+      logger.warn({ sessionId: session.id, eventId }, "Business Suite checkout without subscription ID");
+      return;
+    }
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+
+    await db
+      .insert(subscriptionsTable)
+      .values({
+        userId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: sub.id,
+        stripePriceId: sub.items.data[0]?.price.id ?? null,
+        status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+        currentPeriodEnd: periodEnd,
+      })
+      .onConflictDoUpdate({
+        target: subscriptionsTable.userId,
+        set: {
+          stripeSubscriptionId: sub.id,
+          stripePriceId: sub.items.data[0]?.price.id ?? null,
+          status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+          currentPeriodEnd: periodEnd,
+          updatedAt: new Date(),
+        },
+      });
+
+    logger.info({ userId, status: sub.status, sessionId: session.id, eventId }, "Business Suite subscription activated via checkout");
+    return;
+  }
 
   if (metadata.booking_id) {
     const bookingId = parseInt(metadata.booking_id, 10);
@@ -160,6 +211,83 @@ async function handlePaymentIntentSucceeded(
       logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
     }
   }
+}
+
+async function handleSubscriptionUpdated(
+  sub: Stripe.Subscription,
+  eventId: string,
+): Promise<void> {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+  const userId = (sub.metadata?.userId as string | undefined) ?? null;
+
+  if (!userId) {
+    const [existing] = await db
+      .select({ userId: subscriptionsTable.userId })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.stripeCustomerId, customerId));
+    if (!existing?.userId) {
+      logger.warn({ customerId, eventId }, "No userId found for subscription update — skipping");
+      return;
+    }
+    await syncSubscription(existing.userId, sub, eventId);
+    return;
+  }
+  await syncSubscription(userId, sub, eventId);
+}
+
+async function handleSubscriptionDeleted(
+  sub: Stripe.Subscription,
+  eventId: string,
+): Promise<void> {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+  const [existing] = await db
+    .select({ userId: subscriptionsTable.userId })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.stripeCustomerId, customerId));
+
+  if (!existing?.userId) {
+    logger.warn({ customerId, eventId }, "No userId found for subscription deletion — skipping");
+    return;
+  }
+
+  await db
+    .update(subscriptionsTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(subscriptionsTable.userId, existing.userId));
+
+  logger.info({ userId: existing.userId, eventId }, "Business Suite subscription cancelled");
+}
+
+async function syncSubscription(
+  userId: string,
+  sub: Stripe.Subscription,
+  eventId: string,
+): Promise<void> {
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+  const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+
+  await db
+    .insert(subscriptionsTable)
+    .values({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: sub.id,
+      stripePriceId: sub.items.data[0]?.price.id ?? null,
+      status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+      currentPeriodEnd: periodEnd,
+    })
+    .onConflictDoUpdate({
+      target: subscriptionsTable.userId,
+      set: {
+        stripeSubscriptionId: sub.id,
+        stripePriceId: sub.items.data[0]?.price.id ?? null,
+        status: sub.status as "active" | "past_due" | "cancelled" | "trialing" | "incomplete",
+        currentPeriodEnd: periodEnd,
+        updatedAt: new Date(),
+      },
+    });
+
+  logger.info({ userId, status: sub.status, eventId }, "Business Suite subscription synced");
 }
 
 async function unlockDigitalDownload(orderId: number): Promise<void> {
