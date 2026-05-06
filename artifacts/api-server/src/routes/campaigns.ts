@@ -9,7 +9,16 @@ import { logger } from "../lib/logger";
 import { sendEmail } from "../lib/email";
 import { randomUUID } from "crypto";
 
+// 60-day maximum matches the product specification.
+// PaymentIntents are created with capture_method: "manual" at checkout so authorization
+// is held on the fan's card. Auth validity varies by network (~7–30 days depending on
+// card/bank). Campaigns that outlive the authorization window may see some captures
+// fail; those cases are logged for manual reconciliation. A future improvement is to
+// move to SetupIntent + deferred PI creation for campaigns > 7 days.
 const MAX_CAMPAIGN_DAYS = 60;
+
+// Platform fee rate (8%)
+const PLATFORM_FEE_RATE = 0.08;
 
 const router: IRouter = Router();
 
@@ -25,10 +34,10 @@ async function getCampaignTicketCount(campaignId: number): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
-// ─── Campaign success: create + confirm PaymentIntents per ticket ──────────────
-// Uses stored payment_method_id (from SetupIntent flow) so there is no
-// authorization expiry risk — the charge is created and confirmed at the moment
-// the campaign succeeds, regardless of campaign duration.
+// ─── Campaign success: capture all authorized PaymentIntents ──────────────────
+// All captures are attempted FIRST. The campaign is only marked "succeeded" if
+// every ticket's PaymentIntent was captured successfully. Failures are logged for
+// manual reconciliation; the campaign stays active to allow operator retry.
 export async function processCampaignSuccess(campaignId: number): Promise<void> {
   const [campaign] = await db
     .select()
@@ -44,69 +53,62 @@ export async function processCampaignSuccess(campaignId: number): Promise<void> 
   );
 
   const stripe = await getUncachableStripeClient();
-  let charged = 0;
-  let chargeFailures = 0;
+  let captured = 0;
+  let captureFailures = 0;
 
-  // Charge all tickets first, THEN mark campaign succeeded
+  // Capture all PaymentIntents BEFORE marking campaign succeeded
   for (const ticket of tickets) {
-    if (!ticket.stripePaymentMethodId) {
-      logger.warn({ campaignId, ticketId: ticket.id }, "Skipping charge — ticket has no payment method ID");
-      chargeFailures++;
+    if (!ticket.stripePaymentIntentId) {
+      captureFailures++;
+      logger.error({ campaignId, ticketId: ticket.id }, "Cannot capture — ticket has no PaymentIntent ID; manual intervention required");
       continue;
     }
     try {
-      // Create + confirm PaymentIntent off-session (no expiry risk)
-      const pi = await stripe.paymentIntents.create({
-        amount: ticket.totalPriceCents,
-        currency: "usd",
-        customer: ticket.stripeCustomerId ?? undefined,
-        payment_method: ticket.stripePaymentMethodId,
-        confirm: true,
-        off_session: true,
-        metadata: {
-          type: "campaign_ticket_capture",
-          campaign_id: String(campaignId),
-          ticket_id: String(ticket.id),
-        },
-      });
+      await stripe.paymentIntents.capture(ticket.stripePaymentIntentId);
       await db.update(campaignTicketsTable)
-        .set({ status: "captured", stripePaymentIntentId: pi.id, updatedAt: new Date() })
+        .set({ status: "captured", updatedAt: new Date() })
         .where(eq(campaignTicketsTable.id, ticket.id));
-      charged++;
-      if (ticket.buyerEmail) {
-        await sendEmail({
-          to: ticket.buyerEmail,
-          subject: `Your tickets are confirmed — ${campaign.title}`,
-          html: `<p>Great news, ${ticket.buyerName ?? "music fan"}!</p>
-<p>The campaign for <strong>${campaign.title}</strong> has reached its goal. Your ${ticket.quantity} ticket${ticket.quantity > 1 ? "s are" : " is"} confirmed and your payment of $${(ticket.totalPriceCents / 100).toFixed(2)} has been charged.</p>
+      captured++;
+    } catch (err) {
+      captureFailures++;
+      logger.error({ err, campaignId, ticketId: ticket.id, paymentIntentId: ticket.stripePaymentIntentId },
+        "Capture failed — ticket remains authorised; manual reconciliation required");
+    }
+  }
+
+  if (captureFailures > 0) {
+    // Do NOT mark campaign succeeded — leave it for operator retry / manual resolution.
+    // All successfully-captured tickets are already in "captured" state in the DB.
+    logger.error({ campaignId, captured, captureFailures, total: tickets.length },
+      "Campaign goal reached but capture failures prevent marking succeeded — manual intervention required");
+    return;
+  }
+
+  // All captures succeeded — now mark campaign succeeded and send confirmation emails
+  await db.update(concertCampaignsTable)
+    .set({ status: "succeeded", updatedAt: new Date() })
+    .where(eq(concertCampaignsTable.id, campaignId));
+
+  logger.info({ campaignId, captured, ticketsSold }, "Campaign succeeded — all payments captured");
+
+  for (const ticket of tickets) {
+    if (ticket.buyerEmail) {
+      await sendEmail({
+        to: ticket.buyerEmail,
+        subject: `Your tickets are confirmed — ${campaign.title}`,
+        html: `<p>Great news, ${ticket.buyerName ?? "music fan"}!</p>
+<p>The campaign for <strong>${campaign.title}</strong> has reached its goal. Your ${ticket.quantity} ticket${ticket.quantity > 1 ? "s are" : " is"} confirmed and your payment of $${(ticket.totalPriceCents / 100).toFixed(2)} has been captured.</p>
 ${campaign.scheduledDate ? `<p><strong>Date:</strong> ${campaign.scheduledDate}</p>` : ""}
 ${campaign.venueName ? `<p><strong>Venue:</strong> ${campaign.venueName}</p>` : ""}
 <p><strong>Access Code:</strong> <code>${ticket.accessCode}</code></p>
 <p>Enjoy the concert!</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
-        }).catch((emailErr) => logger.error({ emailErr, ticketId: ticket.id }, "Failed to send confirmation email"));
-      }
-    } catch (err) {
-      chargeFailures++;
-      logger.error({ err, campaignId, ticketId: ticket.id, paymentMethodId: ticket.stripePaymentMethodId },
-        "Charge failed — ticket remains authorised for manual reconciliation");
+      }).catch((emailErr) => logger.error({ emailErr, ticketId: ticket.id }, "Failed to send confirmation email"));
     }
-  }
-
-  // Mark campaign succeeded after attempting all charges (even partial success)
-  await db.update(concertCampaignsTable)
-    .set({ status: "succeeded", updatedAt: new Date() })
-    .where(eq(concertCampaignsTable.id, campaignId));
-
-  if (chargeFailures > 0) {
-    logger.warn({ campaignId, charged, chargeFailures, total: tickets.length },
-      "Campaign succeeded with partial charge failures — manual reconciliation required");
-  } else {
-    logger.info({ campaignId, charged, ticketsSold }, "Campaign succeeded — all payments charged");
   }
 }
 
-// ─── Campaign failure: detach saved payment methods ───────────────────────────
+// ─── Campaign failure: cancel all authorized PaymentIntents ───────────────────
 export async function processCampaignFailure(campaignId: number): Promise<void> {
   const [campaign] = await db
     .select()
@@ -123,8 +125,8 @@ export async function processCampaignFailure(campaignId: number): Promise<void> 
   const stripe = await getUncachableStripeClient();
   for (const ticket of tickets) {
     try {
-      if (ticket.stripePaymentMethodId) {
-        await stripe.paymentMethods.detach(ticket.stripePaymentMethodId);
+      if (ticket.stripePaymentIntentId) {
+        await stripe.paymentIntents.cancel(ticket.stripePaymentIntentId);
       }
       await db.update(campaignTicketsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
       if (ticket.buyerEmail) {
@@ -132,17 +134,17 @@ export async function processCampaignFailure(campaignId: number): Promise<void> 
           to: ticket.buyerEmail,
           subject: `Campaign update — ${campaign.title}`,
           html: `<p>Hi ${ticket.buyerName ?? "there"},</p>
-<p>Unfortunately, the crowdfunding campaign for <strong>${campaign.title}</strong> did not reach its goal in time. No charge was made to your payment method, which has been removed.</p>
+<p>Unfortunately, the crowdfunding campaign for <strong>${campaign.title}</strong> did not reach its goal in time. Your card authorization has been cancelled and no charge was made.</p>
 <p>We hope to see you at a future concert!</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
         }).catch((emailErr) => logger.error({ emailErr, ticketId: ticket.id }, "Failed to send failure email"));
       }
     } catch (err) {
-      logger.error({ err, ticketId: ticket.id }, "Failed to clean up payment method for ticket");
+      logger.error({ err, ticketId: ticket.id }, "Failed to cancel PaymentIntent for failed campaign ticket");
     }
   }
 
-  logger.info({ campaignId }, "Campaign failed — payment methods detached");
+  logger.info({ campaignId }, "Campaign failed — all PaymentIntents cancelled");
 }
 
 // ─── Public routes (specific paths declared before :id parameter routes) ───────
@@ -203,11 +205,16 @@ router.get("/campaigns/my", requireAuth, requireRole("teacher"), async (req, res
         .select({ count: count() })
         .from(campaignTicketsTable)
         .where(and(eq(campaignTicketsTable.campaignId, c.id), ne(campaignTicketsTable.status, "cancelled")));
+      const grossRaisedCents = ticketsSold * c.ticketPriceCents;
+      const platformFeeCents = Math.round(grossRaisedCents * PLATFORM_FEE_RATE);
+      const netRaisedCents = grossRaisedCents - platformFeeCents;
       return {
         ...c,
         ticketsSold,
         backerCount: Number(backerCount?.count ?? 0),
-        grossRaisedCents: ticketsSold * c.ticketPriceCents,
+        grossRaisedCents,
+        platformFeeCents,
+        netRaisedCents,
       };
     }));
 
@@ -296,7 +303,7 @@ router.post("/campaigns", requireAuth, requireRole("teacher"), async (req, res):
       .values({ teacherId: userId, title, description, coverImageUrl, scheduledDate, venueName, ticketPriceCents, goalCount, deadlineAt: deadline })
       .returning();
 
-    res.status(201).json({ campaign: { ...campaign, ticketsSold: 0, backerCount: 0, grossRaisedCents: 0 } });
+    res.status(201).json({ campaign: { ...campaign, ticketsSold: 0, backerCount: 0, grossRaisedCents: 0, platformFeeCents: 0, netRaisedCents: 0 } });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign");
     res.status(500).json({ error: "Failed to create campaign" });
@@ -322,7 +329,9 @@ router.patch("/campaigns/:id", requireAuth, requireRole("teacher"), async (req, 
     .returning();
 
   const ticketsSold = await getCampaignTicketCount(id);
-  res.json({ campaign: { ...updated, ticketsSold, backerCount: 0, grossRaisedCents: ticketsSold * updated.ticketPriceCents } });
+  const grossRaisedCents = ticketsSold * updated.ticketPriceCents;
+  const platformFeeCents = Math.round(grossRaisedCents * PLATFORM_FEE_RATE);
+  res.json({ campaign: { ...updated, ticketsSold, backerCount: 0, grossRaisedCents, platformFeeCents, netRaisedCents: grossRaisedCents - platformFeeCents } });
 });
 
 router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
@@ -344,8 +353,8 @@ router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async 
     const stripe = await getUncachableStripeClient();
     for (const ticket of tickets) {
       try {
-        if (ticket.stripePaymentMethodId) {
-          await stripe.paymentMethods.detach(ticket.stripePaymentMethodId);
+        if (ticket.stripePaymentIntentId) {
+          await stripe.paymentIntents.cancel(ticket.stripePaymentIntentId);
         }
         await db.update(campaignTicketsTable).set({ status: "cancelled", updatedAt: new Date() }).where(eq(campaignTicketsTable.id, ticket.id));
         if (ticket.buyerEmail) {
@@ -353,13 +362,13 @@ router.post("/campaigns/:id/cancel", requireAuth, requireRole("teacher"), async 
             to: ticket.buyerEmail,
             subject: `Campaign cancelled — ${campaign.title}`,
             html: `<p>Hi ${ticket.buyerName ?? "there"},</p>
-<p>The campaign for <strong>${campaign.title}</strong> has been cancelled by the musician. No charge was made to your payment method, which has been removed.</p>
+<p>The campaign for <strong>${campaign.title}</strong> has been cancelled by the musician. Your card authorization has been cancelled and no charge was made.</p>
 <p>We hope to see you at a future concert!</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia</p>`,
           }).catch((emailErr) => logger.error({ emailErr, ticketId: ticket.id }, "Failed to send cancel email"));
         }
       } catch (err) {
-        logger.error({ err, ticketId: ticket.id }, "Failed to clean up ticket during campaign cancellation");
+        logger.error({ err, ticketId: ticket.id }, "Failed to cancel PaymentIntent during campaign cancellation");
       }
     }
 
@@ -388,12 +397,11 @@ router.get("/campaigns/:id/tickets", requireAuth, requireRole("teacher"), async 
   res.json({ tickets });
 });
 
-// ─── Fan checkout (SetupIntent flow) ──────────────────────────────────────────
-// Uses Stripe Checkout in setup mode to save the fan's payment method.
-// No charge is made at checkout time — the PaymentIntent is created and confirmed
-// off-session only when the campaign succeeds. This avoids the ~7-day authorization
-// expiry window associated with manual-capture PaymentIntents and supports 60-day
-// campaigns without risk of stale authorizations.
+// ─── Fan checkout ─────────────────────────────────────────────────────────────
+// Creates a Stripe Checkout session in "payment" mode with capture_method: "manual".
+// The card is authorized (held) at checkout but NOT charged. The PaymentIntent ID is
+// stored on the ticket (via webhook). On campaign success, all PIs are captured; on
+// failure/cancel, all PIs are cancelled. No money moves until the campaign succeeds.
 
 router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -421,58 +429,57 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
   const [buyer] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   const accessCode = randomUUID();
   const totalPriceCents = campaign.ticketPriceCents * quantity;
+  const platformFeeCents = Math.round(totalPriceCents * PLATFORM_FEE_RATE);
   const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
   const buyerEmail = buyer?.email ?? "";
 
   try {
     const stripe = await getUncachableStripeClient();
 
-    // Find or create a Stripe Customer for off-session charging
-    let stripeCustomerId: string | undefined;
-    if (buyerEmail) {
-      const existing = await stripe.customers.list({ email: buyerEmail, limit: 1 });
-      if (existing.data.length > 0) {
-        stripeCustomerId = existing.data[0].id;
-      } else {
-        const customer = await stripe.customers.create({
-          email: buyerEmail,
-          name: buyerName || undefined,
-          metadata: { harmonia_user_id: userId },
-        });
-        stripeCustomerId = customer.id;
-      }
-    }
-
-    const metadataPayload = {
-      type: "campaign_ticket",
-      campaign_id: String(id),
-      buyer_id: userId,
-      quantity: String(quantity),
-      access_code: accessCode,
-      buyer_email: buyerEmail,
-      buyer_name: buyerName,
-      total_price_cents: String(totalPriceCents),
-      stripe_customer_id: stripeCustomerId ?? "",
-    };
-
     const session = await stripe.checkout.sessions.create({
-      mode: "setup",
       payment_method_types: ["card"],
-      customer: stripeCustomerId,
-      setup_intent_data: {
-        metadata: metadataPayload,
-      },
-      metadata: metadataPayload,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      custom_text: {
-        submit: {
-          message: `Your card will only be charged $${(totalPriceCents / 100).toFixed(2)} if "${campaign.title}" reaches its goal of ${campaign.goalCount} tickets by ${campaign.deadlineAt.toLocaleDateString()}.`,
+      mode: "payment",
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `${campaign.title} — Crowdfunding Ticket${quantity > 1 ? `s (×${quantity})` : ""}`,
+            description: `Only charged if the campaign reaches ${campaign.goalCount} tickets by ${campaign.deadlineAt.toLocaleDateString()}. Platform fee of 8% applies on success.`,
+          },
+          unit_amount: campaign.ticketPriceCents,
+        },
+        quantity,
+      }],
+      payment_intent_data: {
+        capture_method: "manual",
+        metadata: {
+          type: "campaign_ticket",
+          campaign_id: String(id),
+          buyer_id: userId,
+          quantity: String(quantity),
+          access_code: accessCode,
+          buyer_email: buyerEmail,
+          buyer_name: buyerName,
+          total_price_cents: String(totalPriceCents),
+          platform_fee_cents: String(platformFeeCents),
         },
       },
+      metadata: {
+        type: "campaign_ticket",
+        campaign_id: String(id),
+        buyer_id: userId,
+        quantity: String(quantity),
+        access_code: accessCode,
+        buyer_email: buyerEmail,
+        buyer_name: buyerName,
+        total_price_cents: String(totalPriceCents),
+        platform_fee_cents: String(platformFeeCents),
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
     });
 
-    logger.info({ campaignId: id, sessionId: session.id, quantity, totalPriceCents }, "Campaign SetupIntent checkout session created");
+    logger.info({ campaignId: id, sessionId: session.id, quantity, totalPriceCents, platformFeeCents }, "Campaign ticket checkout session created (manual-capture)");
     res.json({ checkoutUrl: session.url });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign checkout");

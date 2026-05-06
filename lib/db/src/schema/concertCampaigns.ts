@@ -38,14 +38,13 @@ export const campaignTicketsTable = pgTable("campaign_tickets", {
   buyerName: text("buyer_name"),
   quantity: integer("quantity").notNull().default(1),
   totalPriceCents: integer("total_price_cents").notNull(),
-  // Payment columns — one of the two sets will be populated depending on checkout mode:
-  // SetupIntent flow (used for campaigns): setup_intent_id + payment_method_id + customer_id
-  stripeSetupIntentId: text("stripe_setup_intent_id"),
-  stripePaymentMethodId: text("stripe_payment_method_id"),
-  stripeCustomerId: text("stripe_customer_id"),
-  // PaymentIntent created at capture time (populated by processCampaignSuccess)
+  // Manual-capture PaymentIntent ID — created at checkout, captured on campaign success,
+  // cancelled on campaign failure/cancel. Stored from checkout.session.completed webhook.
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  // 8% platform fee (in cents) calculated at checkout time and stored for accounting.
+  // Tracked in our DB; no Stripe Connect required.
+  platformFeeCents: integer("platform_fee_cents"),
   accessCode: text("access_code"),
   status: ticketStatusEnum("status").notNull().default("authorised"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -186,41 +186,27 @@ async function handleCheckoutSessionCompleted(
     if (existing) {
       logger.info({ ticketId: existing.id, sessionId: session.id, eventId }, "Campaign ticket already recorded — idempotent skip");
     } else {
-      // Race condition guard: verify campaign is still active before saving the payment method.
-      // If campaign was cancelled/failed/succeeded since the fan started checkout, detach the
-      // payment method immediately and do not create a ticket record.
+      // Race condition guard: verify campaign is still active before recording the authorization.
+      // If the campaign was cancelled/failed/succeeded between the fan starting checkout and the
+      // webhook firing, cancel the PaymentIntent immediately so the fan is never charged.
       const [campaignCheck] = await db
         .select({ status: concertCampaignsTable.status, deadlineAt: concertCampaignsTable.deadlineAt })
         .from(concertCampaignsTable)
         .where(eq(concertCampaignsTable.id, campaignId));
-
-      const setupIntentId = session.setup_intent as string | undefined;
-      let paymentMethodId: string | undefined;
-      let stripeCustomerId: string | undefined = session.customer as string | undefined;
-
-      if (setupIntentId) {
-        const stripe = await getUncachableStripeClient();
-        try {
-          const si = await stripe.setupIntents.retrieve(setupIntentId);
-          paymentMethodId = si.payment_method as string | undefined;
-        } catch (err) {
-          logger.error({ err, setupIntentId, sessionId: session.id }, "Failed to retrieve SetupIntent");
-        }
-      }
 
       const isExpiredOrInactive = !campaignCheck ||
         campaignCheck.status !== "active" ||
         (campaignCheck.deadlineAt && new Date(campaignCheck.deadlineAt) < new Date());
 
       if (isExpiredOrInactive) {
-        // Campaign no longer active — detach the saved payment method so fan is not charged
-        if (paymentMethodId) {
+        // Cancel the PaymentIntent so the authorization hold is released
+        if (paymentIntentId) {
           try {
             const stripe = await getUncachableStripeClient();
-            await stripe.paymentMethods.detach(paymentMethodId);
-            logger.info({ paymentMethodId, campaignId, sessionId: session.id }, "Detached payment method — campaign no longer active at checkout completion");
+            await stripe.paymentIntents.cancel(paymentIntentId);
+            logger.info({ paymentIntentId, campaignId, sessionId: session.id }, "Cancelled PaymentIntent — campaign no longer active at checkout completion");
           } catch (err) {
-            logger.error({ err, paymentMethodId }, "Failed to detach payment method for inactive campaign");
+            logger.error({ err, paymentIntentId }, "Failed to cancel PaymentIntent for inactive campaign");
           }
         }
         return;
@@ -231,6 +217,7 @@ async function handleCheckoutSessionCompleted(
       const buyerEmail = (metadata.buyer_email as string | undefined) || undefined;
       const buyerName = (metadata.buyer_name as string | undefined) || undefined;
       const totalPriceCents = parseInt(String(metadata.total_price_cents ?? "0"), 10) || 0;
+      const platformFeeCents = parseInt(String(metadata.platform_fee_cents ?? "0"), 10) || 0;
 
       const [ticket] = await db
         .insert(campaignTicketsTable)
@@ -241,16 +228,15 @@ async function handleCheckoutSessionCompleted(
           buyerName: buyerName || null,
           quantity,
           totalPriceCents,
+          platformFeeCents,
           stripeCheckoutSessionId: session.id,
-          stripeSetupIntentId: setupIntentId ?? null,
-          stripePaymentMethodId: paymentMethodId ?? null,
-          stripeCustomerId: stripeCustomerId ?? null,
+          stripePaymentIntentId: paymentIntentId ?? null,
           accessCode,
           status: "authorised",
         })
         .returning();
 
-      logger.info({ campaignId, ticketId: ticket.id, sessionId: session.id, eventId, hasPaymentMethod: !!paymentMethodId }, "Campaign ticket recorded via checkout.session.completed (SetupIntent flow)");
+      logger.info({ campaignId, ticketId: ticket.id, sessionId: session.id, eventId, paymentIntentId }, "Campaign ticket authorised via checkout.session.completed (manual-capture)");
     }
 
     await processCampaignSuccess(campaignId).catch((err) => {
