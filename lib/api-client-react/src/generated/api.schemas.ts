@@ -2199,6 +2199,10 @@ export type UploadReelBody = {
   genre?: string;
   /** Comma-separated list of instruments */
   instruments?: string;
+  /** Optional start time in seconds for the clip the musician wants to highlight */
+  clipStart?: number;
+  /** Optional end time in seconds for the clip the musician wants to highlight */
+  clipEnd?: number;
 };
 
 export type ActivateSubscription200 = {

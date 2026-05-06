@@ -1182,6 +1182,12 @@ paths:
                 instruments:
                   type: string
                   description: Comma-separated list of instruments
+                clipStart:
+                  type: number
+                  description: Optional start time in seconds for the clip the musician wants to highlight
+                clipEnd:
+                  type: number
+                  description: Optional end time in seconds for the clip the musician wants to highlight
       responses:
         "201":
           description: Reel created and queued for processing

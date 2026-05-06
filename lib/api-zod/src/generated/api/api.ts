@@ -2742,6 +2742,18 @@ export const UploadReelBody = zod.object({
     .string()
     .optional()
     .describe("Comma-separated list of instruments"),
+  clipStart: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional start time in seconds for the clip the musician wants to highlight",
+    ),
+  clipEnd: zod
+    .number()
+    .optional()
+    .describe(
+      "Optional end time in seconds for the clip the musician wants to highlight",
+    ),
 });
 
 /**

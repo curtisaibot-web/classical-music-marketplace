@@ -198,6 +198,13 @@ function BookingReelCard() {
   const [uploading, setUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [clipStart, setClipStart] = useState("");
+  const [clipEnd, setClipEnd] = useState("");
+
+  const parseClipSeconds = (val: string): number | undefined => {
+    const n = parseFloat(val);
+    return val.trim() !== "" && isFinite(n) && n >= 0 ? n : undefined;
+  };
 
   const handleFileSelect = useCallback(async (file: File) => {
     if (!file) return;
@@ -206,9 +213,23 @@ function BookingReelCard() {
       toast.error(`File too large. Maximum size is ${import.meta.env.VITE_REEL_MAX_MB ?? 500} MB.`);
       return;
     }
+    const start = parseClipSeconds(clipStart);
+    const end = parseClipSeconds(clipEnd);
+    if (start !== undefined && end !== undefined && end <= start) {
+      toast.error("End time must be greater than start time.");
+      return;
+    }
     setUploading(true);
     try {
-      await uploadReel.mutateAsync({ data: { file, genre: "", instruments: "" } });
+      await uploadReel.mutateAsync({
+        data: {
+          file,
+          genre: "",
+          instruments: "",
+          ...(start !== undefined ? { clipStart: start } : {}),
+          ...(end !== undefined ? { clipEnd: end } : {}),
+        },
+      });
       toast.success("Video uploaded! Your reel is now queued for AI processing.");
       refetch();
     } catch {
@@ -216,7 +237,7 @@ function BookingReelCard() {
     } finally {
       setUploading(false);
     }
-  }, [uploadReel, refetch]);
+  }, [uploadReel, refetch, clipStart, clipEnd]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -320,6 +341,41 @@ function BookingReelCard() {
             <p className="text-sm text-muted-foreground">
               Film yourself performing for 2–3 minutes in good light — we handle the rest. Our AI will clean your audio, grade the colour, and produce a polished 60–90 second reel.
             </p>
+            {/* Optional clip range */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <p className="text-xs font-medium text-foreground">
+                Highlight a specific moment <span className="text-muted-foreground font-normal">(optional)</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                If you know exactly which part of your recording you want featured, enter the start and end times in seconds. Leave blank to let the AI choose automatically.
+              </p>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground block mb-1">Start time (seconds)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 30"
+                    value={clipStart}
+                    onChange={(e) => setClipStart(e.target.value)}
+                    className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground block mb-1">End time (seconds)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 120"
+                    value={clipEnd}
+                    onChange={(e) => setClipEnd(e.target.value)}
+                    className="w-full text-sm border border-border rounded-md px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
             <div
               onDrop={handleDrop}
               onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}

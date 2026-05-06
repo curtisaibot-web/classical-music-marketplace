@@ -111,6 +111,15 @@ router.post(
         ? instrumentsRaw.split(",").map((s: string) => s.trim()).filter(Boolean)
         : [];
 
+      const clipStartRaw = req.body.clipStart !== undefined ? Number(req.body.clipStart) : undefined;
+      const clipEndRaw = req.body.clipEnd !== undefined ? Number(req.body.clipEnd) : undefined;
+      const clipStart = clipStartRaw !== undefined && isFinite(clipStartRaw) && clipStartRaw >= 0 ? clipStartRaw : undefined;
+      const clipEnd = clipEndRaw !== undefined && isFinite(clipEndRaw) && clipEndRaw > 0 ? clipEndRaw : undefined;
+      if (clipStart !== undefined && clipEnd !== undefined && clipEnd <= clipStart) {
+        res.status(400).json({ error: "clipEnd must be greater than clipStart" });
+        return;
+      }
+
       const webhookSecret = randomUUID();
 
       const [teacher] = await db
@@ -185,6 +194,8 @@ router.post(
             rawFileUrl: signedRawUrl,
             callbackUrl,
             webhookSecret,
+            ...(clipStart !== undefined ? { clipStart } : {}),
+            ...(clipEnd !== undefined ? { clipEnd } : {}),
             musician: {
               name: `${teacher?.firstName ?? ""} ${teacher?.lastName ?? ""}`.trim(),
               genre: effectiveGenre,

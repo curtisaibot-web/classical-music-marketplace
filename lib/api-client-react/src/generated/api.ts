@@ -4000,6 +4000,12 @@ export const uploadReel = async (
   if (uploadReelBody.instruments !== undefined) {
     formData.append(`instruments`, uploadReelBody.instruments);
   }
+  if (uploadReelBody.clipStart !== undefined) {
+    formData.append(`clipStart`, uploadReelBody.clipStart.toString());
+  }
+  if (uploadReelBody.clipEnd !== undefined) {
+    formData.append(`clipEnd`, uploadReelBody.clipEnd.toString());
+  }
 
   return customFetch<VideoReelOwner>(getUploadReelUrl(), {
     ...options,
