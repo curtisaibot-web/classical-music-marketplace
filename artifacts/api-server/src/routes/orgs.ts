@@ -88,6 +88,32 @@ router.post("/orgs", requireAuth, async (req, res): Promise<void> => {
     role: "admin",
   });
 
+  // ── Auto-initialize Stripe customer on org creation ───────────────────────
+  // Create the Stripe customer eagerly so the billing portal is available
+  // immediately. The per-seat subscription is activated separately once
+  // students are enrolled (POST /orgs/:slug/subscribe).
+  try {
+    const stripe = await getUncachableStripeClient();
+    const [owner] = await db
+      .select({ email: usersTable.email, firstName: usersTable.firstName, lastName: usersTable.lastName })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    const customer = await stripe.customers.create({
+      email: owner?.email ?? undefined,
+      name: `${owner?.firstName ?? ""} ${owner?.lastName ?? ""}`.trim() || org.name,
+      metadata: { orgSlug: org.slug, orgId: String(org.id) },
+    });
+    const [updatedOrg] = await db
+      .update(organisationsTable)
+      .set({ stripeCustomerId: customer.id })
+      .where(eq(organisationsTable.id, org.id))
+      .returning();
+    res.status(201).json({ org: updatedOrg });
+    return;
+  } catch {
+    // Non-fatal — Stripe may not be configured; return org without customerId
+  }
+
   res.status(201).json({ org });
 });
 
@@ -336,7 +362,9 @@ router.post("/orgs/:slug/billing-portal", requireAuth, async (req, res): Promise
   }
 });
 
-// POST /orgs/:slug/subscribe — create Stripe subscription for per-seat billing (admin only)
+// POST /orgs/:slug/subscribe — create Stripe Checkout session for per-seat billing (admin only)
+// Returns { checkoutUrl } to redirect the browser to Stripe Checkout for payment method setup.
+// After checkout, Stripe redirects to /org-admin?org=<slug>&billing=success (or cancel).
 router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void> => {
   const slug = paramStr(req.params.slug);
   const ctx = await requireOrgAdmin(req, res, slug);
@@ -344,12 +372,6 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
 
   try {
     const stripe = await getUncachableStripeClient();
-
-    const [studentCountRow] = await db
-      .select({ count: count() })
-      .from(orgMembersTable)
-      .where(and(eq(orgMembersTable.orgId, ctx.org.id), eq(orgMembersTable.role, "student")));
-    const quantity = Math.max(1, Number(studentCountRow?.count ?? 0));
 
     let customerId = ctx.org.stripeCustomerId;
     if (!customerId) {
@@ -370,25 +392,28 @@ router.post("/orgs/:slug/subscribe", requireAuth, async (req, res): Promise<void
       product_data: { name: `${ctx.org.name} — Harmonia per-seat plan` },
     });
 
-    const subscription = await stripe.subscriptions.create({
+    // Use Checkout (hosted page) so the admin enters their card without needing Stripe.js in the frontend
+    const origin = process.env.APP_ORIGIN ?? process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : "http://localhost:3000";
+    const basePath = process.env.APP_BASE_PATH ?? "";
+
+    const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      items: [{ price: price.id, quantity }],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+      mode: "subscription",
+      line_items: [{ price: price.id, quantity: 1 }],
+      subscription_data: { metadata: { orgSlug: ctx.org.slug, orgId: String(ctx.org.id) } },
+      success_url: `${origin}${basePath}/org-admin?org=${ctx.org.slug}&billing=success`,
+      cancel_url: `${origin}${basePath}/schools/join?org=${ctx.org.slug}&billing=cancel`,
     });
 
+    // Record subscription as pending until webhook confirms
     await db.update(organisationsTable).set({
-      stripeSubscriptionId: subscription.id,
       subscriptionStatus: "trialing",
       updatedAt: new Date(),
     }).where(eq(organisationsTable.id, ctx.org.id));
 
-    const invoice = subscription.latest_invoice as { payment_intent?: { client_secret?: string } } | null;
-    res.json({
-      subscriptionId: subscription.id,
-      clientSecret: invoice?.payment_intent?.client_secret ?? null,
-    });
+    res.json({ checkoutUrl: session.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: `Failed to create subscription: ${msg}` });

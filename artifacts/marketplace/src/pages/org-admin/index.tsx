@@ -427,15 +427,29 @@ export default function OrgAdmin() {
   );
 }
 
+const ALL_LISTING_TYPES = [
+  { value: "lesson", label: "Lessons" },
+  { value: "masterclass", label: "Masterclasses" },
+  { value: "event", label: "Events" },
+  { value: "digital_product", label: "Digital products" },
+] as const;
+
 function OrgSettingsForm({ org, orgSlug, onSave }: { org: Organisation; orgSlug: string; onSave: (org: Organisation) => void }) {
   const [name, setName] = useState(org.name);
   const [description, setDescription] = useState(org.description ?? "");
   const [logoUrl, setLogoUrl] = useState(org.logoUrl ?? "");
   const [defaultRate, setDefaultRate] = useState(org.defaultLessonRateCents ? String(Math.round(org.defaultLessonRateCents / 100)) : "");
   const [isPublic, setIsPublic] = useState(org.isPublicMarketplace);
+  const [allowedTypes, setAllowedTypes] = useState<string[]>(org.allowedListingTypes ?? []);
   const [saving, setSaving] = useState(false);
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  function toggleType(value: string) {
+    setAllowedTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+    );
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -450,6 +464,7 @@ function OrgSettingsForm({ org, orgSlug, onSave }: { org: Organisation; orgSlug:
           logoUrl: logoUrl.trim() || undefined,
           defaultLessonRateCents: defaultRate ? Math.round(parseFloat(defaultRate) * 100) : undefined,
           isPublicMarketplace: isPublic,
+          allowedListingTypes: allowedTypes,
         }),
       });
       if (!res.ok) {
@@ -486,6 +501,25 @@ function OrgSettingsForm({ org, orgSlug, onSave }: { org: Organisation; orgSlug:
         <label className="text-sm font-medium">Default lesson rate ($ / hour)</label>
         <Input type="number" value={defaultRate} onChange={(e) => setDefaultRate(e.target.value)} placeholder="e.g. 75" min="0" />
         <p className="text-xs text-muted-foreground">Suggested hourly rate for all teachers in your school.</p>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Allowed listing types</label>
+        <p className="text-xs text-muted-foreground">
+          Restrict which listing types teachers in your school can create. Leave all unchecked to allow all types.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {ALL_LISTING_TYPES.map(({ value, label }) => (
+            <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowedTypes.includes(value)}
+                onChange={() => toggleType(value)}
+                className="h-4 w-4 rounded border-input"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <input

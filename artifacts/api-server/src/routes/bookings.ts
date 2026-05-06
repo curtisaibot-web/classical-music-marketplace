@@ -98,35 +98,66 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // ── Org-scoped booking guard ──────────────────────────────────────────────
-  // If the student belongs to an org that is not a public marketplace, they can
-  // only book teachers who are members of the same org.
+  // ── Org-scoped booking guard (bidirectional) ─────────────────────────────
+  // Two rules enforced:
+  //   A) If the TEACHER is in a school-private org, the student must be in
+  //      the same org (prevents outsiders booking private-school teachers).
+  //   B) If the STUDENT is in a school-private org, the teacher must be in
+  //      the same org (prevents school students booking outside teachers).
   if (teacherId) {
+    // Determine the teacher's private org (if any)
+    const [teacherMemberRow] = await db
+      .select({ orgId: orgMembersTable.orgId })
+      .from(orgMembersTable)
+      .innerJoin(organisationsTable, eq(orgMembersTable.orgId, organisationsTable.id))
+      .where(
+        and(
+          eq(orgMembersTable.userId, teacherId),
+          eq(orgMembersTable.role, "teacher"),
+          eq(organisationsTable.isPublicMarketplace, false),
+        ),
+      )
+      .limit(1);
+
+    const teacherPrivateOrgId = teacherMemberRow?.orgId ?? null;
+
+    // Determine the student's private org (if any)
     const [studentProfile] = await db
       .select({ orgId: studentProfilesTable.orgId })
       .from(studentProfilesTable)
       .where(eq(studentProfilesTable.userId, userId));
 
-    if (studentProfile?.orgId !== null && studentProfile?.orgId !== undefined) {
-      const [org] = await db
-        .select({ id: organisationsTable.id, isPublicMarketplace: organisationsTable.isPublicMarketplace })
-        .from(organisationsTable)
-        .where(eq(organisationsTable.id, studentProfile.orgId));
+    const studentOrgId = studentProfile?.orgId ?? null;
 
-      if (org && !org.isPublicMarketplace) {
-        // Check that teacher is in the same org
-        const [teacherMembership] = await db
+    if (studentOrgId !== null) {
+      // Rule B: student in private org → teacher must be in same org
+      const [studentOrg] = await db
+        .select({ isPublicMarketplace: organisationsTable.isPublicMarketplace })
+        .from(organisationsTable)
+        .where(eq(organisationsTable.id, studentOrgId));
+      if (studentOrg && !studentOrg.isPublicMarketplace && teacherPrivateOrgId !== studentOrgId) {
+        res.status(403).json({ error: "This teacher is not part of your school" });
+        return;
+      }
+    }
+
+    if (teacherPrivateOrgId !== null) {
+      // Rule A: teacher in private org → student must be in same org
+      const studentInTeacherOrg = studentOrgId === teacherPrivateOrgId;
+      if (!studentInTeacherOrg) {
+        // Check org_members directly (student might be enrolled without profile orgId set yet)
+        const [membership] = await db
           .select({ id: orgMembersTable.id })
           .from(orgMembersTable)
           .where(
             and(
-              eq(orgMembersTable.orgId, org.id),
-              eq(orgMembersTable.userId, teacherId),
-              eq(orgMembersTable.role, "teacher"),
+              eq(orgMembersTable.orgId, teacherPrivateOrgId),
+              eq(orgMembersTable.userId, userId),
+              eq(orgMembersTable.role, "student"),
             ),
           );
-        if (!teacherMembership) {
-          res.status(403).json({ error: "This teacher is not part of your school" });
+        if (!membership) {
+          res.status(403).json({ error: "You must be enrolled in this teacher's school to book them" });
           return;
         }
       }

@@ -43,6 +43,10 @@ export default function SchoolsJoin() {
   // Created org data
   const [createdOrg, setCreatedOrg] = useState<{ id: number; slug: string; name: string } | null>(null);
 
+  // Billing step
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscriptionActivated, setSubscriptionActivated] = useState(false);
+
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   function autoSlug(val: string) {
@@ -114,6 +118,36 @@ export default function SchoolsJoin() {
       setAddedTeachers((prev) => prev.filter((t) => t.userId !== userId));
     } catch {
       toast.error("Network error");
+    }
+  }
+
+  async function handleSubscribe() {
+    if (!createdOrg) return;
+    setSubscribing(true);
+    try {
+      const res = await fetch(`${base}/api/orgs/${createdOrg.slug}/subscribe`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" })) as { error: string };
+        toast.error(err.error ?? "Failed to start subscription");
+        return;
+      }
+      const data = await res.json() as { checkoutUrl?: string; message?: string };
+      if (data.checkoutUrl) {
+        // Redirect to Stripe Checkout in same window; return_url brings back to admin
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      // Stripe not configured — mark as activated and continue
+      setSubscriptionActivated(true);
+      toast.success("Subscription activated");
+      setStep(3);
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSubscribing(false);
     }
   }
 
@@ -288,7 +322,7 @@ export default function SchoolsJoin() {
           {step === 2 && createdOrg && (
             <Card>
               <CardHeader>
-                <CardTitle className="font-serif">Billing</CardTitle>
+                <CardTitle className="font-serif">Set up billing</CardTitle>
                 <CardDescription>Per-seat pricing — $10/student/month, billed monthly via Stripe.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -306,19 +340,35 @@ export default function SchoolsJoin() {
                     <span className="font-semibold">Included</span>
                   </div>
                   <div className="h-px bg-border" />
-                  <p className="text-xs text-muted-foreground">Billing is activated from your admin dashboard once students are enrolled. No charge until your first student is added.</p>
+                  <p className="text-xs text-muted-foreground">
+                    You won't be charged until your first student is enrolled. Stripe Checkout handles payment securely — you'll be redirected back here after setup.
+                  </p>
                 </div>
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
-                  <strong>Stripe setup:</strong> After launching, go to Admin → Billing to connect your card and activate your subscription.
-                </div>
+                {subscriptionActivated && (
+                  <div className="rounded-lg bg-green-50 border border-green-200 p-3 flex items-center gap-2 text-sm text-green-800">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    Billing activated — continue to launch your school.
+                  </div>
+                )}
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep(1)} className="flex items-center gap-1">
+                  <Button variant="outline" onClick={() => setStep(1)} className="flex items-center gap-1" disabled={subscribing}>
                     <ChevronLeft className="h-4 w-4" /> Back
                   </Button>
-                  <Button className="flex-1" onClick={() => setStep(3)}>
-                    Continue <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
+                  {subscriptionActivated ? (
+                    <Button className="flex-1" onClick={() => setStep(3)}>
+                      Continue to launch <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  ) : (
+                    <Button className="flex-1" onClick={handleSubscribe} disabled={subscribing}>
+                      {subscribing ? "Setting up…" : "Activate billing via Stripe"}
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  )}
                 </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  You can also skip this and activate billing later from your admin dashboard.{" "}
+                  <button className="underline" onClick={() => setStep(3)}>Skip for now</button>
+                </p>
               </CardContent>
             </Card>
           )}
