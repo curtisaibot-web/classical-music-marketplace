@@ -89,6 +89,12 @@ export const ListTeachersQueryParams = zod.object({
     ),
   limit: zod.coerce.number().default(listTeachersQueryLimitDefault),
   offset: zod.coerce.number().default(listTeachersQueryOffsetDefault),
+  orgSlug: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers.",
+    ),
 });
 
 export const ListTeachersResponse = zod.object({
@@ -3923,11 +3929,11 @@ export const ListOrgMembersResponse = zod.object({
 });
 
 /**
- * @summary Remove a member from the organisation (admin only)
+ * @summary Remove a member from the organisation by their user ID (admin only)
  */
 export const RemoveOrgMemberParams = zod.object({
   slug: zod.coerce.string(),
-  memberId: zod.coerce.string(),
+  userId: zod.coerce.string(),
 });
 
 export const RemoveOrgMemberResponse = zod.object({

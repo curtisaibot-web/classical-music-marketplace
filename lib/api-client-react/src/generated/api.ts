@@ -9292,24 +9292,21 @@ export function useListOrgMembers<
 }
 
 /**
- * @summary Remove a member from the organisation (admin only)
+ * @summary Remove a member from the organisation by their user ID (admin only)
  */
-export const getRemoveOrgMemberUrl = (slug: string, memberId: string) => {
-  return `/api/orgs/${slug}/members/${memberId}`;
+export const getRemoveOrgMemberUrl = (slug: string, userId: string) => {
+  return `/api/orgs/${slug}/members/${userId}`;
 };
 
 export const removeOrgMember = async (
   slug: string,
-  memberId: string,
+  userId: string,
   options?: RequestInit,
 ): Promise<RemoveOrgMember200> => {
-  return customFetch<RemoveOrgMember200>(
-    getRemoveOrgMemberUrl(slug, memberId),
-    {
-      ...options,
-      method: "DELETE",
-    },
-  );
+  return customFetch<RemoveOrgMember200>(getRemoveOrgMemberUrl(slug, userId), {
+    ...options,
+    method: "DELETE",
+  });
 };
 
 export const getRemoveOrgMemberMutationOptions = <
@@ -9321,14 +9318,14 @@ export const getRemoveOrgMemberMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeOrgMember>>,
     TError,
-    { slug: string; memberId: string },
+    { slug: string; userId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof removeOrgMember>>,
   TError,
-  { slug: string; memberId: string },
+  { slug: string; userId: string },
   TContext
 > => {
   const mutationKey = ["removeOrgMember"];
@@ -9342,11 +9339,11 @@ export const getRemoveOrgMemberMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof removeOrgMember>>,
-    { slug: string; memberId: string }
+    { slug: string; userId: string }
   > = (props) => {
-    const { slug, memberId } = props ?? {};
+    const { slug, userId } = props ?? {};
 
-    return removeOrgMember(slug, memberId, requestOptions);
+    return removeOrgMember(slug, userId, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -9361,7 +9358,7 @@ export type RemoveOrgMemberMutationError = ErrorType<
 >;
 
 /**
- * @summary Remove a member from the organisation (admin only)
+ * @summary Remove a member from the organisation by their user ID (admin only)
  */
 export const useRemoveOrgMember = <
   TError = ErrorType<
@@ -9372,14 +9369,14 @@ export const useRemoveOrgMember = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof removeOrgMember>>,
     TError,
-    { slug: string; memberId: string },
+    { slug: string; userId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof removeOrgMember>>,
   TError,
-  { slug: string; memberId: string },
+  { slug: string; userId: string },
   TContext
 > => {
   return useMutation(getRemoveOrgMemberMutationOptions(options));

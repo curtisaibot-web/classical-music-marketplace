@@ -158,6 +158,11 @@ paths:
           schema:
             type: integer
             default: 0
+        - name: orgSlug
+          in: query
+          description: "When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers."
+          schema:
+            type: string
       responses:
         "200":
           description: List of teachers

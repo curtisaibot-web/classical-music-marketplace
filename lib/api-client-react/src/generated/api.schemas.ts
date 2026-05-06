@@ -1655,6 +1655,10 @@ export type ListTeachersParams = {
   onlineOnly?: boolean;
   limit?: number;
   offset?: number;
+  /**
+   * When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers.
+   */
+  orgSlug?: string;
 };
 
 export type ListTeachersListingType =

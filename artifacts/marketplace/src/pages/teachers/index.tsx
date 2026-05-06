@@ -16,6 +16,7 @@ import { Search, Star, Music, MapPin, SlidersHorizontal, X, AlertCircle, Chevron
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Badge } from "@/components/ui/badge";
+import { useOrg } from "@/context/OrgContext";
 
 const INSTRUMENTS = [
   "Piano", "Violin", "Viola", "Cello", "Double Bass",
@@ -60,6 +61,7 @@ function readUrlParams() {
 }
 
 export default function Teachers() {
+  const { orgSlug } = useOrg();
   const initial = readUrlParams();
 
   const [instruments, setInstruments] = useState<string[]>(initial.instruments);
@@ -113,6 +115,7 @@ export default function Teachers() {
     onlineOnly: onlineOnly || undefined,
     listingType: listingType === "all" ? undefined : listingType as "lesson" | "event" | "masterclass" | "digital_product" | undefined,
     dayOfWeek: dayOfWeek,
+    orgSlug: orgSlug ?? undefined,
     limit: 20,
   });
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, gte, lte, count, ilike, inArray, sql, or } from "drizzle-orm";
-import { db, listingsTable, teacherProfilesTable, usersTable, masterclassEventsTable, digitalProductsTable } from "@workspace/db";
+import { db, listingsTable, teacherProfilesTable, usersTable, masterclassEventsTable, digitalProductsTable, orgMembersTable, organisationsTable } from "@workspace/db";
 import {
   GetListingResponse,
   ListListingsResponse,
@@ -124,6 +124,34 @@ router.post("/listings", requireAuth, requireRole("teacher"), async (req, res): 
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  // ── Org listing-type policy enforcement ──────────────────────────────────
+  // If this teacher belongs to a school that restricts listing types, validate.
+  const [memberRow] = await db
+    .select({ orgId: orgMembersTable.orgId })
+    .from(orgMembersTable)
+    .innerJoin(organisationsTable, eq(orgMembersTable.orgId, organisationsTable.id))
+    .where(eq(orgMembersTable.userId, userId))
+    .limit(1);
+
+  if (memberRow) {
+    const [org] = await db
+      .select({ allowedListingTypes: organisationsTable.allowedListingTypes, defaultLessonRateCents: organisationsTable.defaultLessonRateCents })
+      .from(organisationsTable)
+      .where(eq(organisationsTable.id, memberRow.orgId));
+
+    if (org && org.allowedListingTypes.length > 0) {
+      if (!org.allowedListingTypes.includes(parsed.data.type)) {
+        res.status(403).json({ error: `Your school only allows the following listing types: ${org.allowedListingTypes.join(", ")}` });
+        return;
+      }
+    }
+
+    // Apply school default lesson rate if teacher hasn't set a custom price and listing is a lesson
+    if (parsed.data.type === "lesson" && !parsed.data.priceInCents && org?.defaultLessonRateCents) {
+      (parsed.data as Record<string, unknown>).priceInCents = org.defaultLessonRateCents;
+    }
   }
 
   const [listing] = await db
