@@ -2167,7 +2167,7 @@ paths:
     get:
       operationId: listMyAuditionPrograms
       tags: [audition-programs]
-      summary: Get teacher's own programs with enrollment counts
+      summary: Get teacher's own active programs
       security: [{ clerkAuth: [] }]
       responses:
         "200":

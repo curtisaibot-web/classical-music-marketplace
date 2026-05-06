@@ -465,8 +465,8 @@ export default function TeacherPrograms() {
             )}
           </div>
 
-          {/* Enrollments */}
-          <div className="lg:col-span-3 space-y-6">
+          {/* Enrollments grouped by program */}
+          <div className="lg:col-span-3 space-y-8">
             <h2 className="text-lg font-semibold text-foreground">Enrolled Students</h2>
             {loadingEnrollments ? (
               <div className="space-y-4">
@@ -479,25 +479,44 @@ export default function TeacherPrograms() {
                   <p className="text-muted-foreground text-sm">No active enrollments yet.</p>
                 </CardContent>
               </Card>
-            ) : (
-              enrollmentsData.enrollments
-                .filter((e) => e.status !== "pending")
-                .map((enrollment) => (
-                  <EnrollmentCard
-                    key={enrollment.id}
-                    enrollment={{
-                      ...enrollment,
-                      studentUser: enrollment.studentUser as { firstName?: string | null; lastName?: string | null } | null,
-                      sessionNotes: enrollment.sessionNotes.map((n) => ({
-                        ...n,
-                        completedAt: typeof n.completedAt === "string" ? n.completedAt : new Date(n.completedAt).toISOString(),
-                      })),
-                    }}
-                    totalSessions={enrollment.program?.sessionCount ?? 1}
-                    refetchEnrollments={refetchEnrollments}
-                  />
-                ))
-            )}
+            ) : (() => {
+              const active = enrollmentsData!.enrollments.filter((e) => e.status !== "pending");
+              // Group by program id to give per-program sections
+              const groups = new Map<number, typeof active>();
+              active.forEach((e) => {
+                const pid = e.programId ?? 0;
+                if (!groups.has(pid)) groups.set(pid, []);
+                groups.get(pid)!.push(e);
+              });
+              return Array.from(groups.entries()).map(([, groupEnrollments]) => {
+                const prog = groupEnrollments[0].program;
+                return (
+                  <div key={groupEnrollments[0].programId ?? 0} className="space-y-3">
+                    {prog && (
+                      <div className="flex items-center gap-2 pb-1 border-b border-border">
+                        <span className="font-medium text-foreground text-sm">{prog.title}</span>
+                        <span className="text-xs text-muted-foreground">· {groupEnrollments.length} student{groupEnrollments.length !== 1 ? "s" : ""}</span>
+                      </div>
+                    )}
+                    {groupEnrollments.map((enrollment) => (
+                      <EnrollmentCard
+                        key={enrollment.id}
+                        enrollment={{
+                          ...enrollment,
+                          studentUser: enrollment.studentUser as { firstName?: string | null; lastName?: string | null } | null,
+                          sessionNotes: enrollment.sessionNotes.map((n) => ({
+                            ...n,
+                            completedAt: typeof n.completedAt === "string" ? n.completedAt : new Date(n.completedAt).toISOString(),
+                          })),
+                        }}
+                        totalSessions={enrollment.program?.sessionCount ?? 1}
+                        refetchEnrollments={refetchEnrollments}
+                      />
+                    ))}
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </main>
