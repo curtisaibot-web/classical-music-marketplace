@@ -1908,7 +1908,7 @@ export type PracticeProfileWithUserUser = {
   /** @nullable */
   lastName?: string | null;
   /** @nullable */
-  profileImageUrl?: string | null;
+  imageUrl?: string | null;
 } | null;
 
 export type PracticeProfileWithUser = PracticeProfile & {
@@ -1949,7 +1949,7 @@ export type PracticePartnershipWithPartnerPartner = {
   /** @nullable */
   lastName?: string | null;
   /** @nullable */
-  profileImageUrl?: string | null;
+  imageUrl?: string | null;
 } | null;
 
 /**
@@ -2315,10 +2315,23 @@ export type DeclinePracticeRequest200 = {
   ok: boolean;
 };
 
+export type GetPracticeNotifications200RecentNotificationsItem = {
+  id: number;
+  userId: string;
+  type: string;
+  message: string;
+  isRead: boolean;
+  /** @nullable */
+  partnershipId?: number | null;
+  createdAt: string;
+};
+
 export type GetPracticeNotifications200 = {
   incomingRequests: number;
   pendingSessionsAwaitingMe: number;
+  unreadNotifications: number;
   total: number;
+  recentNotifications: GetPracticeNotifications200RecentNotificationsItem[];
 };
 
 export type ListPartnershipSessions200 = {

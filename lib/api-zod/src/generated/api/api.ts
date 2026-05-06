@@ -4942,7 +4942,7 @@ export const GetMyPracticeProfileResponse = zod
         .object({
           firstName: zod.string().nullish(),
           lastName: zod.string().nullish(),
-          profileImageUrl: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
         })
         .nullish(),
       matchScore: zod.number().optional(),
@@ -5055,7 +5055,7 @@ export const GetPracticeProfileResponse = zod
         .object({
           firstName: zod.string().nullish(),
           lastName: zod.string().nullish(),
-          profileImageUrl: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
         })
         .nullish(),
       matchScore: zod.number().optional(),
@@ -5106,7 +5106,7 @@ export const ListPracticeMatchesResponse = zod.object({
             .object({
               firstName: zod.string().nullish(),
               lastName: zod.string().nullish(),
-              profileImageUrl: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
             })
             .nullish(),
           matchScore: zod.number().optional(),
@@ -5147,7 +5147,7 @@ export const ListMyPracticePartnershipsResponse = zod.object({
             .object({
               firstName: zod.string().nullish(),
               lastName: zod.string().nullish(),
-              profileImageUrl: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
             })
             .nullish(),
           partnerProfile: zod
@@ -5212,12 +5212,24 @@ export const DissolvePracticePartnershipResponse = zod.object({
 });
 
 /**
- * @summary Get badge counts for items requiring the user's attention
+ * @summary Get badge counts and notification feed for items requiring the user's attention
  */
 export const GetPracticeNotificationsResponse = zod.object({
   incomingRequests: zod.number(),
   pendingSessionsAwaitingMe: zod.number(),
+  unreadNotifications: zod.number(),
   total: zod.number(),
+  recentNotifications: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      type: zod.string(),
+      message: zod.string(),
+      isRead: zod.boolean(),
+      partnershipId: zod.number().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
 });
 
 /**

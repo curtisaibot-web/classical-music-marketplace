@@ -12111,7 +12111,7 @@ export const useDissolvePracticePartnership = <
 };
 
 /**
- * @summary Get badge counts for items requiring the user's attention
+ * @summary Get badge counts and notification feed for items requiring the user's attention
  */
 export const getGetPracticeNotificationsUrl = () => {
   return `/api/practice/notifications`;
@@ -12167,7 +12167,7 @@ export type GetPracticeNotificationsQueryError =
   ErrorType<UnauthorizedResponse>;
 
 /**
- * @summary Get badge counts for items requiring the user's attention
+ * @summary Get badge counts and notification feed for items requiring the user's attention
  */
 
 export function useGetPracticeNotifications<

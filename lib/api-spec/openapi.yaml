@@ -3385,11 +3385,11 @@ paths:
     get:
       operationId: getPracticeNotifications
       tags: [practice]
-      summary: Get badge counts for items requiring the user's attention
+      summary: Get badge counts and notification feed for items requiring the user's attention
       security: [{ clerkAuth: [] }]
       responses:
         "200":
-          description: Notification counts
+          description: Notification counts and feed
           content:
             application/json:
               schema:
@@ -3399,9 +3399,32 @@ paths:
                     type: integer
                   pendingSessionsAwaitingMe:
                     type: integer
+                  unreadNotifications:
+                    type: integer
                   total:
                     type: integer
-                required: [incomingRequests, pendingSessionsAwaitingMe, total]
+                  recentNotifications:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        userId:
+                          type: string
+                        type:
+                          type: string
+                        message:
+                          type: string
+                        isRead:
+                          type: boolean
+                        partnershipId:
+                          type: ["integer", "null"]
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required: [id, userId, type, message, isRead, createdAt]
+                required: [incomingRequests, pendingSessionsAwaitingMe, unreadNotifications, total, recentNotifications]
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -6309,7 +6332,7 @@ components:
                   type: ["string", "null"]
                 lastName:
                   type: ["string", "null"]
-                profileImageUrl:
+                imageUrl:
                   type: ["string", "null"]
             matchScore:
               type: integer
@@ -6352,7 +6375,7 @@ components:
                   type: ["string", "null"]
                 lastName:
                   type: ["string", "null"]
-                profileImageUrl:
+                imageUrl:
                   type: ["string", "null"]
             partnerProfile:
               type: ["object", "null"]
