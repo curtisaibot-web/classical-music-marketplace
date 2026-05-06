@@ -19,12 +19,15 @@ run = "pnpm --filter @workspace/marketplace run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/marketplace", "run", "build" ]
-publicDir = "artifacts/marketplace/dist/public"
-serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.run]
+# Tiny Node.js server with UA-based OG routing for crawler requests to /musicians/:slug
+args = ["node", "artifacts/marketplace/server.mjs"]
+
+[services.production.run.env]
+PORT = "5173"
+API_PORT = "8080"
+NODE_ENV = "production"
 
 [services.env]
 PORT = "5173"

@@ -9,7 +9,6 @@ import {
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
-import musiciansPages from "./routes/musicians-pages";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
 
@@ -98,6 +97,5 @@ app.use(
 );
 
 app.use("/api", router);
-app.use("/musicians", musiciansPages);
 
 export default app;
