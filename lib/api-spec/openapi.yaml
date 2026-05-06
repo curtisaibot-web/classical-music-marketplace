@@ -1916,6 +1916,190 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List active crowdfunding campaigns
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignListResponse"
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create a new crowdfunding campaign (teacher)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCampaignResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /campaigns/my:
+    get:
+      operationId: getMyCampaigns
+      tags: [campaigns]
+      summary: Get the authenticated teacher's campaigns
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyCampaignsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /campaigns/{id}:
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: Get a single campaign by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Update an active campaign (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateCampaignResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{id}/cancel:
+    post:
+      operationId: cancelCampaign
+      tags: [campaigns]
+      summary: Cancel a campaign and refund all authorised tickets
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelCampaignResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{id}/checkout:
+    post:
+      operationId: createCampaignCheckout
+      tags: [campaigns]
+      summary: Fan buys tickets (authorise-only, captured on campaign success)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignCheckoutBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignCheckoutResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{id}/tickets:
+    get:
+      operationId: getCampaignTickets
+      tags: [campaigns]
+      summary: Get ticket list for a campaign (teacher only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignTicketListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -3540,3 +3724,279 @@ components:
         date:
           type: string
           format: date-time
+
+    # ── Concert Crowdfunding Campaigns ──────────────────────────────────────────
+    ConcertCampaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
+        scheduledDate:
+          type: string
+          nullable: true
+        venueName:
+          type: string
+          nullable: true
+        ticketPriceCents:
+          type: integer
+        goalCount:
+          type: integer
+        deadlineAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, succeeded, failed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        teacherFirstName:
+          type: string
+          nullable: true
+        teacherLastName:
+          type: string
+          nullable: true
+        ticketsSold:
+          type: integer
+      required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, ticketsSold]
+
+    CampaignDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
+        scheduledDate:
+          type: string
+          nullable: true
+        venueName:
+          type: string
+          nullable: true
+        ticketPriceCents:
+          type: integer
+        goalCount:
+          type: integer
+        deadlineAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, succeeded, failed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        teacherFirstName:
+          type: string
+          nullable: true
+        teacherLastName:
+          type: string
+          nullable: true
+        ticketsSold:
+          type: integer
+        backerCount:
+          type: integer
+      required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, ticketsSold, backerCount]
+
+    MyCampaignItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
+        scheduledDate:
+          type: string
+          nullable: true
+        venueName:
+          type: string
+          nullable: true
+        ticketPriceCents:
+          type: integer
+        goalCount:
+          type: integer
+        deadlineAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, succeeded, failed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        ticketsSold:
+          type: integer
+        backerCount:
+          type: integer
+        grossRaisedCents:
+          type: integer
+      required: [id, teacherId, title, ticketPriceCents, goalCount, deadlineAt, status, createdAt, updatedAt, ticketsSold, backerCount, grossRaisedCents]
+
+    CampaignListResponse:
+      type: object
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConcertCampaign"
+        total:
+          type: integer
+      required: [campaigns, total]
+
+    MyCampaignsResponse:
+      type: object
+      properties:
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyCampaignItem"
+      required: [campaigns]
+
+    CreateCampaignBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        scheduledDate:
+          type: string
+        venueName:
+          type: string
+        ticketPriceCents:
+          type: integer
+        goalCount:
+          type: integer
+        deadlineAt:
+          type: string
+          format: date-time
+      required: [title, ticketPriceCents, goalCount, deadlineAt]
+
+    CreateCampaignResponse:
+      type: object
+      properties:
+        campaign:
+          $ref: "#/components/schemas/MyCampaignItem"
+      required: [campaign]
+
+    UpdateCampaignBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        scheduledDate:
+          type: string
+        venueName:
+          type: string
+
+    UpdateCampaignResponse:
+      type: object
+      properties:
+        campaign:
+          $ref: "#/components/schemas/MyCampaignItem"
+      required: [campaign]
+
+    CancelCampaignResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+
+    CampaignCheckoutBody:
+      type: object
+      properties:
+        quantity:
+          type: integer
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [successUrl, cancelUrl]
+
+    CampaignCheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          nullable: true
+        ticketId:
+          type: integer
+      required: [checkoutUrl, ticketId]
+
+    CampaignTicket:
+      type: object
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        buyerId:
+          type: string
+        buyerEmail:
+          type: string
+          nullable: true
+        buyerName:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        totalPriceCents:
+          type: integer
+        stripePaymentIntentId:
+          type: string
+          nullable: true
+        accessCode:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [authorised, captured, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, campaignId, buyerId, quantity, totalPriceCents, status, createdAt]
+
+    CampaignTicketListResponse:
+      type: object
+      properties:
+        tickets:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignTicket"
+      required: [tickets]

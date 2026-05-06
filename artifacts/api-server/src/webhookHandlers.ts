@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable } from "@workspace/db";
+import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
 import { normalizeStripeStatus } from "./routes/subscriptions";
@@ -160,6 +161,26 @@ async function handleCheckoutSessionCompleted(
       await unlockDigitalDownload(orderId);
     } else {
       logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+    }
+  }
+
+  if (metadata.type === "campaign_ticket" && metadata.campaign_id) {
+    const campaignId = parseInt(metadata.campaign_id, 10);
+    if (isNaN(campaignId)) {
+      throw new Error(`Invalid campaign_id in session metadata: ${metadata.campaign_id}`);
+    }
+
+    const updated = await db
+      .update(campaignTicketsTable)
+      .set({ stripePaymentIntentId: paymentIntentId, updatedAt: new Date() })
+      .where(eq(campaignTicketsTable.stripeCheckoutSessionId, session.id))
+      .returning({ id: campaignTicketsTable.id, campaignId: campaignTicketsTable.campaignId });
+
+    if (updated.length > 0) {
+      logger.info({ campaignId, sessionId: session.id, eventId }, "Campaign ticket authorised via checkout.session.completed");
+      await processCampaignSuccess(campaignId).catch((err) => {
+        logger.error({ err, campaignId }, "Failed to check campaign success after ticket authorisation");
+      });
     }
   }
 }

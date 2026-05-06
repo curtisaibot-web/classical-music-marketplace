@@ -14,3 +14,4 @@ export * from "./subscriptions";
 export * from "./contracts";
 export * from "./invoices";
 export * from "./expenses";
+export * from "./concertCampaigns";

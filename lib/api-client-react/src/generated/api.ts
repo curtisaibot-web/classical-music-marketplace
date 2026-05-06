@@ -22,6 +22,12 @@ import type {
   BadRequestResponse,
   Booking,
   BookingListResponse,
+  CampaignCheckoutBody,
+  CampaignCheckoutResponse,
+  CampaignDetail,
+  CampaignListResponse,
+  CampaignTicketListResponse,
+  CancelCampaignResponse,
   CancellationFeeCollectedResponse,
   CancellationReportResponse,
   CheckoutUrlResponse,
@@ -31,6 +37,8 @@ import type {
   ContractTemplateListResponse,
   CreateBookingBody,
   CreateBookingCheckoutBody,
+  CreateCampaignBody,
+  CreateCampaignResponse,
   CreateConnectOnboardingBody,
   CreateContractBody,
   CreateDigitalProductBody,
@@ -67,6 +75,7 @@ import type {
   ListingListResponse,
   Masterclass,
   MasterclassListResponse,
+  MyCampaignsResponse,
   NotFoundResponse,
   OnboardUserBody,
   OnboardingUrlResponse,
@@ -90,6 +99,8 @@ import type {
   TeacherRecordingListResponse,
   UnauthorizedResponse,
   UpdateBookingBody,
+  UpdateCampaignBody,
+  UpdateCampaignResponse,
   UpdateContractBody,
   UpdateDigitalProductBody,
   UpdateExpenseBody,
@@ -6801,3 +6812,696 @@ export const useDeleteExpense = <
 > => {
   return useMutation(getDeleteExpenseMutationOptions(options));
 };
+
+/**
+ * @summary List active crowdfunding campaigns
+ */
+export const getListCampaignsUrl = () => {
+  return `/api/campaigns`;
+};
+
+export const listCampaigns = async (
+  options?: RequestInit,
+): Promise<CampaignListResponse> => {
+  return customFetch<CampaignListResponse>(getListCampaignsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCampaignsQueryKey = () => {
+  return [`/api/campaigns`] as const;
+};
+
+export const getListCampaignsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCampaigns>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCampaignsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCampaigns>>> = ({
+    signal,
+  }) => listCampaigns({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCampaignsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCampaigns>>
+>;
+export type ListCampaignsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active crowdfunding campaigns
+ */
+
+export function useListCampaigns<
+  TData = Awaited<ReturnType<typeof listCampaigns>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCampaignsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new crowdfunding campaign (teacher)
+ */
+export const getCreateCampaignUrl = () => {
+  return `/api/campaigns`;
+};
+
+export const createCampaign = async (
+  createCampaignBody: CreateCampaignBody,
+  options?: RequestInit,
+): Promise<CreateCampaignResponse> => {
+  return customFetch<CreateCampaignResponse>(getCreateCampaignUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCampaignBody),
+  });
+};
+
+export const getCreateCampaignMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaign>>,
+    TError,
+    { data: BodyType<CreateCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCampaign>>,
+  TError,
+  { data: BodyType<CreateCampaignBody> },
+  TContext
+> => {
+  const mutationKey = ["createCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCampaign>>,
+    { data: BodyType<CreateCampaignBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCampaign(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCampaign>>
+>;
+export type CreateCampaignMutationBody = BodyType<CreateCampaignBody>;
+export type CreateCampaignMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a new crowdfunding campaign (teacher)
+ */
+export const useCreateCampaign = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaign>>,
+    TError,
+    { data: BodyType<CreateCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCampaign>>,
+  TError,
+  { data: BodyType<CreateCampaignBody> },
+  TContext
+> => {
+  return useMutation(getCreateCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Get the authenticated teacher's campaigns
+ */
+export const getGetMyCampaignsUrl = () => {
+  return `/api/campaigns/my`;
+};
+
+export const getMyCampaigns = async (
+  options?: RequestInit,
+): Promise<MyCampaignsResponse> => {
+  return customFetch<MyCampaignsResponse>(getGetMyCampaignsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyCampaignsQueryKey = () => {
+  return [`/api/campaigns/my`] as const;
+};
+
+export const getGetMyCampaignsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyCampaigns>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyCampaignsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyCampaigns>>> = ({
+    signal,
+  }) => getMyCampaigns({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCampaigns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyCampaignsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyCampaigns>>
+>;
+export type GetMyCampaignsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get the authenticated teacher's campaigns
+ */
+
+export function useGetMyCampaigns<
+  TData = Awaited<ReturnType<typeof getMyCampaigns>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCampaigns>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyCampaignsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single campaign by ID
+ */
+export const getGetCampaignUrl = (id: number) => {
+  return `/api/campaigns/${id}`;
+};
+
+export const getCampaign = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CampaignDetail> => {
+  return customFetch<CampaignDetail>(getGetCampaignUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCampaignQueryKey = (id: number) => {
+  return [`/api/campaigns/${id}`] as const;
+};
+
+export const getGetCampaignQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCampaign>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaign>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCampaignQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCampaign>>> = ({
+    signal,
+  }) => getCampaign(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCampaign>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCampaignQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCampaign>>
+>;
+export type GetCampaignQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a single campaign by ID
+ */
+
+export function useGetCampaign<
+  TData = Awaited<ReturnType<typeof getCampaign>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaign>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCampaignQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an active campaign (teacher only)
+ */
+export const getUpdateCampaignUrl = (id: number) => {
+  return `/api/campaigns/${id}`;
+};
+
+export const updateCampaign = async (
+  id: number,
+  updateCampaignBody: UpdateCampaignBody,
+  options?: RequestInit,
+): Promise<UpdateCampaignResponse> => {
+  return customFetch<UpdateCampaignResponse>(getUpdateCampaignUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCampaignBody),
+  });
+};
+
+export const getUpdateCampaignMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCampaign>>,
+    TError,
+    { id: number; data: BodyType<UpdateCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCampaign>>,
+  TError,
+  { id: number; data: BodyType<UpdateCampaignBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCampaign>>,
+    { id: number; data: BodyType<UpdateCampaignBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCampaign(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCampaign>>
+>;
+export type UpdateCampaignMutationBody = BodyType<UpdateCampaignBody>;
+export type UpdateCampaignMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update an active campaign (teacher only)
+ */
+export const useUpdateCampaign = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCampaign>>,
+    TError,
+    { id: number; data: BodyType<UpdateCampaignBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCampaign>>,
+  TError,
+  { id: number; data: BodyType<UpdateCampaignBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Cancel a campaign and refund all authorised tickets
+ */
+export const getCancelCampaignUrl = (id: number) => {
+  return `/api/campaigns/${id}/cancel`;
+};
+
+export const cancelCampaign = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CancelCampaignResponse> => {
+  return customFetch<CancelCampaignResponse>(getCancelCampaignUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCancelCampaignMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["cancelCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelCampaign>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return cancelCampaign(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelCampaign>>
+>;
+
+export type CancelCampaignMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Cancel a campaign and refund all authorised tickets
+ */
+export const useCancelCampaign = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCancelCampaignMutationOptions(options));
+};
+
+/**
+ * @summary Fan buys tickets (authorise-only, captured on campaign success)
+ */
+export const getCreateCampaignCheckoutUrl = (id: number) => {
+  return `/api/campaigns/${id}/checkout`;
+};
+
+export const createCampaignCheckout = async (
+  id: number,
+  campaignCheckoutBody: CampaignCheckoutBody,
+  options?: RequestInit,
+): Promise<CampaignCheckoutResponse> => {
+  return customFetch<CampaignCheckoutResponse>(
+    getCreateCampaignCheckoutUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(campaignCheckoutBody),
+    },
+  );
+};
+
+export const getCreateCampaignCheckoutMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaignCheckout>>,
+    TError,
+    { id: number; data: BodyType<CampaignCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCampaignCheckout>>,
+  TError,
+  { id: number; data: BodyType<CampaignCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createCampaignCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCampaignCheckout>>,
+    { id: number; data: BodyType<CampaignCheckoutBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createCampaignCheckout(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCampaignCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCampaignCheckout>>
+>;
+export type CreateCampaignCheckoutMutationBody = BodyType<CampaignCheckoutBody>;
+export type CreateCampaignCheckoutMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Fan buys tickets (authorise-only, captured on campaign success)
+ */
+export const useCreateCampaignCheckout = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCampaignCheckout>>,
+    TError,
+    { id: number; data: BodyType<CampaignCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCampaignCheckout>>,
+  TError,
+  { id: number; data: BodyType<CampaignCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getCreateCampaignCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Get ticket list for a campaign (teacher only)
+ */
+export const getGetCampaignTicketsUrl = (id: number) => {
+  return `/api/campaigns/${id}/tickets`;
+};
+
+export const getCampaignTickets = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CampaignTicketListResponse> => {
+  return customFetch<CampaignTicketListResponse>(getGetCampaignTicketsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCampaignTicketsQueryKey = (id: number) => {
+  return [`/api/campaigns/${id}/tickets`] as const;
+};
+
+export const getGetCampaignTicketsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCampaignTickets>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaignTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCampaignTicketsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCampaignTickets>>
+  > = ({ signal }) => getCampaignTickets(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCampaignTickets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCampaignTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCampaignTickets>>
+>;
+export type GetCampaignTicketsQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get ticket list for a campaign (teacher only)
+ */
+
+export function useGetCampaignTickets<
+  TData = Awaited<ReturnType<typeof getCampaignTickets>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCampaignTickets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCampaignTicketsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

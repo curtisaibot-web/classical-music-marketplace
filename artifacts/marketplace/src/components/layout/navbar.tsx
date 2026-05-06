@@ -24,6 +24,7 @@ export function Navbar() {
             <Link href="/teachers" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Teachers</Link>
             <Link href="/musicians" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Musicians</Link>
             <Link href="/masterclasses" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Masterclasses</Link>
+            <Link href="/concerts" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Concerts</Link>
             <Link href="/events" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Events</Link>
             <Link href="/gigs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Gigs</Link>
             <Link href="/browse" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
@@ -44,6 +45,7 @@ export function Navbar() {
                   <Link href="/teacher-dashboard" className="text-sm font-medium hover:underline">Dashboard</Link>
                   <Link href="/listings" className="text-sm font-medium hover:underline hidden sm:inline-block">Listings</Link>
                   <Link href="/digital-products" className="text-sm font-medium hover:underline hidden sm:inline-block">Products</Link>
+                  <Link href="/campaigns" className="text-sm font-medium hover:underline hidden sm:inline-block">Campaigns</Link>
                   <Link href="/business-suite" className="text-sm font-medium hover:underline hidden sm:inline-block text-amber-600">Business Suite</Link>
                 </>
               ) : role === 'student' ? (

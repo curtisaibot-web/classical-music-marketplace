@@ -20,6 +20,7 @@ import subscriptionsRouter from "./subscriptions";
 import contractsRouter from "./contracts";
 import invoicesRouter from "./invoices";
 import expensesRouter from "./expenses";
+import campaignsRouter from "./campaigns";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(subscriptionsRouter);
 router.use(contractsRouter);
 router.use(invoicesRouter);
 router.use(expensesRouter);
+router.use(campaignsRouter);
 
 export default router;

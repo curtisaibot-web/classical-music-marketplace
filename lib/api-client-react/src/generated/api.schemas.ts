@@ -1152,6 +1152,170 @@ export interface UpdateExpenseBody {
   date?: string;
 }
 
+export type ConcertCampaignStatus =
+  (typeof ConcertCampaignStatus)[keyof typeof ConcertCampaignStatus];
+
+export const ConcertCampaignStatus = {
+  active: "active",
+  succeeded: "succeeded",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export interface ConcertCampaign {
+  id: number;
+  teacherId: string;
+  title: string;
+  description?: string | null;
+  coverImageUrl?: string | null;
+  scheduledDate?: string | null;
+  venueName?: string | null;
+  ticketPriceCents: number;
+  goalCount: number;
+  deadlineAt: string;
+  status: ConcertCampaignStatus;
+  createdAt: string;
+  teacherFirstName?: string | null;
+  teacherLastName?: string | null;
+  ticketsSold: number;
+}
+
+export type CampaignDetailStatus =
+  (typeof CampaignDetailStatus)[keyof typeof CampaignDetailStatus];
+
+export const CampaignDetailStatus = {
+  active: "active",
+  succeeded: "succeeded",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export interface CampaignDetail {
+  id: number;
+  teacherId: string;
+  title: string;
+  description?: string | null;
+  coverImageUrl?: string | null;
+  scheduledDate?: string | null;
+  venueName?: string | null;
+  ticketPriceCents: number;
+  goalCount: number;
+  deadlineAt: string;
+  status: CampaignDetailStatus;
+  createdAt: string;
+  teacherFirstName?: string | null;
+  teacherLastName?: string | null;
+  ticketsSold: number;
+  backerCount: number;
+}
+
+export type MyCampaignItemStatus =
+  (typeof MyCampaignItemStatus)[keyof typeof MyCampaignItemStatus];
+
+export const MyCampaignItemStatus = {
+  active: "active",
+  succeeded: "succeeded",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export interface MyCampaignItem {
+  id: number;
+  teacherId: string;
+  title: string;
+  description?: string | null;
+  coverImageUrl?: string | null;
+  scheduledDate?: string | null;
+  venueName?: string | null;
+  ticketPriceCents: number;
+  goalCount: number;
+  deadlineAt: string;
+  status: MyCampaignItemStatus;
+  createdAt: string;
+  updatedAt: string;
+  ticketsSold: number;
+  backerCount: number;
+  grossRaisedCents: number;
+}
+
+export interface CampaignListResponse {
+  campaigns: ConcertCampaign[];
+  total: number;
+}
+
+export interface MyCampaignsResponse {
+  campaigns: MyCampaignItem[];
+}
+
+export interface CreateCampaignBody {
+  title: string;
+  description?: string;
+  coverImageUrl?: string;
+  scheduledDate?: string;
+  venueName?: string;
+  ticketPriceCents: number;
+  goalCount: number;
+  deadlineAt: string;
+}
+
+export interface CreateCampaignResponse {
+  campaign: MyCampaignItem;
+}
+
+export interface UpdateCampaignBody {
+  title?: string;
+  description?: string;
+  coverImageUrl?: string;
+  scheduledDate?: string;
+  venueName?: string;
+}
+
+export interface UpdateCampaignResponse {
+  campaign: MyCampaignItem;
+}
+
+export interface CancelCampaignResponse {
+  success: boolean;
+}
+
+export interface CampaignCheckoutBody {
+  quantity?: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface CampaignCheckoutResponse {
+  checkoutUrl: string | null;
+  ticketId: number;
+}
+
+export type CampaignTicketStatus =
+  (typeof CampaignTicketStatus)[keyof typeof CampaignTicketStatus];
+
+export const CampaignTicketStatus = {
+  authorised: "authorised",
+  captured: "captured",
+  cancelled: "cancelled",
+} as const;
+
+export interface CampaignTicket {
+  id: number;
+  campaignId: number;
+  buyerId: string;
+  buyerEmail?: string | null;
+  buyerName?: string | null;
+  quantity: number;
+  totalPriceCents: number;
+  stripePaymentIntentId?: string | null;
+  accessCode?: string | null;
+  status: CampaignTicketStatus;
+  createdAt: string;
+}
+
+export interface CampaignTicketListResponse {
+  tickets: CampaignTicket[];
+}
+
 /**
  * Unauthorized
  */

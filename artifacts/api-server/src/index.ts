@@ -4,6 +4,7 @@ import { initStripe } from "./stripeInit";
 import { backfillMissingProfileSlugs } from "./backfillSlugs";
 import { db, bookingsTable } from "@workspace/db";
 import { and, eq, lte, isNotNull } from "drizzle-orm";
+import { expireDeadlinedCampaigns } from "./routes/campaigns";
 
 const rawPort = process.env["PORT"];
 
@@ -58,6 +59,11 @@ async function expireStaleLastMinuteBookings() {
 // Run once on startup, then every 5 minutes
 expireStaleLastMinuteBookings();
 setInterval(expireStaleLastMinuteBookings, 5 * 60 * 1000);
+
+// ── Campaign deadline sweep ───────────────────────────────────────────────────
+// Run hourly: process campaigns whose deadlines have passed.
+expireDeadlinedCampaigns();
+setInterval(expireDeadlinedCampaigns, 60 * 60 * 1000);
 
 app.listen(port, (err) => {
   if (err) {

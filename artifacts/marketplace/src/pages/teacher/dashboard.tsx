@@ -541,6 +541,23 @@ export default function TeacherDashboard() {
             </Card>
 
             <Card className="border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="font-serif text-lg">Concert Campaigns</CardTitle>
+                <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+                  <Link href="/campaigns">Manage</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Crowdfund live concerts with an all-or-nothing model. Fans back you; we only charge if you hit your goal.
+                </p>
+                <Button size="sm" className="w-full" asChild>
+                  <Link href="/campaigns">View My Campaigns</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
               <CardHeader>
                 <CardTitle className="font-serif text-lg">Recent Reviews</CardTitle>
               </CardHeader>

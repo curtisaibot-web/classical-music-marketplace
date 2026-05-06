@@ -33,6 +33,9 @@ import Gigs from "@/pages/gigs";
 import MusicianProfile from "@/pages/musicians/slug";
 import PaymentSuccess from "@/pages/payment/success";
 import PaymentCancel from "@/pages/payment/cancel";
+import Concerts from "@/pages/concerts";
+import ConcertDetail from "@/pages/concerts/detail";
+import TeacherCampaigns from "@/pages/teacher/campaigns";
 
 const queryClient = new QueryClient();
 
@@ -223,6 +226,10 @@ function ClerkProviderWithRoutes() {
           <Route path="/digital-products" component={TeacherDigitalProducts} />
           <Route path="/profile/edit" component={TeacherProfileEdit} />
           <Route path="/business-suite" component={BusinessSuite} />
+          <Route path="/campaigns" component={TeacherCampaigns} />
+
+          <Route path="/concerts" component={Concerts} />
+          <Route path="/concerts/:id" component={ConcertDetail} />
 
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/cancel" component={PaymentCancel} />

@@ -3113,3 +3113,185 @@ export const UpdateExpenseResponse = zod.object({
 export const DeleteExpenseParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * @summary List active crowdfunding campaigns
+ */
+export const ListCampaignsResponse = zod.object({
+  campaigns: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      coverImageUrl: zod.string().nullish(),
+      scheduledDate: zod.string().nullish(),
+      venueName: zod.string().nullish(),
+      ticketPriceCents: zod.number(),
+      goalCount: zod.number(),
+      deadlineAt: zod.coerce.date(),
+      status: zod.enum(["active", "succeeded", "failed", "cancelled"]),
+      createdAt: zod.coerce.date(),
+      teacherFirstName: zod.string().nullish(),
+      teacherLastName: zod.string().nullish(),
+      ticketsSold: zod.number(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a new crowdfunding campaign (teacher)
+ */
+export const CreateCampaignBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  scheduledDate: zod.string().optional(),
+  venueName: zod.string().optional(),
+  ticketPriceCents: zod.number(),
+  goalCount: zod.number(),
+  deadlineAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get the authenticated teacher's campaigns
+ */
+export const GetMyCampaignsResponse = zod.object({
+  campaigns: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      coverImageUrl: zod.string().nullish(),
+      scheduledDate: zod.string().nullish(),
+      venueName: zod.string().nullish(),
+      ticketPriceCents: zod.number(),
+      goalCount: zod.number(),
+      deadlineAt: zod.coerce.date(),
+      status: zod.enum(["active", "succeeded", "failed", "cancelled"]),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      ticketsSold: zod.number(),
+      backerCount: zod.number(),
+      grossRaisedCents: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a single campaign by ID
+ */
+export const GetCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCampaignResponse = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  coverImageUrl: zod.string().nullish(),
+  scheduledDate: zod.string().nullish(),
+  venueName: zod.string().nullish(),
+  ticketPriceCents: zod.number(),
+  goalCount: zod.number(),
+  deadlineAt: zod.coerce.date(),
+  status: zod.enum(["active", "succeeded", "failed", "cancelled"]),
+  createdAt: zod.coerce.date(),
+  teacherFirstName: zod.string().nullish(),
+  teacherLastName: zod.string().nullish(),
+  ticketsSold: zod.number(),
+  backerCount: zod.number(),
+});
+
+/**
+ * @summary Update an active campaign (teacher only)
+ */
+export const UpdateCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCampaignBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  coverImageUrl: zod.string().optional(),
+  scheduledDate: zod.string().optional(),
+  venueName: zod.string().optional(),
+});
+
+export const UpdateCampaignResponse = zod.object({
+  campaign: zod.object({
+    id: zod.number(),
+    teacherId: zod.string(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    coverImageUrl: zod.string().nullish(),
+    scheduledDate: zod.string().nullish(),
+    venueName: zod.string().nullish(),
+    ticketPriceCents: zod.number(),
+    goalCount: zod.number(),
+    deadlineAt: zod.coerce.date(),
+    status: zod.enum(["active", "succeeded", "failed", "cancelled"]),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+    ticketsSold: zod.number(),
+    backerCount: zod.number(),
+    grossRaisedCents: zod.number(),
+  }),
+});
+
+/**
+ * @summary Cancel a campaign and refund all authorised tickets
+ */
+export const CancelCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelCampaignResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Fan buys tickets (authorise-only, captured on campaign success)
+ */
+export const CreateCampaignCheckoutParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateCampaignCheckoutBody = zod.object({
+  quantity: zod.number().optional(),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateCampaignCheckoutResponse = zod.object({
+  checkoutUrl: zod.string().nullable(),
+  ticketId: zod.number(),
+});
+
+/**
+ * @summary Get ticket list for a campaign (teacher only)
+ */
+export const GetCampaignTicketsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCampaignTicketsResponse = zod.object({
+  tickets: zod.array(
+    zod.object({
+      id: zod.number(),
+      campaignId: zod.number(),
+      buyerId: zod.string(),
+      buyerEmail: zod.string().nullish(),
+      buyerName: zod.string().nullish(),
+      quantity: zod.number(),
+      totalPriceCents: zod.number(),
+      stripePaymentIntentId: zod.string().nullish(),
+      accessCode: zod.string().nullish(),
+      status: zod.enum(["authorised", "captured", "cancelled"]),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});

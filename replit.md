@@ -1,6 +1,6 @@
 # Classical Music Marketplace
 
-A full-stack marketplace platform for classical musicians — connecting teachers, students, and event clients through four modules: lesson booking, event/wedding musician booking, live masterclass ticketing, and a digital products store.
+A full-stack marketplace platform for classical musicians — connecting teachers, students, and event clients through five modules: lesson booking, event/wedding musician booking, live masterclass ticketing, a digital products store, and fan-funded concert crowdfunding.
 
 ## Architecture
 
@@ -48,8 +48,10 @@ Proxy path: `/api/__clerk`
 | `orders` | Digital product + masterclass ticket purchases |
 | `reviews` | Ratings linked to bookings |
 | `teacher_recordings` | Up to 5 audio recordings per teacher (url, title, description, sort_order) |
+| `concert_campaigns` | Crowdfunding campaigns (pgEnum: active/succeeded/failed/cancelled) |
+| `campaign_tickets` | Fan ticket purchases — authorised-only until campaign succeeds (pgEnum: authorised/captured/cancelled) |
 
-Platform fee: **15%** on all bookings and orders.
+Platform fee: **15%** on bookings/orders, **8%** on crowdfunding campaigns.
 
 ## API Endpoints
 
@@ -180,6 +182,34 @@ The event booking module is fully wired. Key files:
 - `artifacts/marketplace/src/pages/events/detail.tsx` — detail page with availability calendar + booking request form
 
 The availability calendar shows booked dates (red) fetched from confirmed/pending event bookings for the teacher. Booking requests create a `bookings` row with type=`event` and status=`pending`.
+
+## Concert Crowdfunding (Task #34)
+
+All-or-nothing crowdfunding for live concerts at `/concerts`. Stripe `capture_method: manual` — fans authorise payment at checkout; card is only charged if campaign hits its ticket goal.
+
+New DB tables: `concert_campaigns`, `campaign_tickets` (created via direct SQL — drizzle push interactive prompt workaround).
+
+New API routes (all under `/api/campaigns`):
+- `GET /campaigns` — public browse
+- `GET /campaigns/my` — teacher's campaigns with stats
+- `GET /campaigns/:id` — detail + backerCount
+- `POST /campaigns` — create (teacher auth, max 60-day deadline)
+- `PATCH /campaigns/:id` — update metadata
+- `POST /campaigns/:id/cancel` — cancel + void all PaymentIntents + email backers
+- `POST /campaigns/:id/checkout` — Stripe Checkout with `capture_method: manual`, 8% platform fee
+- `GET /campaigns/:id/tickets` — ticket roster (teacher only)
+
+Webhook: `checkout.session.completed` → stores PaymentIntentId on ticket, checks if goal met → captures all if so.
+Cron: hourly sweep (`expireDeadlinedCampaigns`) processes deadline-passed campaigns → success (capture) or failure (cancel).
+Email: success/failure/cancel notifications via `sendEmail` (no-op if SMTP not configured).
+QR code: UUID access code stored on each ticket, emailed on campaign success.
+
+Frontend:
+- `/concerts` — public browse with progress bars, deadline countdown
+- `/concerts/:id` — detail page with sticky checkout widget, quantity selector, fee breakdown, how-it-works card
+- `/campaigns` — teacher management: create dialog with earnings preview, cancel with AlertDialog
+- Navbar: "Concerts" (public) + "Campaigns" (teacher nav)
+- Teacher dashboard: "Concert Campaigns" quick-link card
 
 ## Business Suite (SaaS — Task #32)
 
