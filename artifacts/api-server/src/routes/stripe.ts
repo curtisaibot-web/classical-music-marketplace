@@ -238,6 +238,11 @@ router.post("/stripe/checkout/program-enrollment", requireAuth, requireRole("stu
     return;
   }
 
+  if (!program.isActive) {
+    res.status(400).json({ error: "This program is no longer accepting enrollments" });
+    return;
+  }
+
   const [teacherProfile] = await db
     .select()
     .from(teacherProfilesTable)
