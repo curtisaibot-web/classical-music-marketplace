@@ -15,6 +15,7 @@ import stripeRouter from "./stripe";
 import storageRouter from "./storage";
 import reelsRouter from "./reels";
 import recordingsRouter from "./recordings";
+import ogRouter from "./og";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(dashboardRouter);
 router.use(stripeRouter);
 router.use(reelsRouter);
 router.use(recordingsRouter);
+router.use(ogRouter);
 
 export default router;
