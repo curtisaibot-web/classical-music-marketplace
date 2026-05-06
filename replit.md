@@ -226,6 +226,31 @@ Frontend tabs: Subscription (Stripe checkout/portal), Contracts (CRUD + HTML PDF
 
 Pro badge (`Crown` icon, amber) shown on teacher cards (`/teachers`), musician slug profiles (`/musicians/:slug`), and profile hero. Teachers API joins with `subscriptions` to compute `isProSubscriber`.
 
+## Music School & Studio White Label (Task #36)
+
+Organisations system for schools/studios to run Harmonia under their own brand.
+
+New DB tables: `organisations`, `org_members`. `orgId` FK added to `teacher_profiles` and `student_profiles`.
+
+New API routes (all under `/api/orgs`):
+- `POST /orgs` — create organisation (auth)
+- `GET /orgs/:slug` — public branding fetch
+- `PUT /orgs/:slug` — update settings (admin only)
+- `POST /orgs/:slug/invite` — add teacher/student/admin (admin only)
+- `DELETE /orgs/:slug/members/:memberId` — remove member (admin only)
+- `GET /orgs/:slug/members` — list members (admin only)
+- `GET /orgs/:slug/dashboard` — aggregate stats: students, teachers, monthly bookings/revenue (admin only)
+- `POST /orgs/:slug/billing-portal` — Stripe billing portal redirect (admin only)
+- `POST /orgs/:slug/subscribe` — create per-seat Stripe subscription (admin only)
+
+Per-seat billing: $10/student/month. Subscription quantity auto-syncs on member add/remove.
+
+Frontend:
+- `OrgContext.tsx` — detects `?org=slug` param or subdomain, fetches branding, sets document title; wrapped around app in `App.tsx`
+- Navbar — shows org logo + name when in org context
+- `/schools/join` — 4-step onboarding wizard (details → invite teachers → billing → launch)
+- `/org-admin?org=<slug>` — admin dashboard with 3 tabs: Overview (KPI cards + billing), Members (invite form + grouped list with remove), Settings (org settings form)
+
 ## Pending Tasks
 
 - **Task #5**: Reviews, Search & Launch Polish

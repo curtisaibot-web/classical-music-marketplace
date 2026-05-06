@@ -22,6 +22,7 @@ import invoicesRouter from "./invoices";
 import expensesRouter from "./expenses";
 import campaignsRouter from "./campaigns";
 import auditionProgramsRouter from "./auditionPrograms";
+import orgsRouter from "./orgs";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(invoicesRouter);
 router.use(expensesRouter);
 router.use(campaignsRouter);
 router.use(auditionProgramsRouter);
+router.use(orgsRouter);
 
 export default router;

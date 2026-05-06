@@ -3387,7 +3387,7 @@ export const CreateAuditionProgramBody = zod.object({
 });
 
 /**
- * @summary Get teacher's own active programs
+ * @summary Get all of the teacher's programs (active and inactive)
  */
 export const ListMyAuditionProgramsResponse = zod.object({
   programs: zod.array(
@@ -3804,6 +3804,178 @@ export const ListTeacherEnrollmentsResponse = zod.object({
       ),
     }),
   ),
+});
+
+/**
+ * @summary Create a new organisation (school / studio)
+ */
+export const CreateOrgBody = zod.object({
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string().optional(),
+  logoUrl: zod.string().optional(),
+});
+
+/**
+ * @summary Get organisation details by slug (public)
+ */
+export const GetOrgParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetOrgResponse = zod.object({
+  org: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    logoUrl: zod.string().nullish(),
+    description: zod.string().nullish(),
+    ownerId: zod.string(),
+    stripeCustomerId: zod.string().nullish(),
+    stripeSubscriptionId: zod.string().nullish(),
+    subscriptionStatus: zod.enum([
+      "active",
+      "trialing",
+      "inactive",
+      "cancelled",
+    ]),
+    defaultLessonRateCents: zod.number().nullish(),
+    allowedListingTypes: zod.array(zod.string()),
+    perSeatCents: zod.number(),
+    isPublicMarketplace: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Update organisation settings (admin only)
+ */
+export const UpdateOrgParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const UpdateOrgBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  logoUrl: zod.string().optional(),
+  defaultLessonRateCents: zod.number().optional(),
+  allowedListingTypes: zod.array(zod.string()).optional(),
+  isPublicMarketplace: zod.boolean().optional(),
+});
+
+export const UpdateOrgResponse = zod.object({
+  org: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    logoUrl: zod.string().nullish(),
+    description: zod.string().nullish(),
+    ownerId: zod.string(),
+    stripeCustomerId: zod.string().nullish(),
+    stripeSubscriptionId: zod.string().nullish(),
+    subscriptionStatus: zod.enum([
+      "active",
+      "trialing",
+      "inactive",
+      "cancelled",
+    ]),
+    defaultLessonRateCents: zod.number().nullish(),
+    allowedListingTypes: zod.array(zod.string()),
+    perSeatCents: zod.number(),
+    isPublicMarketplace: zod.boolean(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Add a member to the organisation (admin only)
+ */
+export const InviteOrgMemberParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const InviteOrgMemberBody = zod.object({
+  userId: zod.string(),
+  role: zod.enum(["admin", "teacher", "student"]),
+});
+
+/**
+ * @summary List all members of an organisation (admin only)
+ */
+export const ListOrgMembersParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const ListOrgMembersResponse = zod.object({
+  members: zod.array(
+    zod.object({
+      memberId: zod.number(),
+      role: zod.enum(["admin", "teacher", "student"]),
+      joinedAt: zod.coerce.date(),
+      userId: zod.string().nullish(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      email: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Remove a member from the organisation (admin only)
+ */
+export const RemoveOrgMemberParams = zod.object({
+  slug: zod.coerce.string(),
+  memberId: zod.coerce.string(),
+});
+
+export const RemoveOrgMemberResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get aggregate stats for the organisation (admin only)
+ */
+export const GetOrgDashboardParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetOrgDashboardResponse = zod.object({
+  totalStudents: zod.number(),
+  totalTeachers: zod.number(),
+  monthlyBookingVolume: zod.number(),
+  monthlyRevenueCents: zod.number(),
+  monthlyPlatformFeesCents: zod.number(),
+  subscriptionStatus: zod.enum(["active", "trialing", "inactive", "cancelled"]),
+  perSeatCents: zod.number(),
+});
+
+/**
+ * @summary Create a Stripe billing portal session for the organisation (admin only)
+ */
+export const CreateOrgBillingPortalParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const CreateOrgBillingPortalBody = zod.object({
+  returnUrl: zod.string().optional(),
+});
+
+export const CreateOrgBillingPortalResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Create a Stripe per-seat subscription for the organisation (admin only)
+ */
+export const CreateOrgSubscriptionParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const CreateOrgSubscriptionResponse = zod.object({
+  subscriptionId: zod.string(),
+  clientSecret: zod.string().nullish(),
 });
 
 /**

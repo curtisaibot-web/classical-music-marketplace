@@ -45,6 +45,8 @@ tags:
     description: Business Suite expense tracking
   - name: audition-programs
     description: Audition Prep Coaching Track programs and enrollments
+  - name: orgs
+    description: Music school & studio white-label organisations
 
 paths:
   /healthz:
@@ -2461,6 +2463,274 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ── Organisations ─────────────────────────────────────────────────────────
+  /orgs:
+    post:
+      operationId: createOrg
+      tags: [orgs]
+      summary: Create a new organisation (school / studio)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrgBody"
+      responses:
+        "201":
+          description: Created organisation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Slug already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /orgs/{slug}:
+    get:
+      operationId: getOrg
+      tags: [orgs]
+      summary: Get organisation details by slug (public)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organisation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateOrg
+      tags: [orgs]
+      summary: Update organisation settings (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrgBody"
+      responses:
+        "200":
+          description: Updated organisation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orgs/{slug}/invite:
+    post:
+      operationId: inviteOrgMember
+      tags: [orgs]
+      summary: Add a member to the organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteOrgMemberBody"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required: [message]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orgs/{slug}/members:
+    get:
+      operationId: listOrgMembers
+      tags: [orgs]
+      summary: List all members of an organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgMembersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orgs/{slug}/members/{memberId}:
+    delete:
+      operationId: removeOrgMember
+      tags: [orgs]
+      summary: Remove a member from the organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                required: [message]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orgs/{slug}/dashboard:
+    get:
+      operationId: getOrgDashboard
+      tags: [orgs]
+      summary: Get aggregate stats for the organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgDashboardResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /orgs/{slug}/billing-portal:
+    post:
+      operationId: createOrgBillingPortal
+      tags: [orgs]
+      summary: Create a Stripe billing portal session for the organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                returnUrl:
+                  type: string
+      responses:
+        "200":
+          description: Billing portal URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgBillingPortalResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /orgs/{slug}/subscribe:
+    post:
+      operationId: createOrgSubscription
+      tags: [orgs]
+      summary: Create a Stripe per-seat subscription for the organisation (admin only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgSubscribeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /stripe/checkout/program-enrollment:
     post:
       operationId: createProgramEnrollmentCheckout
@@ -4607,6 +4877,160 @@ components:
           items:
             $ref: "#/components/schemas/ProgramSessionNote"
       required: [id, programId, studentId, sessionsCompleted, status, createdAt, updatedAt, sessionNotes]
+
+    Organisation:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        ownerId:
+          type: string
+        stripeCustomerId:
+          type: ["string", "null"]
+        stripeSubscriptionId:
+          type: ["string", "null"]
+        subscriptionStatus:
+          type: string
+          enum: [active, trialing, inactive, cancelled]
+        defaultLessonRateCents:
+          type: ["integer", "null"]
+        allowedListingTypes:
+          type: array
+          items:
+            type: string
+        perSeatCents:
+          type: integer
+        isPublicMarketplace:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, ownerId, subscriptionStatus, allowedListingTypes, perSeatCents, isPublicMarketplace, createdAt, updatedAt]
+
+    OrgMember:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        role:
+          type: string
+          enum: [admin, teacher, student]
+        joinedAt:
+          type: string
+          format: date-time
+        userId:
+          type: ["string", "null"]
+        firstName:
+          type: ["string", "null"]
+        lastName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+      required: [memberId, role, joinedAt]
+
+    OrgResponse:
+      type: object
+      properties:
+        org:
+          $ref: "#/components/schemas/Organisation"
+      required: [org]
+
+    OrgMembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgMember"
+      required: [members]
+
+    OrgDashboardResponse:
+      type: object
+      properties:
+        totalStudents:
+          type: integer
+        totalTeachers:
+          type: integer
+        monthlyBookingVolume:
+          type: integer
+        monthlyRevenueCents:
+          type: integer
+        monthlyPlatformFeesCents:
+          type: integer
+        subscriptionStatus:
+          type: string
+          enum: [active, trialing, inactive, cancelled]
+        perSeatCents:
+          type: integer
+      required: [totalStudents, totalTeachers, monthlyBookingVolume, monthlyRevenueCents, monthlyPlatformFeesCents, subscriptionStatus, perSeatCents]
+
+    CreateOrgBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        logoUrl:
+          type: string
+      required: [name, slug]
+
+    UpdateOrgBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        logoUrl:
+          type: string
+        defaultLessonRateCents:
+          type: integer
+        allowedListingTypes:
+          type: array
+          items:
+            type: string
+        isPublicMarketplace:
+          type: boolean
+
+    InviteOrgMemberBody:
+      type: object
+      properties:
+        userId:
+          type: string
+        role:
+          type: string
+          enum: [admin, teacher, student]
+      required: [userId, role]
+
+    OrgSubscribeResponse:
+      type: object
+      properties:
+        subscriptionId:
+          type: string
+        clientSecret:
+          type: ["string", "null"]
+      required: [subscriptionId]
+
+    OrgBillingPortalResponse:
+      type: object
+      properties:
+        url:
+          type: string
+      required: [url]
 
     EnrollmentListResponse:
       type: object

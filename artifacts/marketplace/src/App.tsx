@@ -40,6 +40,9 @@ import TeacherPrograms from "@/pages/teacher/programs";
 import StudentPrograms from "@/pages/student/programs";
 import AuditionPrep from "@/pages/audition-prep/index";
 import AuditionPrepDetail from "@/pages/audition-prep/detail";
+import SchoolsJoin from "@/pages/schools/join";
+import OrgAdmin from "@/pages/org-admin/index";
+import { OrgProvider } from "@/context/OrgContext";
 
 const queryClient = new QueryClient();
 
@@ -241,6 +244,9 @@ function ClerkProviderWithRoutes() {
           <Route path="/audition-programs" component={TeacherPrograms} />
           <Route path="/my-programs" component={StudentPrograms} />
 
+          <Route path="/schools/join" component={SchoolsJoin} />
+          <Route path="/org-admin" component={OrgAdmin} />
+
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/cancel" component={PaymentCancel} />
           
@@ -255,7 +261,9 @@ function App() {
   return (
     <TooltipProvider>
       <WouterRouter base={basePath}>
-        <ClerkProviderWithRoutes />
+        <OrgProvider>
+          <ClerkProviderWithRoutes />
+        </OrgProvider>
       </WouterRouter>
       <Toaster />
     </TooltipProvider>

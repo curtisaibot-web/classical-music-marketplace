@@ -52,6 +52,8 @@ import type {
   CreateMasterclassBody,
   CreateOrderBody,
   CreateOrderCheckoutBody,
+  CreateOrgBillingPortalBody,
+  CreateOrgBody,
   CreateReviewBody,
   CreateSubscriptionCheckoutBody,
   CreateTeacherRecordingBody,
@@ -68,6 +70,8 @@ import type {
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
+  InviteOrgMember201,
+  InviteOrgMemberBody,
   InvoiceListResponse,
   InvoiceResponse,
   ListAuditionProgramsParams,
@@ -88,12 +92,18 @@ import type {
   OnboardingUrlResponse,
   Order,
   OrderListResponse,
+  OrgBillingPortalResponse,
+  OrgDashboardResponse,
+  OrgMembersResponse,
+  OrgResponse,
+  OrgSubscribeResponse,
   ProgramEnrollment,
   ProgramEnrollmentCheckoutBody,
   ProgramEnrollmentCheckoutResponse,
   ProgramEnrollmentDetail,
   ReelCallbackAck,
   ReelCallbackBody,
+  RemoveOrgMember200,
   Review,
   ReviewListResponse,
   SendContractResponse,
@@ -121,6 +131,7 @@ import type {
   UpdateInvoiceBody,
   UpdateListingBody,
   UpdateMasterclassBody,
+  UpdateOrgBody,
   UpdateStudentProfileBody,
   UpdateTeacherProfileBody,
   UpdateTeacherSlugBody,
@@ -7713,7 +7724,7 @@ export const useCreateAuditionProgram = <
 };
 
 /**
- * @summary Get teacher's own active programs
+ * @summary Get all of the teacher's programs (active and inactive)
  */
 export const getListMyAuditionProgramsUrl = () => {
   return `/api/audition-programs/my-programs`;
@@ -7768,7 +7779,7 @@ export type ListMyAuditionProgramsQueryResult = NonNullable<
 export type ListMyAuditionProgramsQueryError = ErrorType<UnauthorizedResponse>;
 
 /**
- * @summary Get teacher's own active programs
+ * @summary Get all of the teacher's programs (active and inactive)
  */
 
 export function useListMyAuditionPrograms<
@@ -8828,6 +8839,831 @@ export function useListTeacherEnrollments<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Create a new organisation (school / studio)
+ */
+export const getCreateOrgUrl = () => {
+  return `/api/orgs`;
+};
+
+export const createOrg = async (
+  createOrgBody: CreateOrgBody,
+  options?: RequestInit,
+): Promise<OrgResponse> => {
+  return customFetch<OrgResponse>(getCreateOrgUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrgBody),
+  });
+};
+
+export const getCreateOrgMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrg>>,
+    TError,
+    { data: BodyType<CreateOrgBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrg>>,
+  TError,
+  { data: BodyType<CreateOrgBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrg"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrg>>,
+    { data: BodyType<CreateOrgBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createOrg(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrgMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrg>>
+>;
+export type CreateOrgMutationBody = BodyType<CreateOrgBody>;
+export type CreateOrgMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Create a new organisation (school / studio)
+ */
+export const useCreateOrg = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrg>>,
+    TError,
+    { data: BodyType<CreateOrgBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrg>>,
+  TError,
+  { data: BodyType<CreateOrgBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrgMutationOptions(options));
+};
+
+/**
+ * @summary Get organisation details by slug (public)
+ */
+export const getGetOrgUrl = (slug: string) => {
+  return `/api/orgs/${slug}`;
+};
+
+export const getOrg = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<OrgResponse> => {
+  return customFetch<OrgResponse>(getGetOrgUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOrgQueryKey = (slug: string) => {
+  return [`/api/orgs/${slug}`] as const;
+};
+
+export const getGetOrgQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrg>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getOrg>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOrgQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrg>>> = ({
+    signal,
+  }) => getOrg(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getOrg>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetOrgQueryResult = NonNullable<Awaited<ReturnType<typeof getOrg>>>;
+export type GetOrgQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get organisation details by slug (public)
+ */
+
+export function useGetOrg<
+  TData = Awaited<ReturnType<typeof getOrg>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getOrg>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrgQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update organisation settings (admin only)
+ */
+export const getUpdateOrgUrl = (slug: string) => {
+  return `/api/orgs/${slug}`;
+};
+
+export const updateOrg = async (
+  slug: string,
+  updateOrgBody: UpdateOrgBody,
+  options?: RequestInit,
+): Promise<OrgResponse> => {
+  return customFetch<OrgResponse>(getUpdateOrgUrl(slug), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateOrgBody),
+  });
+};
+
+export const getUpdateOrgMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrg>>,
+    TError,
+    { slug: string; data: BodyType<UpdateOrgBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOrg>>,
+  TError,
+  { slug: string; data: BodyType<UpdateOrgBody> },
+  TContext
+> => {
+  const mutationKey = ["updateOrg"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOrg>>,
+    { slug: string; data: BodyType<UpdateOrgBody> }
+  > = (props) => {
+    const { slug, data } = props ?? {};
+
+    return updateOrg(slug, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOrgMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOrg>>
+>;
+export type UpdateOrgMutationBody = BodyType<UpdateOrgBody>;
+export type UpdateOrgMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update organisation settings (admin only)
+ */
+export const useUpdateOrg = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrg>>,
+    TError,
+    { slug: string; data: BodyType<UpdateOrgBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOrg>>,
+  TError,
+  { slug: string; data: BodyType<UpdateOrgBody> },
+  TContext
+> => {
+  return useMutation(getUpdateOrgMutationOptions(options));
+};
+
+/**
+ * @summary Add a member to the organisation (admin only)
+ */
+export const getInviteOrgMemberUrl = (slug: string) => {
+  return `/api/orgs/${slug}/invite`;
+};
+
+export const inviteOrgMember = async (
+  slug: string,
+  inviteOrgMemberBody: InviteOrgMemberBody,
+  options?: RequestInit,
+): Promise<InviteOrgMember201> => {
+  return customFetch<InviteOrgMember201>(getInviteOrgMemberUrl(slug), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(inviteOrgMemberBody),
+  });
+};
+
+export const getInviteOrgMemberMutationOptions = <
+  TError = ErrorType<
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteOrgMember>>,
+    TError,
+    { slug: string; data: BodyType<InviteOrgMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof inviteOrgMember>>,
+  TError,
+  { slug: string; data: BodyType<InviteOrgMemberBody> },
+  TContext
+> => {
+  const mutationKey = ["inviteOrgMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof inviteOrgMember>>,
+    { slug: string; data: BodyType<InviteOrgMemberBody> }
+  > = (props) => {
+    const { slug, data } = props ?? {};
+
+    return inviteOrgMember(slug, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InviteOrgMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof inviteOrgMember>>
+>;
+export type InviteOrgMemberMutationBody = BodyType<InviteOrgMemberBody>;
+export type InviteOrgMemberMutationError = ErrorType<
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+>;
+
+/**
+ * @summary Add a member to the organisation (admin only)
+ */
+export const useInviteOrgMember = <
+  TError = ErrorType<
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteOrgMember>>,
+    TError,
+    { slug: string; data: BodyType<InviteOrgMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof inviteOrgMember>>,
+  TError,
+  { slug: string; data: BodyType<InviteOrgMemberBody> },
+  TContext
+> => {
+  return useMutation(getInviteOrgMemberMutationOptions(options));
+};
+
+/**
+ * @summary List all members of an organisation (admin only)
+ */
+export const getListOrgMembersUrl = (slug: string) => {
+  return `/api/orgs/${slug}/members`;
+};
+
+export const listOrgMembers = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<OrgMembersResponse> => {
+  return customFetch<OrgMembersResponse>(getListOrgMembersUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrgMembersQueryKey = (slug: string) => {
+  return [`/api/orgs/${slug}/members`] as const;
+};
+
+export const getListOrgMembersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrgMembers>>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrgMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOrgMembersQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrgMembers>>> = ({
+    signal,
+  }) => listOrgMembers(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrgMembers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrgMembersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrgMembers>>
+>;
+export type ListOrgMembersQueryError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary List all members of an organisation (admin only)
+ */
+
+export function useListOrgMembers<
+  TData = Awaited<ReturnType<typeof listOrgMembers>>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrgMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrgMembersQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Remove a member from the organisation (admin only)
+ */
+export const getRemoveOrgMemberUrl = (slug: string, memberId: string) => {
+  return `/api/orgs/${slug}/members/${memberId}`;
+};
+
+export const removeOrgMember = async (
+  slug: string,
+  memberId: string,
+  options?: RequestInit,
+): Promise<RemoveOrgMember200> => {
+  return customFetch<RemoveOrgMember200>(
+    getRemoveOrgMemberUrl(slug, memberId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveOrgMemberMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrgMember>>,
+    TError,
+    { slug: string; memberId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeOrgMember>>,
+  TError,
+  { slug: string; memberId: string },
+  TContext
+> => {
+  const mutationKey = ["removeOrgMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeOrgMember>>,
+    { slug: string; memberId: string }
+  > = (props) => {
+    const { slug, memberId } = props ?? {};
+
+    return removeOrgMember(slug, memberId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveOrgMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeOrgMember>>
+>;
+
+export type RemoveOrgMemberMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Remove a member from the organisation (admin only)
+ */
+export const useRemoveOrgMember = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeOrgMember>>,
+    TError,
+    { slug: string; memberId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeOrgMember>>,
+  TError,
+  { slug: string; memberId: string },
+  TContext
+> => {
+  return useMutation(getRemoveOrgMemberMutationOptions(options));
+};
+
+/**
+ * @summary Get aggregate stats for the organisation (admin only)
+ */
+export const getGetOrgDashboardUrl = (slug: string) => {
+  return `/api/orgs/${slug}/dashboard`;
+};
+
+export const getOrgDashboard = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<OrgDashboardResponse> => {
+  return customFetch<OrgDashboardResponse>(getGetOrgDashboardUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetOrgDashboardQueryKey = (slug: string) => {
+  return [`/api/orgs/${slug}/dashboard`] as const;
+};
+
+export const getGetOrgDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrgDashboard>>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrgDashboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetOrgDashboardQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrgDashboard>>> = ({
+    signal,
+  }) => getOrgDashboard(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOrgDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOrgDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOrgDashboard>>
+>;
+export type GetOrgDashboardQueryError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Get aggregate stats for the organisation (admin only)
+ */
+
+export function useGetOrgDashboard<
+  TData = Awaited<ReturnType<typeof getOrgDashboard>>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrgDashboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrgDashboardQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a Stripe billing portal session for the organisation (admin only)
+ */
+export const getCreateOrgBillingPortalUrl = (slug: string) => {
+  return `/api/orgs/${slug}/billing-portal`;
+};
+
+export const createOrgBillingPortal = async (
+  slug: string,
+  createOrgBillingPortalBody?: CreateOrgBillingPortalBody,
+  options?: RequestInit,
+): Promise<OrgBillingPortalResponse> => {
+  return customFetch<OrgBillingPortalResponse>(
+    getCreateOrgBillingPortalUrl(slug),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createOrgBillingPortalBody),
+    },
+  );
+};
+
+export const getCreateOrgBillingPortalMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgBillingPortal>>,
+    TError,
+    { slug: string; data: BodyType<CreateOrgBillingPortalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrgBillingPortal>>,
+  TError,
+  { slug: string; data: BodyType<CreateOrgBillingPortalBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrgBillingPortal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrgBillingPortal>>,
+    { slug: string; data: BodyType<CreateOrgBillingPortalBody> }
+  > = (props) => {
+    const { slug, data } = props ?? {};
+
+    return createOrgBillingPortal(slug, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrgBillingPortalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrgBillingPortal>>
+>;
+export type CreateOrgBillingPortalMutationBody =
+  BodyType<CreateOrgBillingPortalBody>;
+export type CreateOrgBillingPortalMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary Create a Stripe billing portal session for the organisation (admin only)
+ */
+export const useCreateOrgBillingPortal = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgBillingPortal>>,
+    TError,
+    { slug: string; data: BodyType<CreateOrgBillingPortalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrgBillingPortal>>,
+  TError,
+  { slug: string; data: BodyType<CreateOrgBillingPortalBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrgBillingPortalMutationOptions(options));
+};
+
+/**
+ * @summary Create a Stripe per-seat subscription for the organisation (admin only)
+ */
+export const getCreateOrgSubscriptionUrl = (slug: string) => {
+  return `/api/orgs/${slug}/subscribe`;
+};
+
+export const createOrgSubscription = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<OrgSubscribeResponse> => {
+  return customFetch<OrgSubscribeResponse>(getCreateOrgSubscriptionUrl(slug), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateOrgSubscriptionMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgSubscription>>,
+    TError,
+    { slug: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrgSubscription>>,
+  TError,
+  { slug: string },
+  TContext
+> => {
+  const mutationKey = ["createOrgSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrgSubscription>>,
+    { slug: string }
+  > = (props) => {
+    const { slug } = props ?? {};
+
+    return createOrgSubscription(slug, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrgSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrgSubscription>>
+>;
+
+export type CreateOrgSubscriptionMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary Create a Stripe per-seat subscription for the organisation (admin only)
+ */
+export const useCreateOrgSubscription = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgSubscription>>,
+    TError,
+    { slug: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrgSubscription>>,
+  TError,
+  { slug: string },
+  TContext
+> => {
+  return useMutation(getCreateOrgSubscriptionMutationOptions(options));
+};
 
 /**
  * @summary Create a Stripe Checkout session for a program enrollment

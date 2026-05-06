@@ -1467,6 +1467,129 @@ export interface ProgramEnrollmentDetail {
   sessionNotes: ProgramSessionNote[];
 }
 
+export type OrganisationSubscriptionStatus =
+  (typeof OrganisationSubscriptionStatus)[keyof typeof OrganisationSubscriptionStatus];
+
+export const OrganisationSubscriptionStatus = {
+  active: "active",
+  trialing: "trialing",
+  inactive: "inactive",
+  cancelled: "cancelled",
+} as const;
+
+export interface Organisation {
+  id: number;
+  name: string;
+  slug: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  /** @nullable */
+  description?: string | null;
+  ownerId: string;
+  /** @nullable */
+  stripeCustomerId?: string | null;
+  /** @nullable */
+  stripeSubscriptionId?: string | null;
+  subscriptionStatus: OrganisationSubscriptionStatus;
+  /** @nullable */
+  defaultLessonRateCents?: number | null;
+  allowedListingTypes: string[];
+  perSeatCents: number;
+  isPublicMarketplace: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OrgMemberRole = (typeof OrgMemberRole)[keyof typeof OrgMemberRole];
+
+export const OrgMemberRole = {
+  admin: "admin",
+  teacher: "teacher",
+  student: "student",
+} as const;
+
+export interface OrgMember {
+  memberId: number;
+  role: OrgMemberRole;
+  joinedAt: string;
+  /** @nullable */
+  userId?: string | null;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  email?: string | null;
+}
+
+export interface OrgResponse {
+  org: Organisation;
+}
+
+export interface OrgMembersResponse {
+  members: OrgMember[];
+}
+
+export type OrgDashboardResponseSubscriptionStatus =
+  (typeof OrgDashboardResponseSubscriptionStatus)[keyof typeof OrgDashboardResponseSubscriptionStatus];
+
+export const OrgDashboardResponseSubscriptionStatus = {
+  active: "active",
+  trialing: "trialing",
+  inactive: "inactive",
+  cancelled: "cancelled",
+} as const;
+
+export interface OrgDashboardResponse {
+  totalStudents: number;
+  totalTeachers: number;
+  monthlyBookingVolume: number;
+  monthlyRevenueCents: number;
+  monthlyPlatformFeesCents: number;
+  subscriptionStatus: OrgDashboardResponseSubscriptionStatus;
+  perSeatCents: number;
+}
+
+export interface CreateOrgBody {
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl?: string;
+}
+
+export interface UpdateOrgBody {
+  name?: string;
+  description?: string;
+  logoUrl?: string;
+  defaultLessonRateCents?: number;
+  allowedListingTypes?: string[];
+  isPublicMarketplace?: boolean;
+}
+
+export type InviteOrgMemberBodyRole =
+  (typeof InviteOrgMemberBodyRole)[keyof typeof InviteOrgMemberBodyRole];
+
+export const InviteOrgMemberBodyRole = {
+  admin: "admin",
+  teacher: "teacher",
+  student: "student",
+} as const;
+
+export interface InviteOrgMemberBody {
+  userId: string;
+  role: InviteOrgMemberBodyRole;
+}
+
+export interface OrgSubscribeResponse {
+  subscriptionId: string;
+  /** @nullable */
+  clientSecret?: string | null;
+}
+
+export interface OrgBillingPortalResponse {
+  url: string;
+}
+
 export interface EnrollmentListResponse {
   enrollments: ProgramEnrollmentDetail[];
 }
@@ -1648,4 +1771,16 @@ export const ListAuditionProgramsTargetLevel = {
 export type GetSessionFeedbackUploadUrl200 = {
   uploadUrl: string;
   fileKey: string;
+};
+
+export type InviteOrgMember201 = {
+  message: string;
+};
+
+export type RemoveOrgMember200 = {
+  message: string;
+};
+
+export type CreateOrgBillingPortalBody = {
+  returnUrl?: string;
 };

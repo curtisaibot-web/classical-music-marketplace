@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, integer, serial, boolean } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { organisationsTable } from "./organisations";
 
 export const teacherProfilesTable = pgTable("teacher_profiles", {
   id: serial("id").primaryKey(),
@@ -31,6 +32,7 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   minNoticeHours: integer("min_notice_hours").notNull().default(72),
   cancellationPolicyHours: integer("cancellation_policy_hours").notNull().default(24),
   cancellationFeePercent: integer("cancellation_fee_percent").notNull().default(50),
+  orgId: integer("org_id").references(() => organisationsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
