@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, avg, count } from "drizzle-orm";
-import { db, reviewsTable, usersTable, bookingsTable, teacherProfilesTable } from "@workspace/db";
+import { db, reviewsTable, usersTable, bookingsTable, teacherProfilesTable, coachProfilesTable } from "@workspace/db";
 import {
   GetTeacherReviewsResponse,
   CreateReviewBody,
@@ -134,6 +134,19 @@ router.post("/reviews", requireAuth, async (req, res): Promise<void> => {
       .update(teacherProfilesTable)
       .set({ averageRating: newAvg, reviewCount: Number(stats.cnt) })
       .where(eq(teacherProfilesTable.userId, teacherId));
+
+    const coachingStats = await db
+      .select({ avgRating: avg(reviewsTable.rating), cnt: count() })
+      .from(reviewsTable)
+      .innerJoin(bookingsTable, eq(reviewsTable.bookingId, bookingsTable.id))
+      .where(and(eq(reviewsTable.teacherId, teacherId), eq(reviewsTable.isPublished, true), eq(bookingsTable.type, "coaching")));
+    const cs = coachingStats[0];
+    if (cs && Number(cs.cnt) > 0) {
+      await db
+        .update(coachProfilesTable)
+        .set({ averageRating: Math.round(Number(cs.avgRating ?? 0) * 100), reviewCount: Number(cs.cnt) })
+        .where(eq(coachProfilesTable.userId, teacherId));
+    }
   }
 
   res.status(201).json(review);

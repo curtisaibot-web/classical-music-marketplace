@@ -33,6 +33,8 @@ import type {
   CancellationFeeCollectedResponse,
   CancellationReportResponse,
   CheckoutUrlResponse,
+  CoachApplyBody,
+  CoachProfile,
   CompleteSessionBody,
   ComposerRoyaltyResponse,
   ConnectStatusResponse,
@@ -44,6 +46,7 @@ import type {
   CreateBookingCheckoutBody,
   CreateCampaignBody,
   CreateCampaignResponse,
+  CreateCoachListingBody,
   CreateConnectOnboardingBody,
   CreateContractBody,
   CreateDigitalProductBody,
@@ -71,6 +74,8 @@ import type {
   ExpenseListResponse,
   ExpenseResponse,
   ForbiddenResponse,
+  GetCoachProfile200,
+  GetMyCoachBookings200,
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
@@ -80,6 +85,8 @@ import type {
   InvoiceResponse,
   ListAuditionProgramsParams,
   ListBookingsParams,
+  ListCoaches200,
+  ListCoachesParams,
   ListDigitalProductsParams,
   ListExpensesParams,
   ListListingsParams,
@@ -118,6 +125,7 @@ import type {
   ScoreWithLicenses,
   SendContractResponse,
   SendInvoiceResponse,
+  SetCoachMeetingUrlBody,
   StudentDashboard,
   StudentProfile,
   SubscriptionMeResponse,
@@ -10431,6 +10439,682 @@ export function useGetComposerRoyalties<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetComposerRoyaltiesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Browse approved coaches
+ */
+export const getListCoachesUrl = (params?: ListCoachesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/coaches?${stringifiedParams}`
+    : `/api/coaches`;
+};
+
+export const listCoaches = async (
+  params?: ListCoachesParams,
+  options?: RequestInit,
+): Promise<ListCoaches200> => {
+  return customFetch<ListCoaches200>(getListCoachesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCoachesQueryKey = (params?: ListCoachesParams) => {
+  return [`/api/coaches`, ...(params ? [params] : [])] as const;
+};
+
+export const getListCoachesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCoaches>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCoachesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCoaches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCoachesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoaches>>> = ({
+    signal,
+  }) => listCoaches(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCoaches>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCoachesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCoaches>>
+>;
+export type ListCoachesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Browse approved coaches
+ */
+
+export function useListCoaches<
+  TData = Awaited<ReturnType<typeof listCoaches>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCoachesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCoaches>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCoachesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a coaching application
+ */
+export const getApplyToCoachUrl = () => {
+  return `/api/coaches/apply`;
+};
+
+export const applyToCoach = async (
+  coachApplyBody: CoachApplyBody,
+  options?: RequestInit,
+): Promise<CoachProfile> => {
+  return customFetch<CoachProfile>(getApplyToCoachUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(coachApplyBody),
+  });
+};
+
+export const getApplyToCoachMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyToCoach>>,
+    TError,
+    { data: BodyType<CoachApplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applyToCoach>>,
+  TError,
+  { data: BodyType<CoachApplyBody> },
+  TContext
+> => {
+  const mutationKey = ["applyToCoach"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applyToCoach>>,
+    { data: BodyType<CoachApplyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return applyToCoach(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplyToCoachMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyToCoach>>
+>;
+export type ApplyToCoachMutationBody = BodyType<CoachApplyBody>;
+export type ApplyToCoachMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a coaching application
+ */
+export const useApplyToCoach = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyToCoach>>,
+    TError,
+    { data: BodyType<CoachApplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applyToCoach>>,
+  TError,
+  { data: BodyType<CoachApplyBody> },
+  TContext
+> => {
+  return useMutation(getApplyToCoachMutationOptions(options));
+};
+
+/**
+ * @summary Get my coach profile
+ */
+export const getGetMyCoachProfileUrl = () => {
+  return `/api/coaches/me`;
+};
+
+export const getMyCoachProfile = async (
+  options?: RequestInit,
+): Promise<CoachProfile> => {
+  return customFetch<CoachProfile>(getGetMyCoachProfileUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyCoachProfileQueryKey = () => {
+  return [`/api/coaches/me`] as const;
+};
+
+export const getGetMyCoachProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyCoachProfile>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyCoachProfileQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyCoachProfile>>
+  > = ({ signal }) => getMyCoachProfile({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyCoachProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyCoachProfile>>
+>;
+export type GetMyCoachProfileQueryError = ErrorType<void>;
+
+/**
+ * @summary Get my coach profile
+ */
+
+export function useGetMyCoachProfile<
+  TData = Awaited<ReturnType<typeof getMyCoachProfile>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyCoachProfileQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update my coach profile
+ */
+export const getUpdateMyCoachProfileUrl = () => {
+  return `/api/coaches/me`;
+};
+
+export const updateMyCoachProfile = async (
+  coachApplyBody: CoachApplyBody,
+  options?: RequestInit,
+): Promise<CoachProfile> => {
+  return customFetch<CoachProfile>(getUpdateMyCoachProfileUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(coachApplyBody),
+  });
+};
+
+export const getUpdateMyCoachProfileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyCoachProfile>>,
+    TError,
+    { data: BodyType<CoachApplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyCoachProfile>>,
+  TError,
+  { data: BodyType<CoachApplyBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyCoachProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyCoachProfile>>,
+    { data: BodyType<CoachApplyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyCoachProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyCoachProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyCoachProfile>>
+>;
+export type UpdateMyCoachProfileMutationBody = BodyType<CoachApplyBody>;
+export type UpdateMyCoachProfileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update my coach profile
+ */
+export const useUpdateMyCoachProfile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyCoachProfile>>,
+    TError,
+    { data: BodyType<CoachApplyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyCoachProfile>>,
+  TError,
+  { data: BodyType<CoachApplyBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyCoachProfileMutationOptions(options));
+};
+
+/**
+ * @summary Create a coaching session listing
+ */
+export const getCreateCoachListingUrl = () => {
+  return `/api/coaches/me/listings`;
+};
+
+export const createCoachListing = async (
+  createCoachListingBody: CreateCoachListingBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getCreateCoachListingUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCoachListingBody),
+  });
+};
+
+export const getCreateCoachListingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCoachListing>>,
+    TError,
+    { data: BodyType<CreateCoachListingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCoachListing>>,
+  TError,
+  { data: BodyType<CreateCoachListingBody> },
+  TContext
+> => {
+  const mutationKey = ["createCoachListing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCoachListing>>,
+    { data: BodyType<CreateCoachListingBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCoachListing(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCoachListingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCoachListing>>
+>;
+export type CreateCoachListingMutationBody = BodyType<CreateCoachListingBody>;
+export type CreateCoachListingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a coaching session listing
+ */
+export const useCreateCoachListing = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCoachListing>>,
+    TError,
+    { data: BodyType<CreateCoachListingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCoachListing>>,
+  TError,
+  { data: BodyType<CreateCoachListingBody> },
+  TContext
+> => {
+  return useMutation(getCreateCoachListingMutationOptions(options));
+};
+
+/**
+ * @summary Get upcoming coaching bookings as a coach
+ */
+export const getGetMyCoachBookingsUrl = () => {
+  return `/api/coaches/me/bookings`;
+};
+
+export const getMyCoachBookings = async (
+  options?: RequestInit,
+): Promise<GetMyCoachBookings200> => {
+  return customFetch<GetMyCoachBookings200>(getGetMyCoachBookingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyCoachBookingsQueryKey = () => {
+  return [`/api/coaches/me/bookings`] as const;
+};
+
+export const getGetMyCoachBookingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyCoachBookings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachBookings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyCoachBookingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyCoachBookings>>
+  > = ({ signal }) => getMyCoachBookings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachBookings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyCoachBookingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyCoachBookings>>
+>;
+export type GetMyCoachBookingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get upcoming coaching bookings as a coach
+ */
+
+export function useGetMyCoachBookings<
+  TData = Awaited<ReturnType<typeof getMyCoachBookings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyCoachBookings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyCoachBookingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set Zoom/Meet link for a confirmed coaching session
+ */
+export const getSetCoachMeetingUrlUrl = (bookingId: number) => {
+  return `/api/coaches/me/bookings/${bookingId}/meeting-url`;
+};
+
+export const setCoachMeetingUrl = async (
+  bookingId: number,
+  setCoachMeetingUrlBody: SetCoachMeetingUrlBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getSetCoachMeetingUrlUrl(bookingId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setCoachMeetingUrlBody),
+  });
+};
+
+export const getSetCoachMeetingUrlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCoachMeetingUrl>>,
+    TError,
+    { bookingId: number; data: BodyType<SetCoachMeetingUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setCoachMeetingUrl>>,
+  TError,
+  { bookingId: number; data: BodyType<SetCoachMeetingUrlBody> },
+  TContext
+> => {
+  const mutationKey = ["setCoachMeetingUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setCoachMeetingUrl>>,
+    { bookingId: number; data: BodyType<SetCoachMeetingUrlBody> }
+  > = (props) => {
+    const { bookingId, data } = props ?? {};
+
+    return setCoachMeetingUrl(bookingId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetCoachMeetingUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setCoachMeetingUrl>>
+>;
+export type SetCoachMeetingUrlMutationBody = BodyType<SetCoachMeetingUrlBody>;
+export type SetCoachMeetingUrlMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set Zoom/Meet link for a confirmed coaching session
+ */
+export const useSetCoachMeetingUrl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCoachMeetingUrl>>,
+    TError,
+    { bookingId: number; data: BodyType<SetCoachMeetingUrlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setCoachMeetingUrl>>,
+  TError,
+  { bookingId: number; data: BodyType<SetCoachMeetingUrlBody> },
+  TContext
+> => {
+  return useMutation(getSetCoachMeetingUrlMutationOptions(options));
+};
+
+/**
+ * @summary Get a coach's public profile and listings
+ */
+export const getGetCoachProfileUrl = (userId: string) => {
+  return `/api/coaches/${userId}`;
+};
+
+export const getCoachProfile = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<GetCoachProfile200> => {
+  return customFetch<GetCoachProfile200>(getGetCoachProfileUrl(userId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCoachProfileQueryKey = (userId: string) => {
+  return [`/api/coaches/${userId}`] as const;
+};
+
+export const getGetCoachProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCoachProfile>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCoachProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCoachProfileQueryKey(userId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoachProfile>>> = ({
+    signal,
+  }) => getCoachProfile(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCoachProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCoachProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCoachProfile>>
+>;
+export type GetCoachProfileQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a coach's public profile and listings
+ */
+
+export function useGetCoachProfile<
+  TData = Awaited<ReturnType<typeof getCoachProfile>>,
+  TError = ErrorType<unknown>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCoachProfile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCoachProfileQueryOptions(userId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

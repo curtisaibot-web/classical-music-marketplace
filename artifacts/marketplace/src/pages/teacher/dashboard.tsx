@@ -428,6 +428,9 @@ function CoachingCard() {
   const [isCoach, setIsCoach] = useState<boolean | null>(null);
   const [editingUrl, setEditingUrl] = useState<Record<number, string>>({});
   const [savingUrl, setSavingUrl] = useState<number | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: "", sessionType: "general", priceInCents: "", durationMinutes: "60" });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetch(`${apiBase}/api/coaches/me`, { credentials: "include" })
@@ -447,6 +450,32 @@ function CoachingCard() {
       })
       .catch(() => {});
   }, [apiBase]);
+
+  const handleCreateListing = async () => {
+    if (!createForm.title || !createForm.priceInCents) return;
+    setCreating(true);
+    try {
+      const r = await fetch(`${apiBase}/api/coaches/me/listings`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: createForm.title,
+          sessionType: createForm.sessionType,
+          priceInCents: Math.round(Number(createForm.priceInCents) * 100),
+          durationMinutes: Number(createForm.durationMinutes),
+        }),
+      });
+      if (!r.ok) throw new Error("Failed");
+      toast.success("Session listing created");
+      setShowCreateForm(false);
+      setCreateForm({ title: "", sessionType: "general", priceInCents: "", durationMinutes: "60" });
+    } catch {
+      toast.error("Failed to create listing");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleSaveUrl = async (bookingId: number) => {
     const url = editingUrl[bookingId];
@@ -479,13 +508,68 @@ function CoachingCard() {
           <Briefcase className="h-5 w-5 text-primary" />
           Career Coaching
         </CardTitle>
-        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
-          <Link href="/coaching/apply">
-            {isCoach ? "My Profile" : "Apply"}
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isCoach && (
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowCreateForm(v => !v)}>
+              {showCreateForm ? "Cancel" : "+ Add Session"}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+            <Link href="/coaching/apply">
+              {isCoach ? "My Profile" : "Apply"}
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isCoach && showCreateForm && (
+          <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
+            <p className="text-xs font-medium text-foreground">New coaching session listing</p>
+            <input
+              className="w-full text-xs px-2 py-1.5 rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Session title (e.g. Audition Strategy)"
+              value={createForm.title}
+              onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))}
+            />
+            <div className="flex gap-2">
+              <select
+                className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background focus:outline-none"
+                value={createForm.sessionType}
+                onChange={e => setCreateForm(f => ({ ...f, sessionType: e.target.value }))}
+              >
+                <option value="general">General Career</option>
+                <option value="audition">Audition Prep</option>
+                <option value="career_development">Career Development</option>
+                <option value="music_business">Music Business</option>
+                <option value="artist_management">Artist Management</option>
+              </select>
+              <select
+                className="w-24 text-xs px-2 py-1.5 rounded border border-border bg-background focus:outline-none"
+                value={createForm.durationMinutes}
+                onChange={e => setCreateForm(f => ({ ...f, durationMinutes: e.target.value }))}
+              >
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+                <option value="90">90 min</option>
+              </select>
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className="text-xs text-muted-foreground">$</span>
+              <input
+                type="number"
+                min="1"
+                className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Price (USD)"
+                value={createForm.priceInCents}
+                onChange={e => setCreateForm(f => ({ ...f, priceInCents: e.target.value }))}
+              />
+              <Button size="sm" className="h-7 text-xs" onClick={handleCreateListing} disabled={creating || !createForm.title || !createForm.priceInCents}>
+                {creating ? "Creating…" : "Create"}
+              </Button>
+            </div>
+          </div>
+        )}
         {!isCoach ? (
           <>
             <p className="text-sm text-muted-foreground">

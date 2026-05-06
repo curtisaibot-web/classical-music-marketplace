@@ -2929,6 +2929,197 @@ paths:
               schema:
                 $ref: "#/components/schemas/ComposerRoyaltyResponse"
 
+  /coaches:
+    get:
+      operationId: listCoaches
+      tags: [coaches]
+      summary: Browse approved coaches
+      parameters:
+        - name: specialty
+          in: query
+          schema:
+            type: string
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of approved coach profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coaches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CoachProfile"
+                required: [coaches]
+
+  /coaches/apply:
+    post:
+      operationId: applyToCoach
+      tags: [coaches]
+      summary: Submit a coaching application
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachApplyBody"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfile"
+
+  /coaches/me:
+    get:
+      operationId: getMyCoachProfile
+      tags: [coaches]
+      summary: Get my coach profile
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Coach profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfile"
+        "404":
+          description: Not a coach
+    put:
+      operationId: updateMyCoachProfile
+      tags: [coaches]
+      summary: Update my coach profile
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachApplyBody"
+      responses:
+        "200":
+          description: Updated coach profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachProfile"
+
+  /coaches/me/listings:
+    post:
+      operationId: createCoachListing
+      tags: [coaches]
+      summary: Create a coaching session listing
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                sessionType:
+                  type: string
+                priceInCents:
+                  type: integer
+                durationMinutes:
+                  type: integer
+                isOnline:
+                  type: boolean
+                city:
+                  type: string
+              required: [title, priceInCents]
+      responses:
+        "201":
+          description: Listing created
+
+  /coaches/me/bookings:
+    get:
+      operationId: getMyCoachBookings
+      tags: [coaches]
+      summary: Get upcoming coaching bookings as a coach
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Coaching bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Booking"
+                required: [bookings]
+
+  /coaches/me/bookings/{bookingId}/meeting-url:
+    put:
+      operationId: setCoachMeetingUrl
+      tags: [coaches]
+      summary: Set Zoom/Meet link for a confirmed coaching session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                meetingUrl:
+                  type: string
+              required: [meetingUrl]
+      responses:
+        "200":
+          description: Meeting URL updated
+
+  /coaches/{userId}:
+    get:
+      operationId: getCoachProfile
+      tags: [coaches]
+      summary: Get a coach's public profile and listings
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Coach profile with listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  coach:
+                    $ref: "#/components/schemas/CoachProfile"
+                  listings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Listing"
+                required: [coach, listings]
+
   /stripe/checkout/score-license:
     post:
       operationId: createScoreLicenseCheckout
@@ -3033,6 +3224,63 @@ components:
         lastName:
           type: string
       required: [role]
+
+    # ── Coach Profile ────────────────────────────────────────────────────────
+    CoachProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        bio:
+          type: ["string", "null"]
+        credentials:
+          type: ["string", "null"]
+        specialties:
+          type: array
+          items:
+            type: string
+        linkedInUrl:
+          type: ["string", "null"]
+        approvalStatus:
+          type: string
+          enum: [pending, approved, rejected]
+        sessionRateCents:
+          type: ["integer", "null"]
+        isOnline:
+          type: boolean
+        city:
+          type: ["string", "null"]
+        averageRating:
+          type: ["integer", "null"]
+        reviewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, approvalStatus, isOnline, reviewCount, createdAt]
+
+    CoachApplyBody:
+      type: object
+      properties:
+        bio:
+          type: string
+        credentials:
+          type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        linkedInUrl:
+          type: string
+        sessionRateCents:
+          type: integer
+        isOnline:
+          type: boolean
+        city:
+          type: string
+      required: [bio]
 
     # ── Teacher Profile ──────────────────────────────────────────────────────
     TeacherProfile:

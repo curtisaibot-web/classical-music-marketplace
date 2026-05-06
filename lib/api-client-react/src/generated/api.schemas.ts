@@ -51,6 +51,47 @@ export interface OnboardUserBody {
   lastName?: string;
 }
 
+export type CoachProfileApprovalStatus =
+  (typeof CoachProfileApprovalStatus)[keyof typeof CoachProfileApprovalStatus];
+
+export const CoachProfileApprovalStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface CoachProfile {
+  id: number;
+  userId: string;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  credentials?: string | null;
+  specialties?: string[];
+  /** @nullable */
+  linkedInUrl?: string | null;
+  approvalStatus: CoachProfileApprovalStatus;
+  /** @nullable */
+  sessionRateCents?: number | null;
+  isOnline: boolean;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  averageRating?: number | null;
+  reviewCount: number;
+  createdAt: string;
+}
+
+export interface CoachApplyBody {
+  bio: string;
+  credentials?: string;
+  specialties?: string[];
+  linkedInUrl?: string;
+  sessionRateCents?: number;
+  isOnline?: boolean;
+  city?: string;
+}
+
 export interface TeacherProfile {
   id: number;
   userId: string;
@@ -1991,6 +2032,39 @@ export type ListScoresParams = {
 export type DownloadScoreLicense200 = {
   downloadUrl: string;
   licenseType: string;
+};
+
+export type ListCoachesParams = {
+  specialty?: string;
+  city?: string;
+  q?: string;
+};
+
+export type ListCoaches200 = {
+  coaches: CoachProfile[];
+};
+
+export type CreateCoachListingBody = {
+  title: string;
+  description?: string;
+  sessionType?: string;
+  priceInCents: number;
+  durationMinutes?: number;
+  isOnline?: boolean;
+  city?: string;
+};
+
+export type GetMyCoachBookings200 = {
+  bookings: Booking[];
+};
+
+export type SetCoachMeetingUrlBody = {
+  meetingUrl: string;
+};
+
+export type GetCoachProfile200 = {
+  coach: CoachProfile;
+  listings: Listing[];
 };
 
 export type CreateScoreLicenseCheckout200 = {

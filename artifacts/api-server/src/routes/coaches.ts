@@ -206,7 +206,7 @@ router.post("/coaches/me/listings", requireAuth, async (req, res): Promise<void>
     .insert(listingsTable)
     .values({
       teacherId: userId,
-      type: "coaching" as unknown as "lesson",
+      type: "coaching",
       status: "active",
       title,
       description: description ?? null,
