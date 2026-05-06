@@ -234,7 +234,8 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
         or(eq(bookingsTable.studentId, userId), eq(bookingsTable.teacherId, userId)),
       ));
 
-    if (current && current.cancellationPolicyHoursSnapshot && current.cancellationFeePercentSnapshot) {
+    const studentIsCancelling = current?.studentId === userId;
+    if (studentIsCancelling && current.cancellationPolicyHoursSnapshot && current.cancellationFeePercentSnapshot) {
       const scheduledAt = current.scheduledAt ? new Date(current.scheduledAt) : null;
       if (scheduledAt) {
         const hoursUntilLesson = (scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);

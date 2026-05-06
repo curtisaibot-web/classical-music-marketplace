@@ -52,7 +52,7 @@ router.get("/expenses", requireAuth, async (req, res): Promise<void> => {
       const from = new Date(y, m - 1, 1);
       const to = new Date(y, m, 1);
       conditions.push(gte(expensesTable.date, from));
-      conditions.push(lte(expensesTable.date, to));
+      conditions.push(lte(expensesTable.date, new Date(to.getTime() - 1)));
     }
   }
 
