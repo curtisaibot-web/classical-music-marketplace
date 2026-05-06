@@ -110,8 +110,9 @@ router.post("/orgs", requireAuth, async (req, res): Promise<void> => {
       .returning();
     res.status(201).json({ org: updatedOrg });
     return;
-  } catch {
-    // Non-fatal — Stripe may not be configured; return org without customerId
+  } catch (stripeErr) {
+    // Non-fatal: Stripe not configured or customer creation failed — return org without customerId
+    req.log?.warn({ err: stripeErr }, "Stripe customer creation failed on org creation");
   }
 
   res.status(201).json({ org });
@@ -476,8 +477,9 @@ async function updateSubscriptionQuantity(org: typeof organisationsTable.$inferS
     if (itemId) {
       await stripe.subscriptionItems.update(itemId, { quantity });
     }
-  } catch {
-    // Non-fatal — subscription quantity sync can be retried
+  } catch (syncErr) {
+    // Non-fatal: subscription quantity sync can be retried on the next membership change
+    console.warn("[orgs] Stripe subscription quantity sync failed:", syncErr instanceof Error ? syncErr.message : syncErr);
   }
 }
 
