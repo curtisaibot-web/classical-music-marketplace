@@ -14,6 +14,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   active: { label: "Active — accepting backers", color: "text-green-700", icon: <Clock className="h-4 w-4" /> },
+  settling: { label: "Goal reached — processing payments", color: "text-blue-600", icon: <CheckCircle2 className="h-4 w-4" /> },
   succeeded: { label: "Goal reached!", color: "text-blue-700", icon: <CheckCircle2 className="h-4 w-4" /> },
   failed: { label: "Goal not reached", color: "text-red-700", icon: <XCircle className="h-4 w-4" /> },
   cancelled: { label: "Cancelled", color: "text-gray-600", icon: <XCircle className="h-4 w-4" /> },

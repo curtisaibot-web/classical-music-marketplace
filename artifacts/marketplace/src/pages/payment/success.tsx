@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Calendar, ShoppingBag, ArrowRight } from "lucide-react";
+import { CheckCircle2, Calendar, ShoppingBag, ArrowRight, Music } from "lucide-react";
 
 export default function PaymentSuccess() {
   const [location] = useLocation();
@@ -16,6 +16,16 @@ export default function PaymentSuccess() {
 
   const isBooking = type === "booking";
   const isOrder = type === "order" || type === "masterclass_performer" || type === "masterclass_observer";
+  const isCampaign = type === "campaign";
+
+  const heading = isCampaign ? "Pledge Received!" : "Payment Successful!";
+  const subtext = isBooking
+    ? "Your lesson has been booked and payment received. The teacher will confirm shortly."
+    : isOrder
+      ? "Your purchase is confirmed. You can access your items in your orders."
+      : isCampaign
+        ? "Your card has been authorized. If the campaign reaches its goal, your payment will be captured and you'll receive your tickets by email."
+        : "Your payment was processed successfully.";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -30,21 +40,28 @@ export default function PaymentSuccess() {
           </div>
 
           <div className="space-y-3">
-            <h1 className="text-4xl font-serif font-bold text-foreground">
-              Payment Successful!
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              {isBooking
-                ? "Your lesson has been booked and payment received. The teacher will confirm shortly."
-                : isOrder
-                  ? "Your purchase is confirmed. You can access your items in your orders."
-                  : "Your payment was processed successfully."}
-            </p>
+            <h1 className="text-4xl font-serif font-bold text-foreground">{heading}</h1>
+            <p className="text-lg text-muted-foreground">{subtext}</p>
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6 text-left space-y-3">
             <h3 className="font-semibold text-foreground">What happens next?</h3>
-            {isBooking ? (
+            {isCampaign ? (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">1.</span>
+                  Your card is authorized but <strong>not yet charged</strong>.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">2.</span>
+                  If the campaign reaches its ticket goal, your payment is captured and you receive tickets with a QR code by email.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">3.</span>
+                  If the goal is not met, your authorization is cancelled — no charge is ever made.
+                </li>
+              </ul>
+            ) : isBooking ? (
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <span className="text-primary font-bold mt-0.5">1.</span>
@@ -74,7 +91,14 @@ export default function PaymentSuccess() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {isBooking ? (
+            {isCampaign ? (
+              <Button asChild>
+                <Link href="/concerts">
+                  <Music className="h-4 w-4 mr-2" />
+                  Browse Campaigns
+                </Link>
+              </Button>
+            ) : isBooking ? (
               <Button asChild>
                 <Link href="/bookings">
                   <Calendar className="h-4 w-4 mr-2" />

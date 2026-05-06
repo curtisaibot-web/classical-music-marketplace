@@ -20,6 +20,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 
 const STATUS_BADGE: Record<string, { label: string; class: string }> = {
   active: { label: "Active", class: "bg-green-100 text-green-700 border-green-200" },
+  settling: { label: "Processing", class: "bg-blue-100 text-blue-600 border-blue-200" },
   succeeded: { label: "Goal Met!", class: "bg-blue-100 text-blue-700 border-blue-200" },
   failed: { label: "Not Funded", class: "bg-red-100 text-red-700 border-red-200" },
   cancelled: { label: "Cancelled", class: "bg-gray-100 text-gray-600 border-gray-200" },

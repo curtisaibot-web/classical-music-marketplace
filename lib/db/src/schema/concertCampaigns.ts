@@ -43,11 +43,10 @@ export const campaignTicketsTable = pgTable("campaign_tickets", {
   totalPriceCents: integer("total_price_cents").notNull(),
   // 8% platform fee stored for accounting; no Stripe Connect required
   platformFeeCents: integer("platform_fee_cents"),
-  // SetupIntent flow columns — payment method saved at checkout, charged at success
   stripeSetupIntentId: text("stripe_setup_intent_id"),
   stripePaymentMethodId: text("stripe_payment_method_id"),
   stripeCustomerId: text("stripe_customer_id"),
-  // PI created+confirmed at success time (off-session); null until campaign succeeds
+  // Manual-capture PI created at checkout; captured on success, cancelled on failure
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   accessCode: text("access_code"),

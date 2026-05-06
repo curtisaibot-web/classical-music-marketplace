@@ -477,9 +477,6 @@ router.post("/campaigns/:id/checkout", requireAuth, async (req, res): Promise<vo
 // 4. Failed/cancelled campaigns with orphaned "authorised" tickets → retry PI cancels
 export async function expireDeadlinedCampaigns(): Promise<void> {
   try {
-    const stripe = await getUncachableStripeClient();
-    void stripe; // ensure client is warm before the loop
-
     // Pass 1 & 2: active campaigns
     const activeCampaigns = await db
       .select({ id: concertCampaignsTable.id, goalCount: concertCampaignsTable.goalCount, deadlineAt: concertCampaignsTable.deadlineAt })
