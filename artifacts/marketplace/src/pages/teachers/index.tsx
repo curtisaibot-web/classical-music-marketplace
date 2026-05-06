@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Search, Star, Music, MapPin, SlidersHorizontal, X, AlertCircle, ChevronDown } from "lucide-react";
+import { Search, Star, Music, MapPin, SlidersHorizontal, X, AlertCircle, ChevronDown, Crown } from "lucide-react";
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Badge } from "@/components/ui/badge";
@@ -429,6 +429,11 @@ export default function Teachers() {
                           <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                           {teacher.reviewCount > 0 ? (teacher.averageRating / 100).toFixed(1) : "New"}
                         </div>
+                        {(teacher as { isProSubscriber?: boolean }).isProSubscriber && (
+                          <div className="absolute top-4 left-4 bg-amber-500 text-white px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow">
+                            <Crown className="h-3 w-3" />PRO
+                          </div>
+                        )}
                       </div>
                       <CardContent className="p-6 flex flex-col flex-1">
                         <h3 className="font-serif font-semibold text-xl text-foreground mb-1">

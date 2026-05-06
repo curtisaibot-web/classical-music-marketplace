@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, gte, lte, sql, count, ilike, inArray } from "drizzle-orm";
-import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable } from "@workspace/db";
+import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable, subscriptionsTable } from "@workspace/db";
 import {
   GetTeacherResponse,
   GetMyTeacherProfileResponse,
@@ -10,6 +10,20 @@ import {
   ListTeachersQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+
+async function getProSubscriberIds(userIds: string[]): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+  const rows = await db
+    .select({ userId: subscriptionsTable.userId })
+    .from(subscriptionsTable)
+    .where(
+      and(
+        inArray(subscriptionsTable.userId, userIds),
+        sql`${subscriptionsTable.status} IN ('active', 'trialing')`,
+      ),
+    );
+  return new Set(rows.map((r) => r.userId));
+}
 
 const SLUG_RE = /^[a-z0-9-]{3,64}$/;
 
@@ -118,9 +132,13 @@ router.get("/teachers", async (req, res): Promise<void> => {
       .offset(offset),
   ]);
 
+  const userIds = profiles.map((p) => p.teacher_profiles.userId);
+  const proIds = await getProSubscriberIds(userIds);
+
   const teachers = profiles.map((p) => ({
     ...p.teacher_profiles,
     user: p.users,
+    isProSubscriber: proIds.has(p.teacher_profiles.userId),
   }));
 
   res.json(ListTeachersResponse.parse({ teachers, total: totalRow[0]?.count ?? 0 }));
@@ -220,7 +238,8 @@ router.get("/teachers/by-slug/:slug", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetTeacherResponse.parse({ ...result.teacher_profiles, user: result.users }));
+  const proIds = await getProSubscriberIds([result.teacher_profiles.userId]);
+  res.json(GetTeacherResponse.parse({ ...result.teacher_profiles, user: result.users, isProSubscriber: proIds.has(result.teacher_profiles.userId) }));
 });
 
 router.put("/teachers/me/slug", requireAuth, async (req, res): Promise<void> => {
@@ -379,7 +398,8 @@ router.get("/teachers/:userId", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetTeacherResponse.parse({ ...result.teacher_profiles, user: result.users }));
+  const proIds = await getProSubscriberIds([result.teacher_profiles.userId]);
+  res.json(GetTeacherResponse.parse({ ...result.teacher_profiles, user: result.users, isProSubscriber: proIds.has(result.teacher_profiles.userId) }));
 });
 
 export default router;

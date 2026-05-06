@@ -25,6 +25,7 @@ import TeacherDashboard from "@/pages/teacher/dashboard";
 import TeacherListings from "@/pages/teacher/listings";
 import TeacherDigitalProducts from "@/pages/teacher/digital-products";
 import TeacherProfileEdit from "@/pages/teacher/profile-edit";
+import BusinessSuite from "@/pages/teacher/business-suite";
 import BrowseListings from "@/pages/browse";
 import Events from "@/pages/events";
 import EventDetail from "@/pages/events/detail";
@@ -221,6 +222,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/listings" component={TeacherListings} />
           <Route path="/digital-products" component={TeacherDigitalProducts} />
           <Route path="/profile/edit" component={TeacherProfileEdit} />
+          <Route path="/business-suite" component={BusinessSuite} />
 
           <Route path="/payment/success" component={PaymentSuccess} />
           <Route path="/payment/cancel" component={PaymentCancel} />

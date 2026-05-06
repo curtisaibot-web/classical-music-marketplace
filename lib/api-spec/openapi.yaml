@@ -1409,6 +1409,12 @@ components:
           type: ["string", "null"]
         stripeOnboarded:
           type: boolean
+        isProSubscriber:
+          type: boolean
+        cancellationPolicyHours:
+          type: integer
+        cancellationFeePercent:
+          type: integer
         user:
           $ref: "#/components/schemas/User"
         createdAt:

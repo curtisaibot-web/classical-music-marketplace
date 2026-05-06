@@ -44,6 +44,7 @@ export function Navbar() {
                   <Link href="/teacher-dashboard" className="text-sm font-medium hover:underline">Dashboard</Link>
                   <Link href="/listings" className="text-sm font-medium hover:underline hidden sm:inline-block">Listings</Link>
                   <Link href="/digital-products" className="text-sm font-medium hover:underline hidden sm:inline-block">Products</Link>
+                  <Link href="/business-suite" className="text-sm font-medium hover:underline hidden sm:inline-block text-amber-600">Business Suite</Link>
                 </>
               ) : role === 'student' ? (
                 <>

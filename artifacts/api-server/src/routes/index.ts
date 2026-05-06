@@ -16,6 +16,10 @@ import storageRouter from "./storage";
 import reelsRouter from "./reels";
 import recordingsRouter from "./recordings";
 import ogRouter from "./og";
+import subscriptionsRouter from "./subscriptions";
+import contractsRouter from "./contracts";
+import invoicesRouter from "./invoices";
+import expensesRouter from "./expenses";
 
 const router: IRouter = Router();
 
@@ -36,5 +40,9 @@ router.use(stripeRouter);
 router.use(reelsRouter);
 router.use(recordingsRouter);
 router.use(ogRouter);
+router.use(subscriptionsRouter);
+router.use(contractsRouter);
+router.use(invoicesRouter);
+router.use(expensesRouter);
 
 export default router;

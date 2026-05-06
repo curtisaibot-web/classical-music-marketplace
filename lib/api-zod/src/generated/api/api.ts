@@ -114,6 +114,9 @@ export const ListTeachersResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -165,6 +168,9 @@ export const GetTeacherResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -213,6 +219,9 @@ export const GetTeacherBySlugResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -270,6 +279,9 @@ export const UpdateMyTeacherSlugResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -352,6 +364,9 @@ export const GetMyTeacherProfileResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -411,6 +426,9 @@ export const UpdateMyTeacherProfileResponse = zod.object({
   videoIntroUrl: zod.string().nullish(),
   profileSlug: zod.string().nullish(),
   stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
   user: zod
     .object({
       id: zod.string(),
@@ -562,6 +580,9 @@ export const ListListingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -666,6 +687,9 @@ export const GetListingResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -759,6 +783,9 @@ export const UpdateListingResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -849,6 +876,9 @@ export const GetTeacherListingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -943,6 +973,9 @@ export const ListMasterclassesResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1036,6 +1069,9 @@ export const GetMasterclassResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1118,6 +1154,9 @@ export const UpdateMasterclassResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1195,6 +1234,9 @@ export const ListDigitalProductsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1284,6 +1326,9 @@ export const GetDigitalProductResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1367,6 +1412,9 @@ export const UpdateDigitalProductResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1457,6 +1505,9 @@ export const ListBookingsResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -1558,6 +1609,9 @@ export const GetBookingResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1647,6 +1701,9 @@ export const UpdateBookingResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),
@@ -1902,6 +1959,9 @@ export const GetTeacherDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2004,6 +2064,9 @@ export const GetTeacherDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2086,6 +2149,9 @@ export const GetStudentDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2175,6 +2241,9 @@ export const GetStudentDashboardResponse = zod.object({
           videoIntroUrl: zod.string().nullish(),
           profileSlug: zod.string().nullish(),
           stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
           user: zod
             .object({
               id: zod.string(),
@@ -2222,6 +2291,9 @@ export const GetStudentDashboardResponse = zod.object({
       videoIntroUrl: zod.string().nullish(),
       profileSlug: zod.string().nullish(),
       stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
       user: zod
         .object({
           id: zod.string(),

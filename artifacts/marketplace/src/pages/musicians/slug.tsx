@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, MapPin, GraduationCap, CheckCircle, BookOpen, Music2, Sparkles, Clock, Globe, Award, Volume2, VolumeX, Music, Mic2, CalendarDays } from "lucide-react";
+import { Star, MapPin, GraduationCap, CheckCircle, BookOpen, Music2, Sparkles, Clock, Globe, Award, Volume2, VolumeX, Music, Mic2, CalendarDays, Crown } from "lucide-react";
 import { getEmbedInfo } from "@/lib/recording-embed";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
@@ -298,6 +298,11 @@ export default function MusicianPublicProfile() {
                 </h1>
                 {teacher.isVerified && (
                   <CheckCircle className="h-6 w-6 text-emerald-400 shrink-0" />
+                )}
+                {(teacher as { isProSubscriber?: boolean }).isProSubscriber && (
+                  <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-md shrink-0">
+                    <Crown className="h-3 w-3" />PRO
+                  </span>
                 )}
               </div>
               <p className="text-lg text-white/80 font-medium mb-3">

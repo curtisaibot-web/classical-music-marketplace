@@ -29,6 +29,8 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   lastMinuteFromDate: timestamp("last_minute_from_date", { withTimezone: true }),
   lastMinuteToDate: timestamp("last_minute_to_date", { withTimezone: true }),
   minNoticeHours: integer("min_notice_hours").notNull().default(72),
+  cancellationPolicyHours: integer("cancellation_policy_hours").notNull().default(24),
+  cancellationFeePercent: integer("cancellation_fee_percent").notNull().default(50),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

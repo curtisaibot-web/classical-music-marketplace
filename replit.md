@@ -181,6 +181,21 @@ The event booking module is fully wired. Key files:
 
 The availability calendar shows booked dates (red) fetched from confirmed/pending event bookings for the teacher. Booking requests create a `bookings` row with type=`event` and status=`pending`.
 
+## Business Suite (SaaS — Task #32)
+
+Musician Business Suite at `/business-suite` — Pro subscription ($29/mo or $279/yr via Stripe Checkout).
+
+New DB tables: `subscriptions`, `contracts`, `invoices`, `expenses`. New columns on `teacher_profiles`: `cancellation_policy_hours`, `cancellation_fee_percent`.
+
+New API routes:
+- `GET/POST /subscriptions/me` — subscription status; `POST /subscriptions/checkout`, `POST /subscriptions/portal`, `POST /subscriptions/activate`
+- CRUD + send/sign/pdf: `/contracts`, `/invoices`, `/expenses`
+- Public contract signing: `GET/POST /api/contracts/sign/:token`
+
+Frontend tabs: Subscription (Stripe checkout/portal), Contracts (CRUD + HTML PDF + e-sign flow), Invoices (line items + PDF + mark-paid), Expenses (monthly filter + category bar chart), Cancellation Policy.
+
+Pro badge (`Crown` icon, amber) shown on teacher cards (`/teachers`), musician slug profiles (`/musicians/:slug`), and profile hero. Teachers API joins with `subscriptions` to compute `isProSubscriber`.
+
 ## Pending Tasks
 
 - **Task #5**: Reviews, Search & Launch Polish
