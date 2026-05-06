@@ -142,7 +142,7 @@ router.get("/listings/teacher/:userId", async (req, res): Promise<void> => {
     .from(listingsTable)
     .leftJoin(teacherProfilesTable, eq(listingsTable.teacherId, teacherProfilesTable.userId))
     .leftJoin(usersTable, eq(listingsTable.teacherId, usersTable.id))
-    .where(eq(listingsTable.teacherId, rawId));
+    .where(and(eq(listingsTable.teacherId, rawId), eq(listingsTable.status, "active")));
 
   const listings = rows.map((r) => ({
     ...r.listings,
