@@ -1956,6 +1956,7 @@ export type PracticePartnershipWithPartnerPartner = {
  * @nullable
  */
 export type PracticePartnershipWithPartnerPartnerProfile = {
+  userId?: string;
   instruments?: string[];
   skillLevel?: string;
   sessionFormat?: string;
@@ -1995,6 +1996,25 @@ export interface PracticeSession {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PracticeSessionCompletion {
+  id: number;
+  sessionId: number;
+  userId: string;
+  /** @nullable */
+  notes?: string | null;
+  completedAt: string;
+}
+
+export type PracticeSessionWithCompletion = PracticeSession & {
+  myCompletion?: PracticeSessionCompletion | null;
+};
+
+export interface PracticeSessionCompleteResponse {
+  session: PracticeSession;
+  completion: PracticeSessionCompletion;
+  bothCompleted: boolean;
 }
 
 export interface PracticeMatchListResponse {
@@ -2295,8 +2315,14 @@ export type DeclinePracticeRequest200 = {
   ok: boolean;
 };
 
+export type GetPracticeNotifications200 = {
+  incomingRequests: number;
+  pendingSessionsAwaitingMe: number;
+  total: number;
+};
+
 export type ListPartnershipSessions200 = {
-  sessions: PracticeSession[];
+  sessions: PracticeSessionWithCompletion[];
 };
 
 export type ConfirmPracticeSessionBody = {

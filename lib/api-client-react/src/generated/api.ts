@@ -79,6 +79,7 @@ import type {
   ExpenseResponse,
   ForbiddenResponse,
   GetMyCoachBookings200,
+  GetPracticeNotifications200,
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
@@ -121,6 +122,7 @@ import type {
   PracticeProfile,
   PracticeProfileWithUser,
   PracticeSession,
+  PracticeSessionCompleteResponse,
   ProgramEnrollment,
   ProgramEnrollmentCheckoutBody,
   ProgramEnrollmentCheckoutResponse,
@@ -12109,6 +12111,86 @@ export const useDissolvePracticePartnership = <
 };
 
 /**
+ * @summary Get badge counts for items requiring the user's attention
+ */
+export const getGetPracticeNotificationsUrl = () => {
+  return `/api/practice/notifications`;
+};
+
+export const getPracticeNotifications = async (
+  options?: RequestInit,
+): Promise<GetPracticeNotifications200> => {
+  return customFetch<GetPracticeNotifications200>(
+    getGetPracticeNotificationsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPracticeNotificationsQueryKey = () => {
+  return [`/api/practice/notifications`] as const;
+};
+
+export const getGetPracticeNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPracticeNotifications>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPracticeNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPracticeNotificationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPracticeNotifications>>
+  > = ({ signal }) => getPracticeNotifications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPracticeNotifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPracticeNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPracticeNotifications>>
+>;
+export type GetPracticeNotificationsQueryError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get badge counts for items requiring the user's attention
+ */
+
+export function useGetPracticeNotifications<
+  TData = Awaited<ReturnType<typeof getPracticeNotifications>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPracticeNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPracticeNotificationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Propose a new practice session
  */
 export const getProposePracticeSessionUrl = (id: number) => {
@@ -12199,7 +12281,7 @@ export const useProposePracticeSession = <
 };
 
 /**
- * @summary List sessions for a partnership
+ * @summary List sessions for a partnership (includes caller's private completion record)
  */
 export const getListPartnershipSessionsUrl = (id: number) => {
   return `/api/practice/partnerships/${id}/sessions`;
@@ -12266,7 +12348,7 @@ export type ListPartnershipSessionsQueryError = ErrorType<
 >;
 
 /**
- * @summary List sessions for a partnership
+ * @summary List sessions for a partnership (includes caller's private completion record)
  */
 
 export function useListPartnershipSessions<
@@ -12387,7 +12469,7 @@ export const useConfirmPracticeSession = <
 };
 
 /**
- * @summary Mark a practice session as complete
+ * @summary Record the caller's completion of a session (private notes per user). Session status becomes "completed" once both partners have completed.
  */
 export const getCompletePracticeSessionUrl = (id: number) => {
   return `/api/practice/sessions/${id}/complete`;
@@ -12397,13 +12479,16 @@ export const completePracticeSession = async (
   id: number,
   completePracticeSessionBody?: CompletePracticeSessionBody,
   options?: RequestInit,
-): Promise<PracticeSession> => {
-  return customFetch<PracticeSession>(getCompletePracticeSessionUrl(id), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(completePracticeSessionBody),
-  });
+): Promise<PracticeSessionCompleteResponse> => {
+  return customFetch<PracticeSessionCompleteResponse>(
+    getCompletePracticeSessionUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(completePracticeSessionBody),
+    },
+  );
 };
 
 export const getCompletePracticeSessionMutationOptions = <
@@ -12456,7 +12541,7 @@ export type CompletePracticeSessionMutationError = ErrorType<
 >;
 
 /**
- * @summary Mark a practice session as complete
+ * @summary Record the caller's completion of a session (private notes per user). Session status becomes "completed" once both partners have completed.
  */
 export const useCompletePracticeSession = <
   TError = ErrorType<

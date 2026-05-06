@@ -5152,6 +5152,7 @@ export const ListMyPracticePartnershipsResponse = zod.object({
             .nullish(),
           partnerProfile: zod
             .object({
+              userId: zod.string().optional(),
               instruments: zod.array(zod.string()).optional(),
               skillLevel: zod.string().optional(),
               sessionFormat: zod.string().optional(),
@@ -5211,6 +5212,15 @@ export const DissolvePracticePartnershipResponse = zod.object({
 });
 
 /**
+ * @summary Get badge counts for items requiring the user's attention
+ */
+export const GetPracticeNotificationsResponse = zod.object({
+  incomingRequests: zod.number(),
+  pendingSessionsAwaitingMe: zod.number(),
+  total: zod.number(),
+});
+
+/**
  * @summary Propose a new practice session
  */
 export const ProposePracticeSessionParams = zod.object({
@@ -5223,7 +5233,7 @@ export const ProposePracticeSessionBody = zod.object({
 });
 
 /**
- * @summary List sessions for a partnership
+ * @summary List sessions for a partnership (includes caller's private completion record)
  */
 export const ListPartnershipSessionsParams = zod.object({
   id: zod.coerce.number(),
@@ -5231,19 +5241,36 @@ export const ListPartnershipSessionsParams = zod.object({
 
 export const ListPartnershipSessionsResponse = zod.object({
   sessions: zod.array(
-    zod.object({
-      id: zod.number(),
-      partnershipId: zod.number(),
-      proposedById: zod.string(),
-      proposedAt: zod.coerce.date(),
-      confirmedAt: zod.coerce.date().nullish(),
-      completedAt: zod.coerce.date().nullish(),
-      joinLink: zod.string().nullish(),
-      status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
-      notes: zod.string().nullish(),
-      createdAt: zod.coerce.date(),
-      updatedAt: zod.coerce.date(),
-    }),
+    zod
+      .object({
+        id: zod.number(),
+        partnershipId: zod.number(),
+        proposedById: zod.string(),
+        proposedAt: zod.coerce.date(),
+        confirmedAt: zod.coerce.date().nullish(),
+        completedAt: zod.coerce.date().nullish(),
+        joinLink: zod.string().nullish(),
+        status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+        notes: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          myCompletion: zod
+            .union([
+              zod.object({
+                id: zod.number(),
+                sessionId: zod.number(),
+                userId: zod.string(),
+                notes: zod.string().nullish(),
+                completedAt: zod.coerce.date(),
+              }),
+              zod.null(),
+            ])
+            .optional(),
+        }),
+      ),
   ),
 });
 
@@ -5273,7 +5300,7 @@ export const ConfirmPracticeSessionResponse = zod.object({
 });
 
 /**
- * @summary Mark a practice session as complete
+ * @summary Record the caller's completion of a session (private notes per user). Session status becomes "completed" once both partners have completed.
  */
 export const CompletePracticeSessionParams = zod.object({
   id: zod.coerce.number(),
@@ -5284,17 +5311,27 @@ export const CompletePracticeSessionBody = zod.object({
 });
 
 export const CompletePracticeSessionResponse = zod.object({
-  id: zod.number(),
-  partnershipId: zod.number(),
-  proposedById: zod.string(),
-  proposedAt: zod.coerce.date(),
-  confirmedAt: zod.coerce.date().nullish(),
-  completedAt: zod.coerce.date().nullish(),
-  joinLink: zod.string().nullish(),
-  status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
-  notes: zod.string().nullish(),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date(),
+  session: zod.object({
+    id: zod.number(),
+    partnershipId: zod.number(),
+    proposedById: zod.string(),
+    proposedAt: zod.coerce.date(),
+    confirmedAt: zod.coerce.date().nullish(),
+    completedAt: zod.coerce.date().nullish(),
+    joinLink: zod.string().nullish(),
+    status: zod.enum(["proposed", "confirmed", "completed", "cancelled"]),
+    notes: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+  completion: zod.object({
+    id: zod.number(),
+    sessionId: zod.number(),
+    userId: zod.string(),
+    notes: zod.string().nullish(),
+    completedAt: zod.coerce.date(),
+  }),
+  bothCompleted: zod.boolean(),
 });
 
 /**

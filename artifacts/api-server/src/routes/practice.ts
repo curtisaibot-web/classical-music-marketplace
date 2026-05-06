@@ -28,9 +28,10 @@ function isSafeUrl(url: string): boolean {
 function computeMatchScore(
   a: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string; availabilitySlots: Array<{ day: string; time: string }> },
   b: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string; availabilitySlots: Array<{ day: string; time: string }> },
-): { score: number; reason: string } {
+): { score: number; reason: string | null; baselineMet: boolean } {
   let score = 0;
   const reasons: string[] = [];
+  const skillLevels = ["beginner", "intermediate", "advanced", "professional"];
 
   const sharedInstruments = a.instruments.filter((i) => b.instruments.includes(i));
   if (sharedInstruments.length > 0) {
@@ -38,13 +39,12 @@ function computeMatchScore(
     reasons.push(`both play ${sharedInstruments.slice(0, 2).join(" & ")}`);
   }
 
-  if (a.skillLevel === b.skillLevel) {
+  const skillDiff = Math.abs(skillLevels.indexOf(a.skillLevel) - skillLevels.indexOf(b.skillLevel));
+  if (skillDiff === 0) {
     score += 25;
     reasons.push("same skill level");
-  } else {
-    const levels = ["beginner", "intermediate", "advanced", "professional"];
-    const diff = Math.abs(levels.indexOf(a.skillLevel) - levels.indexOf(b.skillLevel));
-    if (diff === 1) score += 12;
+  } else if (skillDiff === 1) {
+    score += 12;
   }
 
   const sharedGoals = a.goals.filter((g) => b.goals.includes(g));
@@ -67,13 +67,15 @@ function computeMatchScore(
     a.sessionFormat === b.sessionFormat ||
     a.sessionFormat === "either" ||
     b.sessionFormat === "either";
-  if (formatsCompatible) {
-    score += 5;
-  }
+  if (formatsCompatible) score += 5;
+
+  // Baseline gate: must share ≥1 instrument OR be within 1 skill tier
+  const baselineMet = sharedInstruments.length > 0 || skillDiff <= 1;
 
   return {
-    score: Math.min(100, score),
-    reason: reasons.length > 0 ? reasons.join("; ") : "compatible musicians",
+    score: baselineMet ? Math.min(100, score) : 0,
+    reason: baselineMet ? (reasons.length > 0 ? reasons.join("; ") : "compatible musicians") : null,
+    baselineMet,
   };
 }
 
@@ -591,18 +593,68 @@ router.get("/practice/partnerships/:id/sessions", requireAuth, async (req, res):
     .orderBy(desc(practiceSessionsTable.proposedAt));
 
   // Attach caller's private completion record for each session
-  const myCompletions = await db
-    .select()
-    .from(practiceSessionCompletionsTable)
-    .where(and(
-      or(...sessions.map((s) => eq(practiceSessionCompletionsTable.sessionId, s.id))),
-      eq(practiceSessionCompletionsTable.userId, userId!),
-    ));
+  const myCompletions =
+    sessions.length === 0
+      ? []
+      : await db
+          .select()
+          .from(practiceSessionCompletionsTable)
+          .where(
+            and(
+              or(...sessions.map((s) => eq(practiceSessionCompletionsTable.sessionId, s.id))),
+              eq(practiceSessionCompletionsTable.userId, userId!),
+            ),
+          );
 
   const completionMap = Object.fromEntries(myCompletions.map((c) => [c.sessionId, c]));
 
   res.json({
     sessions: sessions.map((s) => ({ ...s, myCompletion: completionMap[s.id] ?? null })),
+  });
+});
+
+// ── Notification Badge Count ──────────────────────────────────────────────────
+// Returns counts for items needing the user's attention:
+// incoming pending requests + proposed sessions where they are NOT the proposer.
+router.get("/practice/notifications", requireAuth, async (req, res): Promise<void> => {
+  const { userId } = getAuth(req);
+
+  const allPartnerships = await db
+    .select()
+    .from(practicePartnershipsTable)
+    .where(
+      or(
+        eq(practicePartnershipsTable.requesterId, userId!),
+        eq(practicePartnershipsTable.recipientId, userId!),
+      ),
+    );
+
+  const incomingRequests = allPartnerships.filter(
+    (p) => p.status === "pending" && p.recipientId === userId,
+  ).length;
+
+  const activeIds = allPartnerships
+    .filter((p) => p.status === "active")
+    .map((p) => p.id);
+
+  let pendingSessionsAwaitingMe = 0;
+  if (activeIds.length > 0) {
+    const sessions = await db
+      .select()
+      .from(practiceSessionsTable)
+      .where(
+        and(
+          eq(practiceSessionsTable.status, "proposed"),
+          or(...activeIds.map((id) => eq(practiceSessionsTable.partnershipId, id))),
+        ),
+      );
+    pendingSessionsAwaitingMe = sessions.filter((s) => s.proposedById !== userId).length;
+  }
+
+  res.json({
+    incomingRequests,
+    pendingSessionsAwaitingMe,
+    total: incomingRequests + pendingSessionsAwaitingMe,
   });
 });
 

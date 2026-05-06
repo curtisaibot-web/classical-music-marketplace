@@ -3381,6 +3381,30 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /practice/notifications:
+    get:
+      operationId: getPracticeNotifications
+      tags: [practice]
+      summary: Get badge counts for items requiring the user's attention
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Notification counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incomingRequests:
+                    type: integer
+                  pendingSessionsAwaitingMe:
+                    type: integer
+                  total:
+                    type: integer
+                required: [incomingRequests, pendingSessionsAwaitingMe, total]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /practice/partnerships/{id}/sessions:
     post:
       operationId: proposePracticeSession
@@ -3413,7 +3437,7 @@ paths:
     get:
       operationId: listPartnershipSessions
       tags: [practice]
-      summary: List sessions for a partnership
+      summary: List sessions for a partnership (includes caller's private completion record)
       security: [{ clerkAuth: [] }]
       parameters:
         - name: id
@@ -3423,7 +3447,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: List of sessions
+          description: List of sessions with per-caller completion
           content:
             application/json:
               schema:
@@ -3432,7 +3456,7 @@ paths:
                   sessions:
                     type: array
                     items:
-                      $ref: "#/components/schemas/PracticeSession"
+                      $ref: "#/components/schemas/PracticeSessionWithCompletion"
                 required: [sessions]
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -3478,7 +3502,7 @@ paths:
     post:
       operationId: completePracticeSession
       tags: [practice]
-      summary: Mark a practice session as complete
+      summary: Record the caller's completion of a session (private notes per user). Session status becomes "completed" once both partners have completed.
       security: [{ clerkAuth: [] }]
       parameters:
         - name: id
@@ -3497,11 +3521,11 @@ paths:
                   type: string
       responses:
         "200":
-          description: Completed session
+          description: Per-user completion result
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PracticeSession"
+                $ref: "#/components/schemas/PracticeSessionCompleteResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -6333,6 +6357,8 @@ components:
             partnerProfile:
               type: ["object", "null"]
               properties:
+                userId:
+                  type: string
                 instruments:
                   type: array
                   items:
@@ -6376,6 +6402,43 @@ components:
           type: string
           format: date-time
       required: [id, partnershipId, proposedById, proposedAt, status, createdAt, updatedAt]
+
+    PracticeSessionCompletion:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        userId:
+          type: string
+        notes:
+          type: ["string", "null"]
+        completedAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, userId, completedAt]
+
+    PracticeSessionWithCompletion:
+      allOf:
+        - $ref: "#/components/schemas/PracticeSession"
+        - type: object
+          properties:
+            myCompletion:
+              oneOf:
+                - $ref: "#/components/schemas/PracticeSessionCompletion"
+                - type: "null"
+
+    PracticeSessionCompleteResponse:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/PracticeSession"
+        completion:
+          $ref: "#/components/schemas/PracticeSessionCompletion"
+        bothCompleted:
+          type: boolean
+      required: [session, completion, bothCompleted]
 
     PracticeMatchListResponse:
       type: object
