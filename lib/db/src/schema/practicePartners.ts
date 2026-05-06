@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, serial, json, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, serial, json, boolean, jsonb, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -53,3 +53,15 @@ export type PracticePartnership = typeof practicePartnershipsTable.$inferSelect;
 export const insertPracticeSessionSchema = createInsertSchema(practiceSessionsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPracticeSession = z.infer<typeof insertPracticeSessionSchema>;
 export type PracticeSession = typeof practiceSessionsTable.$inferSelect;
+
+export const practiceSessionCompletionsTable = pgTable("practice_session_completions", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => practiceSessionsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  notes: text("notes"),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique().on(t.sessionId, t.userId)]);
+
+export const insertPracticeSessionCompletionSchema = createInsertSchema(practiceSessionCompletionsTable).omit({ id: true, completedAt: true });
+export type InsertPracticeSessionCompletion = z.infer<typeof insertPracticeSessionCompletionSchema>;
+export type PracticeSessionCompletion = typeof practiceSessionCompletionsTable.$inferSelect;

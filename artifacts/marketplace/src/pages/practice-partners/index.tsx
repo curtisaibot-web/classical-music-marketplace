@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useMemo } from "react";
+import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
@@ -10,14 +10,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Music2, Users, Sparkles, Calendar, Video, CheckCircle2, Clock, Send, X } from "lucide-react";
+import { Music2, Users, Sparkles, Calendar, Video, CheckCircle2, Clock, Send, X, Download, RefreshCw, Search } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const API = `${BASE}/api`;
-
 function apiFetch(path: string, opts?: RequestInit) {
-  return fetch(`${API}${path}`, { credentials: "include", ...opts });
+  return fetch(`${BASE}/api${path}`, { credentials: "include", ...opts });
+}
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 const INSTRUMENTS = [
@@ -48,13 +56,22 @@ const SESSION_FORMATS = [
   { value: "either", label: "Either" },
 ];
 
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const TIMES = [
+  "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
+  "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM",
+];
+
+interface AvailabilitySlot { day: string; time: string; }
+
 interface PracticeProfile {
   id: number;
   userId: string;
   instruments: string[];
   skillLevel: string;
   goals: string[];
-  availabilitySlots: Array<{ day: string; time: string }>;
+  availabilitySlots: AvailabilitySlot[];
   sessionFormat: string;
   bio: string | null;
   isActive: boolean;
@@ -63,12 +80,103 @@ interface PracticeProfile {
   matchReason?: string | null;
 }
 
-function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
-  const [instruments, setInstruments] = useState<string[]>([]);
-  const [skillLevel, setSkillLevel] = useState("intermediate");
-  const [goals, setGoals] = useState<string[]>([]);
-  const [sessionFormat, setSessionFormat] = useState("either");
-  const [bio, setBio] = useState("");
+// ── Availability Slot Editor ──────────────────────────────────────────────────
+
+function AvailabilityEditor({
+  slots,
+  onChange,
+}: {
+  slots: AvailabilitySlot[];
+  onChange: (slots: AvailabilitySlot[]) => void;
+}) {
+  const [day, setDay] = useState(DAYS[0]);
+  const [time, setTime] = useState(TIMES[2]);
+
+  function add() {
+    const key = `${day}:${time}`;
+    if (slots.some((s) => `${s.day}:${s.time}` === key)) return;
+    onChange([...slots, { day, time }]);
+  }
+
+  function remove(idx: number) {
+    onChange(slots.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        <Select value={day} onValueChange={setDay}>
+          <SelectTrigger className="w-36 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={time} onValueChange={setTime}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TIMES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={add}>+ Add</Button>
+      </div>
+      {slots.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {slots.map((s, i) => (
+            <span key={i} className="flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+              {s.day} {s.time}
+              <button onClick={() => remove(i)} className="hover:text-destructive ml-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ICS Calendar Download ─────────────────────────────────────────────────────
+
+function makeICS(title: string, start: Date, durationMinutes = 60): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+  const end = new Date(start.getTime() + durationMinutes * 60_000);
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Harmonia//Practice Partner//EN",
+    "BEGIN:VEVENT",
+    `UID:${Date.now()}@harmonia`,
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:${title}`,
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+function downloadICS(title: string, start: Date) {
+  const ics = makeICS(title, start);
+  const blob = new Blob([ics], { type: "text/calendar" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "practice-session.ics";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Profile Setup ─────────────────────────────────────────────────────────────
+
+function ProfileSetupCard({ existing, onSaved }: { existing?: PracticeProfile | null; onSaved: () => void }) {
+  const [instruments, setInstruments] = useState<string[]>(existing?.instruments ?? []);
+  const [skillLevel, setSkillLevel] = useState(existing?.skillLevel ?? "intermediate");
+  const [goals, setGoals] = useState<string[]>(existing?.goals ?? []);
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>(existing?.availabilitySlots ?? []);
+  const [sessionFormat, setSessionFormat] = useState(existing?.sessionFormat ?? "either");
+  const [bio, setBio] = useState(existing?.bio ?? "");
   const [saving, setSaving] = useState(false);
 
   const toggle = <T,>(arr: T[], val: T) =>
@@ -81,7 +189,7 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
       const res = await apiFetch("/practice/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruments, skillLevel, goals, availabilitySlots: [], sessionFormat, bio: bio || null }),
+        body: JSON.stringify({ instruments, skillLevel, goals, availabilitySlots, sessionFormat, bio: bio || null }),
       });
       if (!res.ok) throw new Error("Failed to save profile");
       toast.success("Practice profile saved!");
@@ -96,10 +204,11 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
   return (
     <Card className="max-w-2xl mx-auto border-border shadow-sm">
       <CardHeader>
-        <CardTitle className="font-serif text-xl">Create Your Practice Profile</CardTitle>
+        <CardTitle className="font-serif text-xl">{existing ? "Edit Practice Profile" : "Create Your Practice Profile"}</CardTitle>
         <p className="text-sm text-muted-foreground">Tell us about yourself so we can match you with compatible practice partners.</p>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Instruments */}
         <div>
           <Label className="text-sm font-medium mb-2 block">Instruments <span className="text-destructive">*</span></Label>
           <div className="flex flex-wrap gap-2">
@@ -119,8 +228,9 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
 
+        {/* Skill Level */}
         <div>
-          <Label htmlFor="skill" className="text-sm font-medium mb-2 block">Skill Level</Label>
+          <Label className="text-sm font-medium mb-2 block">Skill Level</Label>
           <div className="flex gap-2 flex-wrap">
             {SKILL_LEVELS.map((s) => (
               <button
@@ -138,6 +248,7 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
 
+        {/* Goals */}
         <div>
           <Label className="text-sm font-medium mb-2 block">Practice Goals</Label>
           <div className="flex flex-wrap gap-2">
@@ -157,6 +268,7 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
 
+        {/* Session Format */}
         <div>
           <Label className="text-sm font-medium mb-2 block">Session Format</Label>
           <div className="flex gap-2">
@@ -177,6 +289,16 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
 
+        {/* Availability */}
+        <div>
+          <Label className="text-sm font-medium mb-2 block">
+            Weekly Availability
+            <span className="text-muted-foreground font-normal ml-1">(helps us find matching windows)</span>
+          </Label>
+          <AvailabilityEditor slots={availabilitySlots} onChange={setAvailabilitySlots} />
+        </div>
+
+        {/* Bio */}
         <div>
           <Label htmlFor="bio" className="text-sm font-medium mb-2 block">Short Bio (optional)</Label>
           <Textarea
@@ -196,6 +318,8 @@ function ProfileSetupCard({ onSaved }: { onSaved: () => void }) {
     </Card>
   );
 }
+
+// ── Partner Card ──────────────────────────────────────────────────────────────
 
 function PartnerCard({
   profile,
@@ -270,9 +394,234 @@ function PartnerCard({
   );
 }
 
+// ── Session Widget ────────────────────────────────────────────────────────────
+
+interface SessionData {
+  id: number;
+  status: string;
+  proposedAt: string;
+  confirmedAt: string | null;
+  joinLink: string | null;
+  proposedById: string;
+  myCompletion?: { notes: string | null; completedAt: string } | null;
+}
+
+function PartnerSessionWidget({
+  partnershipId,
+  partnerId,
+}: {
+  partnershipId: number;
+  partnerId: string;
+}) {
+  const qc = useQueryClient();
+  const { user } = useUser();
+  const [showForm, setShowForm] = useState<"propose" | "counter" | null>(null);
+  const [proposedAt, setProposedAt] = useState("");
+  const [joinLink, setJoinLink] = useState("");
+  const [joinLinkError, setJoinLinkError] = useState("");
+  const [notes, setNotes] = useState("");
+  const [showNotesFor, setShowNotesFor] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data } = useQuery({
+    queryKey: ["practice", "sessions", partnershipId],
+    queryFn: async () => {
+      const res = await apiFetch(`/practice/partnerships/${partnershipId}/sessions`);
+      if (!res.ok) throw new Error();
+      return res.json() as Promise<{ sessions: SessionData[] }>;
+    },
+  });
+
+  const sessions = data?.sessions ?? [];
+  const nextSession = sessions.find((s) => s.status === "proposed" || s.status === "confirmed");
+
+  const validateLink = (v: string) => {
+    if (!v) { setJoinLinkError(""); return true; }
+    if (!isSafeUrl(v)) { setJoinLinkError("Must be a valid https:// or http:// URL"); return false; }
+    setJoinLinkError("");
+    return true;
+  };
+
+  async function proposeSession(isCounter: boolean) {
+    if (!proposedAt) { toast.error("Pick a date and time"); return; }
+    if (joinLink && !validateLink(joinLink)) return;
+    setSubmitting(true);
+    try {
+      const res = await apiFetch(`/practice/partnerships/${partnershipId}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposedAt: new Date(proposedAt).toISOString(), joinLink: joinLink || undefined }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(isCounter ? "Counter-proposal sent!" : "Session proposed!");
+      setShowForm(null);
+      setProposedAt("");
+      setJoinLink("");
+      qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
+    } catch {
+      toast.error("Failed to propose session");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmSession(sessionId: number) {
+    const res = await apiFetch(`/practice/sessions/${sessionId}/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) { toast.error("Failed to confirm"); return; }
+    toast.success("Session confirmed!");
+    qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
+  }
+
+  async function markMyComplete(sessionId: number) {
+    const res = await apiFetch(`/practice/sessions/${sessionId}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: notes || undefined }),
+    });
+    if (!res.ok) { toast.error("Failed to mark complete"); return; }
+    const data = await res.json();
+    toast.success(data.bothCompleted ? "Both partners marked done — session complete!" : "Your completion recorded. Waiting for partner to confirm.");
+    setShowNotesFor(null);
+    setNotes("");
+    qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
+  }
+
+  return (
+    <div className="space-y-2">
+      {nextSession ? (
+        <div className="rounded-md border border-border p-3 bg-muted/30 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{new Date(nextSession.proposedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+            <Badge
+              variant={nextSession.status === "confirmed" ? "default" : "secondary"}
+              className="capitalize ml-auto text-xs"
+            >
+              {nextSession.status === "proposed" && nextSession.proposedById === user?.id ? "Awaiting reply" : nextSession.status}
+            </Badge>
+          </div>
+
+          {/* Join + ICS for confirmed sessions */}
+          {nextSession.status === "confirmed" && (
+            <div className="flex gap-1.5">
+              {nextSession.joinLink && (
+                <a href={nextSession.joinLink} target="_blank" rel="noopener noreferrer" className="flex-1">
+                  <Button size="sm" variant="outline" className="w-full h-7 text-xs">
+                    <Video className="h-3 w-3 mr-1" /> Join Session
+                  </Button>
+                </a>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                title="Add to Calendar"
+                onClick={() => downloadICS("Practice Session – Harmonia", new Date(nextSession.proposedAt))}
+              >
+                <Download className="h-3 w-3 mr-1" /> .ics
+              </Button>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-1.5">
+            {/* Confirm — only the non-proposer can accept */}
+            {nextSession.status === "proposed" && nextSession.proposedById !== user?.id && (
+              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => confirmSession(nextSession.id)}>
+                <CheckCircle2 className="h-3 w-3 mr-1" /> Accept
+              </Button>
+            )}
+
+            {/* Counter-propose — non-proposer can suggest a different time */}
+            {nextSession.status === "proposed" && nextSession.proposedById !== user?.id && (
+              <Button size="sm" variant="ghost" className="flex-1 h-7 text-xs" onClick={() => { setShowForm("counter"); }}>
+                <RefreshCw className="h-3 w-3 mr-1" /> Counter
+              </Button>
+            )}
+
+            {/* Mark done — only shown if user hasn't already marked done */}
+            {nextSession.status === "confirmed" && !nextSession.myCompletion && (
+              showNotesFor === nextSession.id ? null : (
+                <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setShowNotesFor(nextSession.id)}>
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Done
+                </Button>
+              )
+            )}
+
+            {/* Already marked done by me */}
+            {nextSession.myCompletion && nextSession.status === "confirmed" && (
+              <span className="text-xs text-green-600 flex items-center gap-1 flex-1">
+                <CheckCircle2 className="h-3 w-3" /> You marked done
+              </span>
+            )}
+          </div>
+
+          {/* Private notes form for completion */}
+          {showNotesFor === nextSession.id && (
+            <div className="space-y-1.5">
+              <Textarea
+                placeholder="Private notes (only you see these)…"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="text-xs resize-none"
+              />
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => markMyComplete(nextSession.id)}>Save</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowNotesFor(null)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Propose / Counter-propose form */}
+      {showForm ? (
+        <div className="space-y-2 p-2 rounded-md border border-border bg-muted/20">
+          <p className="text-xs font-medium text-foreground">
+            {showForm === "counter" ? "Suggest a different time" : "Propose a session"}
+          </p>
+          <Input
+            type="datetime-local"
+            value={proposedAt}
+            onChange={(e) => setProposedAt(e.target.value)}
+            className="text-xs h-8"
+          />
+          <div>
+            <Input
+              placeholder="Zoom / Meet link (https://…)"
+              value={joinLink}
+              onChange={(e) => { setJoinLink(e.target.value); if (e.target.value) validateLink(e.target.value); else setJoinLinkError(""); }}
+              className="text-xs h-8"
+            />
+            {joinLinkError && <p className="text-xs text-destructive mt-0.5">{joinLinkError}</p>}
+          </div>
+          <div className="flex gap-1.5">
+            <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => proposeSession(showForm === "counter")} disabled={submitting}>
+              {submitting ? "…" : showForm === "counter" ? "Send Counter" : "Propose"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowForm(null)}>Cancel</Button>
+          </div>
+        </div>
+      ) : !nextSession ? (
+        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => setShowForm("propose")}>
+          <Calendar className="h-3 w-3 mr-1" /> Schedule Session
+        </Button>
+      ) : nextSession.status === "proposed" && nextSession.proposedById === user?.id ? (
+        <p className="text-xs text-muted-foreground text-center">Waiting for partner to respond…</p>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Partnerships Section ──────────────────────────────────────────────────────
+
 function PartnershipsSection() {
   const qc = useQueryClient();
-  const [, setLocation] = useLocation();
 
   const { data, isLoading } = useQuery({
     queryKey: ["practice", "partnerships"],
@@ -288,7 +637,7 @@ function PartnershipsSection() {
         matchReason: string | null;
         isRequester: boolean;
         partner: { firstName: string | null; lastName: string | null; profileImageUrl: string | null } | null;
-        partnerProfile: { instruments: string[]; skillLevel: string; sessionFormat: string } | null;
+        partnerProfile: { instruments: string[]; skillLevel: string; sessionFormat: string; userId: string } | null;
       }> }>;
     },
   });
@@ -381,7 +730,10 @@ function PartnershipsSection() {
                       </div>
                       <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">Active</Badge>
                     </div>
-                    <PartnerSessionWidget partnershipId={p.id} />
+                    <PartnerSessionWidget
+                      partnershipId={p.id}
+                      partnerId={p.partnerProfile?.userId ?? ""}
+                    />
                   </CardContent>
                 </Card>
               );
@@ -419,131 +771,16 @@ function PartnershipsSection() {
   );
 }
 
-function PartnerSessionWidget({ partnershipId }: { partnershipId: number }) {
-  const qc = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [proposedAt, setProposedAt] = useState("");
-  const [joinLink, setJoinLink] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const { data } = useQuery({
-    queryKey: ["practice", "sessions", partnershipId],
-    queryFn: async () => {
-      const res = await apiFetch(`/practice/partnerships/${partnershipId}/sessions`);
-      if (!res.ok) throw new Error();
-      return res.json() as Promise<{ sessions: Array<{
-        id: number;
-        status: string;
-        proposedAt: string;
-        confirmedAt: string | null;
-        joinLink: string | null;
-        proposedById: string;
-      }> }>;
-    },
-  });
-
-  const { user } = useUser();
-  const sessions = data?.sessions ?? [];
-  const nextSession = sessions.find((s) => s.status === "proposed" || s.status === "confirmed");
-
-  async function proposeSession() {
-    if (!proposedAt) { toast.error("Pick a date and time"); return; }
-    setSubmitting(true);
-    try {
-      const res = await apiFetch(`/practice/partnerships/${partnershipId}/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposedAt: new Date(proposedAt).toISOString(), joinLink: joinLink || undefined }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success("Session proposed!");
-      setShowForm(false);
-      setProposedAt("");
-      setJoinLink("");
-      qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
-    } catch {
-      toast.error("Failed to propose session");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function confirmSession(sessionId: number) {
-    const res = await apiFetch(`/practice/sessions/${sessionId}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-    if (!res.ok) { toast.error("Failed to confirm"); return; }
-    toast.success("Session confirmed!");
-    qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
-  }
-
-  async function completeSession(sessionId: number) {
-    const res = await apiFetch(`/practice/sessions/${sessionId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-    if (!res.ok) { toast.error("Failed to mark complete"); return; }
-    toast.success("Session marked complete!");
-    qc.invalidateQueries({ queryKey: ["practice", "sessions", partnershipId] });
-  }
-
-  return (
-    <div className="space-y-2">
-      {nextSession ? (
-        <div className="rounded-md border border-border p-3 bg-muted/30 space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{new Date(nextSession.proposedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-            <Badge variant={nextSession.status === "confirmed" ? "default" : "secondary"} className="capitalize ml-auto text-xs">{nextSession.status}</Badge>
-          </div>
-          {nextSession.joinLink && nextSession.status === "confirmed" && (
-            <a href={nextSession.joinLink} target="_blank" rel="noopener noreferrer" className="block">
-              <Button size="sm" variant="outline" className="w-full h-7 text-xs">
-                <Video className="h-3 w-3 mr-1" /> Join Session
-              </Button>
-            </a>
-          )}
-          <div className="flex gap-1.5">
-            {nextSession.status === "proposed" && nextSession.proposedById !== user?.id && (
-              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => confirmSession(nextSession.id)}>
-                <CheckCircle2 className="h-3 w-3 mr-1" /> Confirm
-              </Button>
-            )}
-            {nextSession.status === "confirmed" && (
-              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => completeSession(nextSession.id)}>
-                <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Done
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : showForm ? (
-        <div className="space-y-2">
-          <Input
-            type="datetime-local"
-            value={proposedAt}
-            onChange={(e) => setProposedAt(e.target.value)}
-            className="text-xs h-8"
-          />
-          <Input
-            placeholder="Zoom / Meet link (optional)"
-            value={joinLink}
-            onChange={(e) => setJoinLink(e.target.value)}
-            className="text-xs h-8"
-          />
-          <div className="flex gap-1.5">
-            <Button size="sm" className="flex-1 h-7 text-xs" onClick={proposeSession} disabled={submitting}>
-              {submitting ? "Proposing…" : "Propose"}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowForm(false)}>Cancel</Button>
-          </div>
-        </div>
-      ) : (
-        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => setShowForm(true)}>
-          <Calendar className="h-3 w-3 mr-1" /> Schedule Session
-        </Button>
-      )}
-    </div>
-  );
-}
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PracticePartners() {
   const { isSignedIn } = useUser();
   const qc = useQueryClient();
+  const [editingProfile, setEditingProfile] = useState(false);
+
+  // Filter state
+  const [filterInstrument, setFilterInstrument] = useState("");
+  const [filterFormat, setFilterFormat] = useState<string>("all");
 
   const { data: profileData, isLoading: profileLoading, refetch: refetchProfile } = useQuery({
     queryKey: ["practice", "profile", "me"],
@@ -565,6 +802,19 @@ export default function PracticePartners() {
     },
     enabled: !!isSignedIn && !!profileData,
   });
+
+  // Client-side filtering so filter updates are instant
+  const filteredMatches = useMemo(() => {
+    let m = matchData?.matches ?? [];
+    if (filterInstrument.trim()) {
+      const q = filterInstrument.trim().toLowerCase();
+      m = m.filter((p) => p.instruments.some((i) => i.toLowerCase().includes(q)));
+    }
+    if (filterFormat && filterFormat !== "all") {
+      m = m.filter((p) => p.sessionFormat === filterFormat || p.sessionFormat === "either" || filterFormat === "either");
+    }
+    return m;
+  }, [matchData?.matches, filterInstrument, filterFormat]);
 
   const [requesting, setRequesting] = useState<string | null>(null);
 
@@ -611,10 +861,13 @@ export default function PracticePartners() {
               <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Practice Partner Matching</h1>
               <p className="text-muted-foreground">Find compatible musicians for regular practice sessions based on instrument, skill level, and goals.</p>
             </div>
-            {profileData && (
-              <Badge variant="outline" className="shrink-0 mt-1 gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Profile Active
-              </Badge>
+            {profileData && !editingProfile && (
+              <div className="flex gap-2 shrink-0 mt-1">
+                <Badge variant="outline" className="gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Profile Active
+                </Badge>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingProfile(true)}>Edit Profile</Button>
+              </div>
             )}
           </div>
 
@@ -622,14 +875,22 @@ export default function PracticePartners() {
             <div className="flex justify-center py-16">
               <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
             </div>
-          ) : !profileData ? (
-            <ProfileSetupCard onSaved={() => refetchProfile()} />
+          ) : !profileData || editingProfile ? (
+            <ProfileSetupCard
+              existing={editingProfile ? profileData : null}
+              onSaved={() => {
+                refetchProfile();
+                setEditingProfile(false);
+                qc.invalidateQueries({ queryKey: ["practice", "matches"] });
+              }}
+            />
           ) : (
             <>
               <PartnershipsSection />
 
-              <div className="flex items-center justify-between mb-6 gap-4">
-                <h2 className="text-xl font-serif font-semibold text-foreground">Suggested Partners</h2>
+              {/* Filter bar */}
+              <div className="flex items-center gap-3 mb-6 flex-wrap">
+                <h2 className="text-xl font-serif font-semibold text-foreground mr-auto">Suggested Partners</h2>
                 {matchData?.isPremium && (
                   <div className="flex items-center gap-1.5 text-amber-600 text-sm font-medium">
                     <Sparkles className="h-4 w-4" /> AI Matched
@@ -637,19 +898,46 @@ export default function PracticePartners() {
                 )}
               </div>
 
+              <div className="flex gap-2 mb-6 flex-wrap">
+                <div className="relative flex-1 min-w-40">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Filter by instrument…"
+                    value={filterInstrument}
+                    onChange={(e) => setFilterInstrument(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+                <Select value={filterFormat} onValueChange={setFilterFormat}>
+                  <SelectTrigger className="w-40 h-9 text-sm">
+                    <SelectValue placeholder="Session format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any format</SelectItem>
+                    <SelectItem value="video-call">Video Call</SelectItem>
+                    <SelectItem value="in-person">In Person</SelectItem>
+                    <SelectItem value="either">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {matchLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[1, 2, 3, 4].map((i) => <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />)}
                 </div>
-              ) : (matchData?.matches ?? []).length === 0 ? (
+              ) : filteredMatches.length === 0 ? (
                 <div className="text-center py-16 border border-dashed border-border rounded-xl">
                   <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No matches found yet</h3>
-                  <p className="text-sm text-muted-foreground">As more musicians join, compatible partners will appear here.</p>
+                  <h3 className="text-lg font-medium text-foreground mb-2">No matches found</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {filterInstrument || filterFormat !== "all"
+                      ? "Try adjusting your filters."
+                      : "As more musicians join, compatible partners will appear here."}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {(matchData?.matches ?? []).map((profile) => (
+                  {filteredMatches.map((profile) => (
                     <PartnerCard
                       key={profile.userId}
                       profile={profile}

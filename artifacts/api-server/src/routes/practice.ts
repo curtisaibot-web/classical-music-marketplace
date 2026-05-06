@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, or, ne, desc } from "drizzle-orm";
+import { eq, and, or, ne, desc, count } from "drizzle-orm";
 import {
   db,
   practiceProfilesTable,
   practicePartnershipsTable,
   practiceSessionsTable,
+  practiceSessionCompletionsTable,
   usersTable,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -15,9 +16,18 @@ const router: IRouter = Router();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function computeMatchScore(
-  a: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string },
-  b: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string },
+  a: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string; availabilitySlots: Array<{ day: string; time: string }> },
+  b: { instruments: string[]; skillLevel: string; goals: string[]; sessionFormat: string; availabilitySlots: Array<{ day: string; time: string }> },
 ): { score: number; reason: string } {
   let score = 0;
   const reasons: string[] = [];
@@ -29,12 +39,12 @@ function computeMatchScore(
   }
 
   if (a.skillLevel === b.skillLevel) {
-    score += 30;
+    score += 25;
     reasons.push("same skill level");
   } else {
     const levels = ["beginner", "intermediate", "advanced", "professional"];
     const diff = Math.abs(levels.indexOf(a.skillLevel) - levels.indexOf(b.skillLevel));
-    if (diff === 1) score += 15;
+    if (diff === 1) score += 12;
   }
 
   const sharedGoals = a.goals.filter((g) => b.goals.includes(g));
@@ -43,12 +53,22 @@ function computeMatchScore(
     reasons.push(`shared goals: ${sharedGoals.slice(0, 2).join(", ")}`);
   }
 
+  // Availability overlap
+  const aSlots = new Set(a.availabilitySlots.map((s) => `${s.day}:${s.time}`));
+  const bSlots = new Set(b.availabilitySlots.map((s) => `${s.day}:${s.time}`));
+  const overlap = [...aSlots].filter((s) => bSlots.has(s));
+  if (overlap.length > 0) {
+    score += Math.min(10, overlap.length * 5);
+    const day = overlap[0].split(":")[0];
+    reasons.push(`both available ${day}`);
+  }
+
   const formatsCompatible =
     a.sessionFormat === b.sessionFormat ||
     a.sessionFormat === "either" ||
     b.sessionFormat === "either";
   if (formatsCompatible) {
-    score += 10;
+    score += 5;
   }
 
   return {
@@ -175,7 +195,7 @@ router.get("/practice/matches", requireAuth, async (req, res): Promise<void> => 
     .from(practiceProfilesTable)
     .where(eq(practiceProfilesTable.userId, userId!));
 
-  if (!myRow) { res.json({ matches: [], hasProfile: false }); return; }
+  if (!myRow) { res.json({ matches: [], hasProfile: false, isPremium: isPro }); return; }
 
   const allRows = await db
     .select()
@@ -202,8 +222,8 @@ router.get("/practice/matches", requireAuth, async (req, res): Promise<void> => 
     matches = matches.filter((m) => m.instruments.some((i: string) => i.toLowerCase().includes(lower)));
   }
 
-  if (formatFilter) {
-    matches = matches.filter((m) => m.sessionFormat === formatFilter || m.sessionFormat === "either" || formatFilter === "either");
+  if (formatFilter && formatFilter !== "either") {
+    matches = matches.filter((m) => m.sessionFormat === formatFilter || m.sessionFormat === "either");
   }
 
   matches.sort((a, b) => b.matchScore - a.matchScore);
@@ -377,6 +397,7 @@ router.post("/practice/partnerships/:id/sessions", requireAuth, async (req, res)
   const { proposedAt, joinLink } = req.body as { proposedAt: string; joinLink?: string };
 
   if (!proposedAt) { res.status(400).json({ error: "proposedAt is required" }); return; }
+  if (joinLink && !isSafeUrl(joinLink)) { res.status(400).json({ error: "joinLink must be a valid http or https URL" }); return; }
 
   const [partnership] = await db
     .select()
@@ -390,6 +411,12 @@ router.post("/practice/partnerships/:id/sessions", requireAuth, async (req, res)
     );
 
   if (!partnership) { res.status(404).json({ error: "Active partnership not found" }); return; }
+
+  // Cancel any existing pending proposal before creating a new one (counter-propose)
+  await db
+    .update(practiceSessionsTable)
+    .set({ status: "cancelled" })
+    .where(and(eq(practiceSessionsTable.partnershipId, id), eq(practiceSessionsTable.status, "proposed")));
 
   const [session] = await db
     .insert(practiceSessionsTable)
@@ -409,6 +436,8 @@ router.post("/practice/sessions/:id/confirm", requireAuth, async (req, res): Pro
   const { userId } = getAuth(req);
   const id = Number(req.params.id);
   const { joinLink } = req.body as { joinLink?: string };
+
+  if (joinLink && !isSafeUrl(joinLink)) { res.status(400).json({ error: "joinLink must be a valid http or https URL" }); return; }
 
   const [session] = await db
     .select()
@@ -440,6 +469,8 @@ router.post("/practice/sessions/:id/confirm", requireAuth, async (req, res): Pro
   res.json(updated);
 });
 
+// Per-user completion: each partner marks complete independently and leaves private notes.
+// Once both partners have completed, session status is set to "completed".
 router.post("/practice/sessions/:id/complete", requireAuth, async (req, res): Promise<void> => {
   const { userId } = getAuth(req);
   const id = Number(req.params.id);
@@ -448,7 +479,7 @@ router.post("/practice/sessions/:id/complete", requireAuth, async (req, res): Pr
   const [session] = await db
     .select()
     .from(practiceSessionsTable)
-    .where(and(eq(practiceSessionsTable.id, id), eq(practiceSessionsTable.status, "confirmed")));
+    .where(and(eq(practiceSessionsTable.id, id), or(eq(practiceSessionsTable.status, "confirmed"), eq(practiceSessionsTable.status, "completed"))));
 
   if (!session) { res.status(404).json({ error: "Confirmed session not found" }); return; }
 
@@ -464,13 +495,41 @@ router.post("/practice/sessions/:id/complete", requireAuth, async (req, res): Pr
 
   if (!partnership) { res.status(403).json({ error: "Not part of this partnership" }); return; }
 
-  const [updated] = await db
-    .update(practiceSessionsTable)
-    .set({ status: "completed", completedAt: new Date(), ...(notes ? { notes } : {}) })
-    .where(eq(practiceSessionsTable.id, id))
-    .returning();
+  // Upsert the user's own completion record
+  await db
+    .insert(practiceSessionCompletionsTable)
+    .values({ sessionId: id, userId: userId!, notes: notes ?? null })
+    .onConflictDoUpdate({
+      target: [practiceSessionCompletionsTable.sessionId, practiceSessionCompletionsTable.userId],
+      set: { notes: notes ?? null, completedAt: new Date() },
+    });
 
-  res.json(updated);
+  // Check if both partners have now completed
+  const [countRow] = await db
+    .select({ n: count() })
+    .from(practiceSessionCompletionsTable)
+    .where(eq(practiceSessionCompletionsTable.sessionId, id));
+
+  const completionCount = Number(countRow?.n ?? 0);
+  const bothDone = completionCount >= 2;
+
+  let updatedSession = session;
+  if (bothDone && session.status !== "completed") {
+    const [s] = await db
+      .update(practiceSessionsTable)
+      .set({ status: "completed", completedAt: new Date() })
+      .where(eq(practiceSessionsTable.id, id))
+      .returning();
+    updatedSession = s;
+  }
+
+  // Return session + caller's private completion record
+  const [myCompletion] = await db
+    .select()
+    .from(practiceSessionCompletionsTable)
+    .where(and(eq(practiceSessionCompletionsTable.sessionId, id), eq(practiceSessionCompletionsTable.userId, userId!)));
+
+  res.json({ session: updatedSession, completion: myCompletion, bothCompleted: bothDone });
 });
 
 router.put("/practice/sessions/:id/join-link", requireAuth, async (req, res): Promise<void> => {
@@ -479,6 +538,7 @@ router.put("/practice/sessions/:id/join-link", requireAuth, async (req, res): Pr
   const { joinLink } = req.body as { joinLink: string };
 
   if (!joinLink) { res.status(400).json({ error: "joinLink is required" }); return; }
+  if (!isSafeUrl(joinLink)) { res.status(400).json({ error: "joinLink must be a valid http or https URL" }); return; }
 
   const [session] = await db
     .select()
@@ -530,7 +590,20 @@ router.get("/practice/partnerships/:id/sessions", requireAuth, async (req, res):
     .where(eq(practiceSessionsTable.partnershipId, id))
     .orderBy(desc(practiceSessionsTable.proposedAt));
 
-  res.json({ sessions });
+  // Attach caller's private completion record for each session
+  const myCompletions = await db
+    .select()
+    .from(practiceSessionCompletionsTable)
+    .where(and(
+      or(...sessions.map((s) => eq(practiceSessionCompletionsTable.sessionId, s.id))),
+      eq(practiceSessionCompletionsTable.userId, userId!),
+    ));
+
+  const completionMap = Object.fromEntries(myCompletions.map((c) => [c.sessionId, c]));
+
+  res.json({
+    sessions: sessions.map((s) => ({ ...s, myCompletion: completionMap[s.id] ?? null })),
+  });
 });
 
 export default router;
