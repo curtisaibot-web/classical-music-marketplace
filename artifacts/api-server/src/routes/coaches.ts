@@ -16,7 +16,7 @@ const COACHING_PLATFORM_FEE_RATE = 0.20;
 const router: IRouter = Router();
 
 router.get("/coaches", async (req, res): Promise<void> => {
-  const { specialty, city, limit: limitQ, offset: offsetQ } = req.query as Record<string, string | undefined>;
+  const { specialty, city, q, limit: limitQ, offset: offsetQ } = req.query as Record<string, string | undefined>;
   const limit = Math.min(Number(limitQ) || 20, 50);
   const offset = Number(offsetQ) || 0;
 
@@ -41,6 +41,20 @@ router.get("/coaches", async (req, res): Promise<void> => {
     coaches = coaches.filter((c) =>
       c.specialties.some((s: string) => s.toLowerCase().includes(lower))
     );
+  }
+
+  if (q) {
+    const lower = q.toLowerCase();
+    coaches = coaches.filter((c) => {
+      const name = `${c.user?.firstName ?? ""} ${c.user?.lastName ?? ""}`.toLowerCase();
+      return (
+        name.includes(lower) ||
+        (c.bio ?? "").toLowerCase().includes(lower) ||
+        (c.credentials ?? "").toLowerCase().includes(lower) ||
+        (c.city ?? "").toLowerCase().includes(lower) ||
+        c.specialties.some((s: string) => s.toLowerCase().includes(lower))
+      );
+    });
   }
 
   res.json({ coaches, total: coaches.length });
@@ -254,12 +268,17 @@ router.put("/coaches/me/bookings/:bookingId/meeting-url", requireAuth, async (re
   }
 
   const [booking] = await db
-    .select({ id: bookingsTable.id, teacherId: bookingsTable.teacherId })
+    .select({ id: bookingsTable.id, teacherId: bookingsTable.teacherId, status: bookingsTable.status })
     .from(bookingsTable)
     .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.teacherId, userId), sql`${bookingsTable.type} = 'coaching'`));
 
   if (!booking) {
     res.status(404).json({ error: "Coaching booking not found" });
+    return;
+  }
+
+  if (booking.status !== "confirmed" && booking.status !== "completed") {
+    res.status(400).json({ error: "Meeting URL can only be set for confirmed or completed coaching sessions" });
     return;
   }
 
