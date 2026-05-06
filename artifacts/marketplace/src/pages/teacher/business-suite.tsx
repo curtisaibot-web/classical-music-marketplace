@@ -286,7 +286,7 @@ interface Contract {
   fields: Record<string, string>;
 }
 
-function ContractsTab({ isPro }: { isPro: boolean }) {
+function ContractsTab({ isPro, onViewPlans }: { isPro: boolean; onViewPlans: () => void }) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -354,7 +354,7 @@ function ContractsTab({ isPro }: { isPro: boolean }) {
     }
   };
 
-  if (!isPro) return <ProGate />;
+  if (!isPro) return <ProGate onViewPlans={onViewPlans} />;
 
   const statusColors: Record<string, string> = {
     draft: "bg-gray-100 text-gray-600",
@@ -490,7 +490,7 @@ interface Invoice {
   createdAt: string;
 }
 
-function InvoicesTab({ isPro }: { isPro: boolean }) {
+function InvoicesTab({ isPro, onViewPlans }: { isPro: boolean; onViewPlans: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -576,7 +576,7 @@ function InvoicesTab({ isPro }: { isPro: boolean }) {
     } catch { toast.error("Failed to delete invoice"); }
   };
 
-  if (!isPro) return <ProGate />;
+  if (!isPro) return <ProGate onViewPlans={onViewPlans} />;
 
   const statusColors: Record<string, string> = {
     draft: "bg-gray-100 text-gray-600",
@@ -718,7 +718,7 @@ interface Expense {
   createdAt: string;
 }
 
-function ExpensesTab({ isPro }: { isPro: boolean }) {
+function ExpensesTab({ isPro, onViewPlans }: { isPro: boolean; onViewPlans: () => void }) {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -786,7 +786,7 @@ function ExpensesTab({ isPro }: { isPro: boolean }) {
     } catch { toast.error("Failed to delete expense"); }
   };
 
-  if (!isPro) return <ProGate />;
+  if (!isPro) return <ProGate onViewPlans={onViewPlans} />;
 
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -923,7 +923,7 @@ type CancellationRecord = {
   cancellationFeeCollectedAt: string | null;
 };
 
-function PolicyTab({ isPro }: { isPro: boolean }) {
+function PolicyTab({ isPro, onViewPlans }: { isPro: boolean; onViewPlans: () => void }) {
   const { data: profile, isLoading } = useGetMyTeacherProfile();
   const [hours, setHours] = useState(24);
   const [feePercent, setFeePercent] = useState(50);
@@ -965,7 +965,7 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
     }
   };
 
-  if (!isPro) return <ProGate />;
+  if (!isPro) return <ProGate onViewPlans={onViewPlans} />;
   if (isLoading) return <div className="animate-pulse h-40 bg-muted rounded-xl" />;
 
   return (
@@ -1128,14 +1128,14 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
   );
 }
 
-function ProGate() {
+function ProGate({ onViewPlans }: { onViewPlans?: () => void }) {
   return (
     <Card className="bg-muted/30 border-dashed">
       <CardContent className="p-10 text-center space-y-3">
         <Crown className="h-10 w-10 text-amber-400 mx-auto" />
         <h3 className="font-serif font-semibold">Business Suite Required</h3>
         <p className="text-sm text-muted-foreground">Subscribe to the Business Suite to access this feature.</p>
-        <Button onClick={() => window.location.hash = "subscription"} variant="outline" size="sm">
+        <Button onClick={onViewPlans} variant="outline" size="sm">
           View Plans
         </Button>
       </CardContent>
@@ -1189,10 +1189,10 @@ export default function BusinessSuite() {
 
         <div>
           {tab === "subscription" && <SubscriptionTab />}
-          {tab === "contracts" && <ContractsTab isPro={isPro} />}
-          {tab === "invoices" && <InvoicesTab isPro={isPro} />}
-          {tab === "expenses" && <ExpensesTab isPro={isPro} />}
-          {tab === "policy" && <PolicyTab isPro={isPro} />}
+          {tab === "contracts" && <ContractsTab isPro={isPro} onViewPlans={() => setTab("subscription")} />}
+          {tab === "invoices" && <InvoicesTab isPro={isPro} onViewPlans={() => setTab("subscription")} />}
+          {tab === "expenses" && <ExpensesTab isPro={isPro} onViewPlans={() => setTab("subscription")} />}
+          {tab === "policy" && <PolicyTab isPro={isPro} onViewPlans={() => setTab("subscription")} />}
         </div>
       </main>
       <Footer />

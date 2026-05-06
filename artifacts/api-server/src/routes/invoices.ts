@@ -315,7 +315,6 @@ router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> =
 </table>
 ${invoice.paymentNote ? `<p><strong>Payment Instructions:</strong> ${escapeHtml(invoice.paymentNote)}</p>` : ""}
 ${invoice.notes ? `<p><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</p>` : ""}
-<p>You can also <a href="${escapeHtml(baseUrl)}/api/invoices/${invoice.id}/pdf">download the invoice PDF</a>.</p>
 <p style="color:#999;font-size:12px;">Powered by Harmonia Business Suite</p>`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
   });
