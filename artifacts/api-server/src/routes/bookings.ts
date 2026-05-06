@@ -205,6 +205,32 @@ router.patch("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(GetBookingResponse.parse({ ...booking, teacher: undefined }));
 });
 
+router.patch("/bookings/:id/collect-cancellation-fee", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid booking id" }); return; }
+
+  const [booking] = await db
+    .select()
+    .from(bookingsTable)
+    .where(and(eq(bookingsTable.id, id), eq(bookingsTable.teacherId, userId)));
+
+  if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
+  if (booking.status !== "cancelled") { res.status(400).json({ error: "Booking is not cancelled" }); return; }
+  if (!booking.cancellationFeeOwedInCents || booking.cancellationFeeOwedInCents <= 0) {
+    res.status(400).json({ error: "No cancellation fee owed for this booking" }); return;
+  }
+
+  const [updated] = await db
+    .update(bookingsTable)
+    .set({ cancellationFeeCollected: 1, cancellationFeeCollectedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(bookingsTable.id, id), eq(bookingsTable.teacherId, userId)))
+    .returning();
+
+  res.json({ id: updated.id, cancellationFeeCollected: updated.cancellationFeeCollected, cancellationFeeCollectedAt: updated.cancellationFeeCollectedAt });
+});
+
 router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
@@ -222,6 +248,8 @@ router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<voi
       cancellationPolicyHoursSnapshot: bookingsTable.cancellationPolicyHoursSnapshot,
       cancellationFeePercentSnapshot: bookingsTable.cancellationFeePercentSnapshot,
       cancellationFeeOwedInCents: bookingsTable.cancellationFeeOwedInCents,
+      cancellationFeeCollected: bookingsTable.cancellationFeeCollected,
+      cancellationFeeCollectedAt: bookingsTable.cancellationFeeCollectedAt,
       studentFirstName: usersTable.firstName,
       studentLastName: usersTable.lastName,
       studentEmail: usersTable.email,
@@ -252,6 +280,8 @@ router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<voi
       cancellationPolicyHoursSnapshot: r.cancellationPolicyHoursSnapshot,
       cancellationFeePercentSnapshot: r.cancellationFeePercentSnapshot,
       cancellationFeeOwedInCents: r.cancellationFeeOwedInCents,
+      cancellationFeeCollected: r.cancellationFeeCollected === 1,
+      cancellationFeeCollectedAt: r.cancellationFeeCollectedAt,
     })),
     totalFeeOwedInCents,
     lateCancellationCount: lateCancellations.length,

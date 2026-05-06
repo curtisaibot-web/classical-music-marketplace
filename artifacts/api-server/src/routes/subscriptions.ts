@@ -167,8 +167,24 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
 
   try {
     const stripe = await getUncachableStripeClient();
-    const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId, { expand: ["customer"] });
     const stripeCustomerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+    const customer = typeof sub.customer === "string"
+      ? await stripe.customers.retrieve(stripeCustomerId)
+      : sub.customer;
+
+    if (customer.deleted) {
+      res.status(403).json({ error: "This subscription does not belong to your account" });
+      return;
+    }
+
+    const customerUserId = (customer as import("stripe").default.Customer).metadata?.userId;
+    if (customerUserId !== userId) {
+      logger.warn({ userId, customerUserId, stripeCustomerId }, "Subscription activate: customer metadata userId mismatch — rejecting");
+      res.status(403).json({ error: "This subscription does not belong to your account" });
+      return;
+    }
 
     const [existing] = await db
       .select({ stripeCustomerId: subscriptionsTable.stripeCustomerId })
@@ -176,7 +192,7 @@ router.post("/subscriptions/activate", requireAuth, async (req, res): Promise<vo
       .where(eq(subscriptionsTable.userId, userId));
 
     if (existing?.stripeCustomerId && existing.stripeCustomerId !== stripeCustomerId) {
-      logger.warn({ userId, stripeCustomerId, existingCustomerId: existing.stripeCustomerId }, "Subscription activate: customer mismatch — rejecting");
+      logger.warn({ userId, stripeCustomerId, existingCustomerId: existing.stripeCustomerId }, "Subscription activate: stored customer mismatch — rejecting");
       res.status(403).json({ error: "This subscription does not belong to your account" });
       return;
     }

@@ -919,6 +919,8 @@ type CancellationRecord = {
   cancellationPolicyHoursSnapshot: number | null;
   cancellationFeePercentSnapshot: number | null;
   cancellationFeeOwedInCents: number | null;
+  cancellationFeeCollected: boolean;
+  cancellationFeeCollectedAt: string | null;
 };
 
 function PolicyTab({ isPro }: { isPro: boolean }) {
@@ -1057,10 +1059,16 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
                   return (
                     <div key={c.id} className="px-5 py-4 flex items-start justify-between gap-4">
                       <div className="space-y-0.5 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-sm truncate">{c.studentName}</span>
-                          {isLate && (
-                            <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">Late cancel</Badge>
+                          {isLate && !c.cancellationFeeCollected && (
+                            <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 bg-amber-50">Fee pending</Badge>
+                          )}
+                          {isLate && c.cancellationFeeCollected && (
+                            <Badge variant="outline" className="text-xs border-green-500 text-green-700 bg-green-50">Fee collected</Badge>
+                          )}
+                          {!isLate && (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">No fee</Badge>
                           )}
                         </div>
                         {c.scheduledAt && (
@@ -1073,16 +1081,39 @@ function PolicyTab({ isPro }: { isPro: boolean }) {
                             Cancelled: {format(new Date(c.cancelledAt), "MMM d, yyyy")}
                           </p>
                         )}
+                        {c.cancellationFeeCollectedAt && (
+                          <p className="text-xs text-green-700">
+                            Collected: {format(new Date(c.cancellationFeeCollectedAt), "MMM d, yyyy")}
+                          </p>
+                        )}
                         {c.cancelReason && (
                           <p className="text-xs text-muted-foreground italic">"{c.cancelReason}"</p>
                         )}
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 space-y-1.5">
                         <p className="text-sm font-medium">${(c.priceInCents / 100).toFixed(2)}</p>
-                        {isLate ? (
-                          <p className="text-xs text-amber-700 font-medium">Fee owed: ${(feeOwed / 100).toFixed(2)}</p>
-                        ) : (
-                          <p className="text-xs text-green-700">No fee</p>
+                        {isLate && (
+                          <p className="text-xs text-amber-700 font-medium">Fee: ${(feeOwed / 100).toFixed(2)}</p>
+                        )}
+                        {isLate && !c.cancellationFeeCollected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 border-green-500 text-green-700 hover:bg-green-50"
+                            onClick={async () => {
+                              try {
+                                await apiFetch(`/bookings/${c.id}/collect-cancellation-fee`, { method: "PATCH" });
+                                setCancellations(prev => prev.map(x =>
+                                  x.id === c.id ? { ...x, cancellationFeeCollected: true, cancellationFeeCollectedAt: new Date().toISOString() } : x
+                                ));
+                                toast.success("Fee marked as collected");
+                              } catch (e) {
+                                toast.error((e as Error).message || "Failed to mark fee collected");
+                              }
+                            }}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Mark collected
+                          </Button>
                         )}
                       </div>
                     </div>

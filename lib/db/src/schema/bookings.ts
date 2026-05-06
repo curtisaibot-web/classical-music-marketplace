@@ -42,6 +42,8 @@ export const bookingsTable = pgTable("bookings", {
   cancellationPolicyHoursSnapshot: integer("cancellation_policy_hours_snapshot"),
   cancellationFeePercentSnapshot: integer("cancellation_fee_percent_snapshot"),
   cancellationFeeOwedInCents: integer("cancellation_fee_owed_in_cents"),
+  cancellationFeeCollected: integer("cancellation_fee_collected").notNull().default(0),
+  cancellationFeeCollectedAt: timestamp("cancellation_fee_collected_at", { withTimezone: true }),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelReason: text("cancel_reason"),
   completedAt: timestamp("completed_at", { withTimezone: true }),

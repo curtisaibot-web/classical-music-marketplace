@@ -10,6 +10,7 @@ import {
   ListTeachersQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { isProSubscriber } from "./subscriptions";
 
 async function getProSubscriberIds(userIds: string[]): Promise<Set<string>> {
   if (userIds.length === 0) return new Set();
@@ -189,6 +190,16 @@ router.put("/teachers/me", requireAuth, async (req, res): Promise<void> => {
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
+  }
+
+  // Cancellation policy fields are a Pro-only feature — verify subscription server-side
+  const hasPolicyFields = "cancellationPolicyHours" in parsed.data || "cancellationFeePercent" in parsed.data;
+  if (hasPolicyFields) {
+    const isPro = await isProSubscriber(userId);
+    if (!isPro) {
+      res.status(403).json({ error: "Cancellation policy configuration requires an active Business Suite subscription" });
+      return;
+    }
   }
 
   // profileSlug is managed exclusively via PUT /teachers/me/slug — strip it here
