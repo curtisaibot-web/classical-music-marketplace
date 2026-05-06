@@ -180,9 +180,10 @@ interface SessionRowProps {
   totalSessions: number;
   completedNote: { teacherNote?: string | null; feedbackFileKey?: string | null; completedAt: string } | null;
   onMarkComplete: (note: string, fileKey?: string) => Promise<void>;
+  readOnly?: boolean;
 }
 
-function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete }: SessionRowProps) {
+function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete, readOnly = false }: SessionRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState(completedNote?.teacherNote ?? "");
   const [saving, setSaving] = useState(false);
@@ -256,29 +257,43 @@ function SessionRow({ enrollmentId, sessionNumber, completedNote, onMarkComplete
               className="mt-1 text-sm"
             />
           </div>
-          <div>
-            <Label className="text-xs">Feedback File (PDF or audio — optional)</Label>
-            <div className="mt-1 flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs border border-border rounded px-3 py-1.5 cursor-pointer hover:bg-muted transition-colors">
-                <Upload className="h-3.5 w-3.5" />
-                {selectedFile ? selectedFile.name : (completedNote?.feedbackFileKey ? "Replace file" : "Choose file")}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.mp3,.wav,.m4a,.aac,.ogg"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
-              {(uploadedFileKey || completedNote?.feedbackFileKey) && !selectedFile && (
-                <span className="text-xs text-green-700 flex items-center gap-1">
-                  <Paperclip className="h-3 w-3" /> File attached
-                </span>
-              )}
+          {(completedNote?.feedbackFileKey || !readOnly) && (
+            <div>
+              <Label className="text-xs">Feedback File (PDF or audio — optional)</Label>
+              <div className="mt-1 flex items-center gap-2">
+                {!readOnly && (
+                  <label className="flex items-center gap-1.5 text-xs border border-border rounded px-3 py-1.5 cursor-pointer hover:bg-muted transition-colors">
+                    <Upload className="h-3.5 w-3.5" />
+                    {selectedFile ? selectedFile.name : (completedNote?.feedbackFileKey ? "Replace file" : "Choose file")}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.mp3,.wav,.m4a,.aac,.ogg"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                )}
+                {(uploadedFileKey || completedNote?.feedbackFileKey) && !selectedFile && (
+                  <span className="text-xs text-green-700 flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" /> File attached
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : completedNote ? "Update" : "Mark Complete"}
-          </Button>
+          )}
+          <Textarea
+            rows={3}
+            placeholder="Add notes for the student about this session..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="mt-1 text-sm"
+            disabled={readOnly}
+          />
+          {!readOnly && (
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : completedNote ? "Update" : "Mark Complete"}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -348,6 +363,11 @@ function EnrollmentCard({ enrollment, totalSessions, refetchEnrollments }: {
               />
             </div>
 
+            {enrollment.status === "completed" && (
+              <p className="text-xs text-muted-foreground italic px-1 pb-1">
+                Program completed — session notes are read-only.
+              </p>
+            )}
             {Array.from({ length: totalSessions }, (_, i) => i + 1).map((sessionNum) => (
               <SessionRow
                 key={sessionNum}
@@ -356,6 +376,7 @@ function EnrollmentCard({ enrollment, totalSessions, refetchEnrollments }: {
                 totalSessions={totalSessions}
                 completedNote={completedSet.get(sessionNum) ?? null}
                 onMarkComplete={(note, fileKey) => handleMarkComplete(sessionNum, note, fileKey)}
+                readOnly={enrollment.status === "completed"}
               />
             ))}
           </div>

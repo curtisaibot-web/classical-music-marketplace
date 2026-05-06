@@ -79,7 +79,7 @@ router.get("/audition-programs", async (req, res): Promise<void> => {
   const conditions = [eq(auditionProgramsTable.isActive, true)];
   if (instrument) {
     const { ilike } = await import("drizzle-orm");
-    conditions.push(ilike(auditionProgramsTable.instrument, instrument));
+    conditions.push(ilike(auditionProgramsTable.instrument, `%${instrument}%`));
   }
   if (targetLevel) {
     const { sql } = await import("drizzle-orm");
@@ -726,19 +726,29 @@ router.post("/audition-programs/:id/enrollments", requireAuth, async (req, res):
     return;
   }
 
-  const existingActive = await db
-    .select({ id: programEnrollmentsTable.id })
+  const { or } = await import("drizzle-orm");
+  const [existingEnrollment] = await db
+    .select()
     .from(programEnrollmentsTable)
     .where(
       and(
         eq(programEnrollmentsTable.programId, id),
         eq(programEnrollmentsTable.studentId, userId),
-        eq(programEnrollmentsTable.status, "active"),
+        or(
+          eq(programEnrollmentsTable.status, "active"),
+          eq(programEnrollmentsTable.status, "pending"),
+        ),
       ),
-    );
+    )
+    .limit(1);
 
-  if (existingActive.length > 0) {
-    res.status(400).json({ error: "Already enrolled in this program" });
+  if (existingEnrollment) {
+    if (existingEnrollment.status === "active") {
+      res.status(400).json({ error: "Already enrolled in this program" });
+      return;
+    }
+    // Reuse existing pending enrollment (avoids duplicate checkout sessions)
+    res.status(201).json(existingEnrollment);
     return;
   }
 
