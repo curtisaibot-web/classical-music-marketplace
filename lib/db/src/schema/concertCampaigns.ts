@@ -3,6 +3,7 @@ import { usersTable } from "./users";
 
 export const campaignStatusEnum = pgEnum("campaign_status", [
   "active",
+  "settling",
   "succeeded",
   "failed",
   "cancelled",

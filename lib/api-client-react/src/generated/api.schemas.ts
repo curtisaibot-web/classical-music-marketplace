@@ -1157,6 +1157,7 @@ export type ConcertCampaignStatus =
 
 export const ConcertCampaignStatus = {
   active: "active",
+  settling: "settling",
   succeeded: "succeeded",
   failed: "failed",
   cancelled: "cancelled",
@@ -1186,6 +1187,7 @@ export type CampaignDetailStatus =
 
 export const CampaignDetailStatus = {
   active: "active",
+  settling: "settling",
   succeeded: "succeeded",
   failed: "failed",
   cancelled: "cancelled",
@@ -1216,6 +1218,7 @@ export type MyCampaignItemStatus =
 
 export const MyCampaignItemStatus = {
   active: "active",
+  settling: "settling",
   succeeded: "succeeded",
   failed: "failed",
   cancelled: "cancelled",
