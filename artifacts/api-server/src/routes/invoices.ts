@@ -278,7 +278,7 @@ router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> =
 
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
 
-  const [[updated], [teacherRow]] = await Promise.all([
+  const [[updated], [teacherRow], [teacherProfile]] = await Promise.all([
     db.update(invoicesTable)
       .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
       .where(eq(invoicesTable.id, id))
@@ -286,9 +286,13 @@ router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> =
     db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
       .from(usersTable)
       .where(eq(usersTable.id, userId)),
+    db.select({ profileImageUrl: teacherProfilesTable.profileImageUrl })
+      .from(teacherProfilesTable)
+      .where(eq(teacherProfilesTable.userId, userId)),
   ]);
 
   const teacherName = [teacherRow?.firstName, teacherRow?.lastName].filter(Boolean).join(" ") || "Teacher";
+  const logoUrl = teacherProfile?.profileImageUrl ?? null;
   const baseUrl = process.env.PUBLIC_API_URL ?? process.env.PUBLIC_APP_URL ?? "https://harmonia.app";
   const lineItems = (invoice.lineItems ?? []) as Array<{ description: string; amountInCents: number }>;
   const total = lineItems.length > 0
@@ -297,7 +301,7 @@ router.post("/invoices/:id/send", requireAuth, async (req, res): Promise<void> =
 
   const { sendEmail } = await import("../lib/email");
   const { generateInvoicePdf } = await import("../lib/pdfGenerator");
-  const pdfBuffer = await generateInvoicePdf(invoice, teacherName);
+  const pdfBuffer = await generateInvoicePdf(invoice, teacherName, logoUrl);
 
   const emailResult = await sendEmail({
     to: invoice.clientEmail,
@@ -331,16 +335,18 @@ router.get("/invoices/:id/pdf", requireAuth, async (req, res): Promise<void> => 
     return;
   }
 
-  const [[invoice], [teacherRow]] = await Promise.all([
+  const [[invoice], [teacherRow], [teacherProfile]] = await Promise.all([
     db.select().from(invoicesTable).where(and(eq(invoicesTable.id, id), eq(invoicesTable.teacherId, userId))),
     db.select({ firstName: usersTable.firstName, lastName: usersTable.lastName }).from(usersTable).where(eq(usersTable.id, userId)),
+    db.select({ profileImageUrl: teacherProfilesTable.profileImageUrl }).from(teacherProfilesTable).where(eq(teacherProfilesTable.userId, userId)),
   ]);
 
   if (!invoice) { res.status(404).json({ error: "Invoice not found" }); return; }
 
   const teacherName = [teacherRow?.firstName, teacherRow?.lastName].filter(Boolean).join(" ") || "Teacher";
+  const logoUrl = teacherProfile?.profileImageUrl ?? null;
   const { generateInvoicePdf } = await import("../lib/pdfGenerator");
-  const pdfBuffer = await generateInvoicePdf(invoice, teacherName);
+  const pdfBuffer = await generateInvoicePdf(invoice, teacherName, logoUrl);
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="invoice-${invoice.id}.pdf"`);
   res.end(pdfBuffer);

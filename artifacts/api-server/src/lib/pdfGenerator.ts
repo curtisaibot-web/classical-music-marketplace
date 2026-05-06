@@ -156,12 +156,34 @@ export async function generateContractPdf(
 export async function generateInvoicePdf(
   invoice: typeof invoicesTable.$inferSelect,
   teacherName: string,
+  logoUrl?: string | null,
 ): Promise<Buffer> {
+  let logoBuffer: Buffer | null = null;
+  if (logoUrl) {
+    try {
+      const resp = await fetch(logoUrl);
+      if (resp.ok) {
+        const ab = await resp.arrayBuffer();
+        logoBuffer = Buffer.from(ab);
+      }
+    } catch {
+      // logo fetch failed — proceed without it
+    }
+  }
+
   return pdfBuffer((doc) => {
     const lineItems = (invoice.lineItems ?? []) as Array<{ description: string; amountInCents: number }>;
     const total = lineItems.length > 0
       ? lineItems.reduce((s, i) => s + i.amountInCents, 0)
       : invoice.amountInCents;
+
+    if (logoBuffer) {
+      try {
+        doc.image(logoBuffer, 50, 40, { height: 45, fit: [120, 45] });
+      } catch {
+        // image embed failed — proceed without it
+      }
+    }
 
     doc
       .font("Helvetica-Bold")

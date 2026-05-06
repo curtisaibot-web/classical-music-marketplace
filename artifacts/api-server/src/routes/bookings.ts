@@ -115,6 +115,63 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(GetBookingResponse.parse({ ...booking, teacher: undefined }));
 });
 
+router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const rows = await db
+    .select({
+      id: bookingsTable.id,
+      studentId: bookingsTable.studentId,
+      scheduledAt: bookingsTable.scheduledAt,
+      priceInCents: bookingsTable.priceInCents,
+      currency: bookingsTable.currency,
+      instrument: bookingsTable.instrument,
+      cancelledAt: bookingsTable.cancelledAt,
+      cancelReason: bookingsTable.cancelReason,
+      cancellationPolicyHoursSnapshot: bookingsTable.cancellationPolicyHoursSnapshot,
+      cancellationFeePercentSnapshot: bookingsTable.cancellationFeePercentSnapshot,
+      cancellationFeeOwedInCents: bookingsTable.cancellationFeeOwedInCents,
+      cancellationFeeCollected: bookingsTable.cancellationFeeCollected,
+      cancellationFeeCollectedAt: bookingsTable.cancellationFeeCollectedAt,
+      studentFirstName: usersTable.firstName,
+      studentLastName: usersTable.lastName,
+      studentEmail: usersTable.email,
+    })
+    .from(bookingsTable)
+    .leftJoin(usersTable, eq(bookingsTable.studentId, usersTable.id))
+    .where(and(
+      eq(bookingsTable.teacherId, userId),
+      eq(bookingsTable.status, "cancelled"),
+    ))
+    .orderBy(desc(bookingsTable.cancelledAt))
+    .limit(50);
+
+  const totalFeeOwedInCents = rows.reduce((s, r) => s + (r.cancellationFeeOwedInCents ?? 0), 0);
+  const lateCancellations = rows.filter(r => (r.cancellationFeeOwedInCents ?? 0) > 0);
+
+  res.json({
+    cancellations: rows.map(r => ({
+      id: r.id,
+      studentName: [r.studentFirstName, r.studentLastName].filter(Boolean).join(" ") || r.studentEmail || "Unknown",
+      studentEmail: r.studentEmail,
+      scheduledAt: r.scheduledAt,
+      cancelledAt: r.cancelledAt,
+      cancelReason: r.cancelReason,
+      priceInCents: r.priceInCents,
+      currency: r.currency,
+      instrument: r.instrument,
+      cancellationPolicyHoursSnapshot: r.cancellationPolicyHoursSnapshot,
+      cancellationFeePercentSnapshot: r.cancellationFeePercentSnapshot,
+      cancellationFeeOwedInCents: r.cancellationFeeOwedInCents,
+      cancellationFeeCollected: r.cancellationFeeCollected === 1,
+      cancellationFeeCollectedAt: r.cancellationFeeCollectedAt,
+    })),
+    totalFeeOwedInCents,
+    lateCancellationCount: lateCancellations.length,
+  });
+});
+
 router.get("/bookings/:id", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
@@ -233,63 +290,6 @@ router.patch("/bookings/:id/collect-cancellation-fee", requireAuth, async (req, 
     .returning();
 
   res.json({ id: updated.id, cancellationFeeCollected: updated.cancellationFeeCollected, cancellationFeeCollectedAt: updated.cancellationFeeCollectedAt });
-});
-
-router.get("/bookings/cancellations", requireAuth, async (req, res): Promise<void> => {
-  const auth = getAuth(req);
-  const userId = auth.userId!;
-
-  const rows = await db
-    .select({
-      id: bookingsTable.id,
-      studentId: bookingsTable.studentId,
-      scheduledAt: bookingsTable.scheduledAt,
-      priceInCents: bookingsTable.priceInCents,
-      currency: bookingsTable.currency,
-      instrument: bookingsTable.instrument,
-      cancelledAt: bookingsTable.cancelledAt,
-      cancelReason: bookingsTable.cancelReason,
-      cancellationPolicyHoursSnapshot: bookingsTable.cancellationPolicyHoursSnapshot,
-      cancellationFeePercentSnapshot: bookingsTable.cancellationFeePercentSnapshot,
-      cancellationFeeOwedInCents: bookingsTable.cancellationFeeOwedInCents,
-      cancellationFeeCollected: bookingsTable.cancellationFeeCollected,
-      cancellationFeeCollectedAt: bookingsTable.cancellationFeeCollectedAt,
-      studentFirstName: usersTable.firstName,
-      studentLastName: usersTable.lastName,
-      studentEmail: usersTable.email,
-    })
-    .from(bookingsTable)
-    .leftJoin(usersTable, eq(bookingsTable.studentId, usersTable.id))
-    .where(and(
-      eq(bookingsTable.teacherId, userId),
-      eq(bookingsTable.status, "cancelled"),
-    ))
-    .orderBy(desc(bookingsTable.cancelledAt))
-    .limit(50);
-
-  const totalFeeOwedInCents = rows.reduce((s, r) => s + (r.cancellationFeeOwedInCents ?? 0), 0);
-  const lateCancellations = rows.filter(r => (r.cancellationFeeOwedInCents ?? 0) > 0);
-
-  res.json({
-    cancellations: rows.map(r => ({
-      id: r.id,
-      studentName: [r.studentFirstName, r.studentLastName].filter(Boolean).join(" ") || r.studentEmail || "Unknown",
-      studentEmail: r.studentEmail,
-      scheduledAt: r.scheduledAt,
-      cancelledAt: r.cancelledAt,
-      cancelReason: r.cancelReason,
-      priceInCents: r.priceInCents,
-      currency: r.currency,
-      instrument: r.instrument,
-      cancellationPolicyHoursSnapshot: r.cancellationPolicyHoursSnapshot,
-      cancellationFeePercentSnapshot: r.cancellationFeePercentSnapshot,
-      cancellationFeeOwedInCents: r.cancellationFeeOwedInCents,
-      cancellationFeeCollected: r.cancellationFeeCollected === 1,
-      cancellationFeeCollectedAt: r.cancellationFeeCollectedAt,
-    })),
-    totalFeeOwedInCents,
-    lateCancellationCount: lateCancellations.length,
-  });
 });
 
 export default router;
