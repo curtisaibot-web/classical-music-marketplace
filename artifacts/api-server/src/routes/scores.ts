@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, ilike, count, desc, sum, inArray } from "drizzle-orm";
+import { eq, and, ilike, count, desc, sum, inArray, sql } from "drizzle-orm";
+import { PDFDocument, rgb, StandardFonts, degrees } from "pdf-lib";
 import {
   db,
   scoresTable,
@@ -35,6 +36,45 @@ async function buildSignedUrl(fileKey: string): Promise<string> {
     method: "GET",
     ttlSec: 3600,
   });
+}
+
+async function downloadFromGCS(fileKey: string): Promise<Buffer> {
+  const storageService = new ObjectStorageService();
+  const objectFile = await storageService.getObjectEntityFile(fileKey);
+  const gcsFile = objectFile as unknown as { download(): Promise<[Buffer]> };
+  const [buf] = await gcsFile.download();
+  return buf;
+}
+
+async function buildWatermarkedPreview(pdfBuffer: Buffer, scoretitle: string): Promise<Uint8Array> {
+  const srcDoc = await PDFDocument.load(pdfBuffer);
+  const previewDoc = await PDFDocument.create();
+  const [firstPage] = await previewDoc.copyPages(srcDoc, [0]);
+  previewDoc.addPage(firstPage);
+
+  const page = previewDoc.getPages()[0];
+  const { width, height } = page.getSize();
+  const font = await previewDoc.embedFont(StandardFonts.HelveticaBold);
+  const smallFont = await previewDoc.embedFont(StandardFonts.Helvetica);
+
+  // Diagonal centre watermark
+  page.drawText("HARMONIA MARKETPLACE", {
+    x: width / 2 - 130,
+    y: height / 2,
+    size: 28,
+    font,
+    color: rgb(0.7, 0.7, 0.7),
+    opacity: 0.25,
+    rotate: degrees(45),
+  });
+
+  // Header banner
+  page.drawRectangle({ x: 0, y: height - 22, width, height: 22, color: rgb(0.93, 0.87, 0.75), opacity: 0.9 });
+  page.drawText(`PREVIEW — "${scoretitle}" — Purchase on Harmonia Marketplace`, {
+    x: 8, y: height - 15, size: 8, font: smallFont, color: rgb(0.3, 0.2, 0.1),
+  });
+
+  return previewDoc.save();
 }
 
 // ── GET /scores — public browse ───────────────────────────────────────────────
@@ -188,6 +228,12 @@ router.get("/scores/:id", async (req, res): Promise<void> => {
 
   if (!row) { res.status(404).json({ error: "Score not found" }); return; }
 
+  // Only the composer can view their own inactive scores
+  const requestingUserId = getAuth(req).userId ?? null;
+  if (!row.scores.isActive && row.scores.composerId !== requestingUserId) {
+    res.status(404).json({ error: "Score not found" }); return;
+  }
+
   const licenses = await db
     .select()
     .from(scoreLicensesTable)
@@ -204,24 +250,31 @@ router.get("/scores/:id", async (req, res): Promise<void> => {
   });
 });
 
-// ── GET /scores/:id/preview-url — public signed preview PDF URL ───────────────
-router.get("/scores/:id/preview-url", async (req, res): Promise<void> => {
+// ── GET /scores/:id/preview — public watermarked first-page PDF ───────────────
+// Serves the first page of the preview PDF with a "HARMONIA MARKETPLACE" watermark
+// so buyers can inspect the score without receiving the full unlicensed content.
+router.get("/scores/:id/preview", async (req, res): Promise<void> => {
   const id = paramInt(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid score id" }); return; }
 
   const [score] = await db
-    .select({ previewPdfKey: scoresTable.previewPdfKey, isActive: scoresTable.isActive })
+    .select({ previewPdfKey: scoresTable.previewPdfKey, isActive: scoresTable.isActive, title: scoresTable.title })
     .from(scoresTable)
     .where(eq(scoresTable.id, id));
 
+  // Enforce visibility: only active scores have public previews
   if (!score || !score.isActive) { res.status(404).json({ error: "Score not found" }); return; }
   if (!score.previewPdfKey) { res.status(404).json({ error: "No preview available for this score" }); return; }
 
   try {
-    const url = await buildSignedUrl(score.previewPdfKey);
-    res.json({ url });
-  } catch {
-    res.status(500).json({ error: "Failed to generate preview URL" });
+    const pdfBuffer = await downloadFromGCS(score.previewPdfKey);
+    const watermarked = await buildWatermarkedPreview(pdfBuffer, score.title);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="preview-${id}.pdf"`);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(Buffer.from(watermarked));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to generate preview" });
   }
 });
 
@@ -451,15 +504,17 @@ router.get("/score-licenses/:id/download", requireAuth, async (req, res): Promis
   }
 });
 
-// ── GET /composers/royalties — royalty summary ────────────────────────────────
+// ── GET /composers/royalties — royalty summary with monthly trend ─────────────
 router.get("/composers/royalties", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const userId = getAuth(req).userId!;
 
-  const [totalRow, byLicenseType, recentSales] = await Promise.all([
+  const activeFilter = and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active"));
+
+  const [totalRow, byLicenseType, recentSales, rawMonthly] = await Promise.all([
     db
       .select({ totalCents: sum(purchasedLicensesTable.priceCents), totalSales: count() })
       .from(purchasedLicensesTable)
-      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active"))),
+      .where(activeFilter),
     db
       .select({
         licenseType: purchasedLicensesTable.licenseType,
@@ -467,15 +522,29 @@ router.get("/composers/royalties", requireAuth, requireRole("teacher"), async (r
         count: count(),
       })
       .from(purchasedLicensesTable)
-      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active")))
+      .where(activeFilter)
       .groupBy(purchasedLicensesTable.licenseType),
     db
       .select()
       .from(purchasedLicensesTable)
       .leftJoin(scoresTable, eq(purchasedLicensesTable.scoreId, scoresTable.id))
-      .where(and(eq(purchasedLicensesTable.composerId, userId), eq(purchasedLicensesTable.status, "active")))
+      .where(activeFilter)
       .orderBy(desc(purchasedLicensesTable.paidAt))
       .limit(10),
+    // Monthly trend for the last 6 calendar months
+    db
+      .select({
+        month: sql<string>`TO_CHAR(DATE_TRUNC('month', ${purchasedLicensesTable.paidAt}), 'YYYY-MM')`,
+        totalCents: sum(purchasedLicensesTable.priceCents),
+        count: count(),
+      })
+      .from(purchasedLicensesTable)
+      .where(and(
+        activeFilter,
+        sql`${purchasedLicensesTable.paidAt} >= DATE_TRUNC('month', NOW()) - INTERVAL '5 months'`,
+      ))
+      .groupBy(sql`DATE_TRUNC('month', ${purchasedLicensesTable.paidAt})`)
+      .orderBy(sql`DATE_TRUNC('month', ${purchasedLicensesTable.paidAt})`),
   ]);
 
   res.json({
@@ -483,6 +552,11 @@ router.get("/composers/royalties", requireAuth, requireRole("teacher"), async (r
     totalSales: Number(totalRow[0]?.totalSales ?? 0),
     byLicenseType: byLicenseType.map((r) => ({
       licenseType: r.licenseType,
+      totalCents: Number(r.totalCents ?? 0),
+      count: Number(r.count ?? 0),
+    })),
+    monthlyTrend: rawMonthly.map((r) => ({
+      month: r.month,
       totalCents: Number(r.totalCents ?? 0),
       count: Number(r.count ?? 0),
     })),

@@ -162,11 +162,19 @@ function PreviewModal({ scoreId, apiBase, onClose }: { scoreId: number; apiBase:
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${apiBase}/api/scores/${scoreId}/preview-url`)
-      .then((r) => r.ok ? r.json() : Promise.reject(r))
-      .then((d: { url: string }) => setUrl(d.url))
+    let blobUrl: string | null = null;
+    fetch(`${apiBase}/api/scores/${scoreId}/preview`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Preview not available");
+        return r.blob();
+      })
+      .then((blob) => {
+        blobUrl = URL.createObjectURL(blob);
+        setUrl(blobUrl);
+      })
       .catch(() => setError("Preview not available"))
       .finally(() => setIsLoading(false));
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [scoreId, apiBase]);
 
   return (

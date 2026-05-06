@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageCropModal } from "@/components/ui/image-crop-modal";
-import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon, Zap, Globe } from "lucide-react";
+import { Loader2, Music, Camera, Plus, Trash2, Link as LinkIcon, Zap, Globe, FileText } from "lucide-react";
+import { Link } from "wouter";
 import { toast } from "sonner";
 
 interface UploadState {
@@ -743,6 +744,37 @@ export default function TeacherProfileEdit() {
                 {recordings.length >= 5 && (
                   <p className="text-xs text-muted-foreground">You've reached the maximum of 5 recordings. Remove one to add another.</p>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* ── Composer Section ──────────────────────────────── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-lg flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Composer — Score Marketplace
+                </CardTitle>
+                <CardDescription>
+                  Sell your original compositions with personal, performance, and sync licensing.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  List your original scores on Harmonia's marketplace. Set per-tier prices for private study,
+                  public performance, and commercial sync use. Buyers receive the full score PDF instantly
+                  after purchase — you earn royalties on every license sold.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button asChild>
+                    <Link href="/my-scores">
+                      <Music className="h-4 w-4 mr-2" />
+                      Manage My Scores
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/scores">Browse Score Marketplace</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

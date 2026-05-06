@@ -232,6 +232,7 @@ function ComposerRoyaltyCard() {
     totalRevenueCents: number;
     totalSales: number;
     byLicenseType: Array<{ licenseType: string; totalCents: number; count: number }>;
+    monthlyTrend: Array<{ month: string; totalCents: number; count: number }>;
   } | null>(null);
   const [myScores, setMyScores] = useState<ComposerScore[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -288,6 +289,25 @@ function ComposerRoyaltyCard() {
                 <p className="text-xs text-muted-foreground mt-0.5">Licenses Sold</p>
               </div>
             </div>
+
+            {(royalties?.monthlyTrend ?? []).length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Revenue (6 mo.)</p>
+                <div className="flex items-end gap-1 h-14">
+                  {royalties!.monthlyTrend.map((m) => {
+                    const maxCents = Math.max(...royalties!.monthlyTrend.map((x) => x.totalCents), 1);
+                    const pct = Math.max((m.totalCents / maxCents) * 100, 4);
+                    const label = m.month.slice(5);
+                    return (
+                      <div key={m.month} className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end" title={`${m.month}: $${(m.totalCents / 100).toFixed(0)}`}>
+                        <div className="w-full rounded-sm bg-primary/50 transition-all" style={{ height: `${pct}%` }} />
+                        <p className="text-[9px] text-muted-foreground leading-none">{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {(royalties?.byLicenseType ?? []).length > 0 && (
               <div className="space-y-1.5">
