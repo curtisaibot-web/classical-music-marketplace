@@ -257,6 +257,10 @@ function BookingReelCard() {
     }
     const start = parseClipSeconds(clipStart);
     const end = parseClipSeconds(clipEnd);
+    if (end !== undefined && start === undefined) {
+      toast.error("Please enter a start time when specifying an end time.");
+      return;
+    }
     if (start !== undefined && end !== undefined && end <= start) {
       toast.error("End time must be greater than start time.");
       return;
