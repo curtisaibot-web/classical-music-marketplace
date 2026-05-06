@@ -3255,7 +3255,7 @@ components:
           type: string
         type:
           type: string
-          enum: [digital_product, masterclass_performer, masterclass_observer]
+          enum: [digital_product, masterclass_performer, masterclass_observer, program_enrollment]
         status:
           type: string
           enum: [pending, paid, refunded, failed]

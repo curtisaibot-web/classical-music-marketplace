@@ -171,62 +171,65 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Invalid enrollment_id in session metadata: ${metadata.enrollment_id}`);
     }
 
-    // Atomically claim the pending enrollment — exactly-once guarantee even under duplicate webhooks.
-    // If status is already active/completed this returns no rows and the block is skipped.
-    const [activatedEnrollment] = await db
-      .update(programEnrollmentsTable)
-      .set({
-        status: "active",
-        stripeCheckoutSessionId: session.id,
-        stripePaymentIntentId: paymentIntentId,
-        paidAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.status, "pending")))
-      .returning();
+    // Atomically claim the pending enrollment and create the paid order in a single transaction.
+    // The conditional UPDATE (WHERE status='pending') provides exactly-once idempotency;
+    // wrapping in a transaction ensures enrollment+order are consistent even on partial failure.
+    await db.transaction(async (tx) => {
+      const [activatedEnrollment] = await tx
+        .update(programEnrollmentsTable)
+        .set({
+          status: "active",
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+          paidAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(programEnrollmentsTable.id, enrollmentId), eq(programEnrollmentsTable.status, "pending")))
+        .returning();
 
-    if (!activatedEnrollment) {
-      logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — idempotent skip");
-    } else {
+      if (!activatedEnrollment) {
+        logger.info({ enrollmentId, eventId }, "Enrollment already in non-pending state — idempotent skip");
+        return;
+      }
+
       // Enrollment transitioned for the first time — create the paid order record.
-      const [program] = await db
+      const [program] = await tx
         .select()
         .from(auditionProgramsTable)
         .where(eq(auditionProgramsTable.id, activatedEnrollment.programId));
 
-      let orderId: number | undefined;
-      if (program) {
-        const priceInCents = (session.amount_total != null && session.amount_total > 0)
-          ? session.amount_total
-          : program.priceCents;
-        const platformFee = Math.round(priceInCents * 0.15);
-        const [newOrder] = await db
-          .insert(ordersTable)
-          .values({
-            buyerId: activatedEnrollment.studentId,
-            sellerId: program.teacherId,
-            type: "program_enrollment",
-            status: "paid",
-            priceInCents,
-            platformFeeInCents: platformFee,
-            stripePaymentIntentId: paymentIntentId ?? null,
-            stripeCheckoutSessionId: session.id,
-            paidAt: new Date(),
-          })
-          .returning({ id: ordersTable.id });
-        orderId = newOrder?.id;
+      if (!program) {
+        logger.warn({ enrollmentId, eventId }, "Program not found for enrollment — order not created");
+        return;
       }
 
-      // Link the order back to the enrollment
-      if (orderId) {
-        await db
+      const priceInCents = (session.amount_total != null && session.amount_total > 0)
+        ? session.amount_total
+        : program.priceCents;
+      const platformFee = Math.round(priceInCents * 0.15);
+      const [newOrder] = await tx
+        .insert(ordersTable)
+        .values({
+          buyerId: activatedEnrollment.studentId,
+          sellerId: program.teacherId,
+          type: "program_enrollment",
+          status: "paid",
+          priceInCents,
+          platformFeeInCents: platformFee,
+          stripePaymentIntentId: paymentIntentId ?? null,
+          stripeCheckoutSessionId: session.id,
+          paidAt: new Date(),
+        })
+        .returning({ id: ordersTable.id });
+
+      if (newOrder) {
+        await tx
           .update(programEnrollmentsTable)
-          .set({ orderId })
+          .set({ orderId: newOrder.id })
           .where(eq(programEnrollmentsTable.id, enrollmentId));
+        logger.info({ enrollmentId, orderId: newOrder.id, sessionId: session.id, eventId }, "Program enrollment activated and order created");
       }
-
-      logger.info({ enrollmentId, orderId, sessionId: session.id, eventId }, "Program enrollment activated and order created");
-    }
+    });
   }
 
   if (metadata.type === "campaign_ticket" && metadata.campaign_id) {

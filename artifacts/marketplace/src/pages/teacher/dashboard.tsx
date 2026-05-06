@@ -223,6 +223,7 @@ function AuditionPrepCard() {
   const { data: enrollmentsData } = useListTeacherEnrollments();
 
   const programs = programsData?.programs ?? [];
+  const activePrograms = programs.filter((p) => (p as unknown as { isActive: boolean }).isActive !== false);
   const enrollments = (enrollmentsData?.enrollments ?? []) as Array<{ status: string; sessionsCompleted: number; program?: { sessionCount: number; title: string } | null }>;
   const activeEnrollments = enrollments.filter((e) => e.status === "active");
   const completedEnrollments = enrollments.filter((e) => e.status === "completed");
@@ -238,7 +239,7 @@ function AuditionPrepCard() {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="rounded-lg bg-muted/40 p-3">
-            <p className="text-xl font-bold text-foreground">{programs.length}</p>
+            <p className="text-xl font-bold text-foreground">{activePrograms.length}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Active Programs</p>
           </div>
           <div className="rounded-lg bg-muted/40 p-3">
@@ -276,7 +277,7 @@ function AuditionPrepCard() {
           </p>
         )}
         <Button size="sm" className="w-full" asChild>
-          <Link href="/audition-programs">{programs.length === 0 ? "Create First Program" : "Manage Programs"}</Link>
+          <Link href="/audition-programs">{activePrograms.length === 0 ? "Create First Program" : "Manage Programs"}</Link>
         </Button>
       </CardContent>
     </Card>

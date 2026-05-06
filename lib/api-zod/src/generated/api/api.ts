@@ -1827,6 +1827,7 @@ export const ListOrdersResponse = zod.object({
         "digital_product",
         "masterclass_performer",
         "masterclass_observer",
+        "program_enrollment",
       ]),
       status: zod.enum(["pending", "paid", "refunded", "failed"]),
       digitalProductId: zod.number().nullish(),
@@ -1871,6 +1872,7 @@ export const GetOrderResponse = zod.object({
     "digital_product",
     "masterclass_performer",
     "masterclass_observer",
+    "program_enrollment",
   ]),
   status: zod.enum(["pending", "paid", "refunded", "failed"]),
   digitalProductId: zod.number().nullish(),
@@ -2307,6 +2309,7 @@ export const GetStudentDashboardResponse = zod.object({
         "digital_product",
         "masterclass_performer",
         "masterclass_observer",
+        "program_enrollment",
       ]),
       status: zod.enum(["pending", "paid", "refunded", "failed"]),
       digitalProductId: zod.number().nullish(),
@@ -3384,7 +3387,7 @@ export const CreateAuditionProgramBody = zod.object({
 });
 
 /**
- * @summary Get teacher's own programs with enrollment counts
+ * @summary Get teacher's own active programs
  */
 export const ListMyAuditionProgramsResponse = zod.object({
   programs: zod.array(

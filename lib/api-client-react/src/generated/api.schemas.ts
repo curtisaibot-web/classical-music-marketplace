@@ -546,6 +546,7 @@ export const OrderType = {
   digital_product: "digital_product",
   masterclass_performer: "masterclass_performer",
   masterclass_observer: "masterclass_observer",
+  program_enrollment: "program_enrollment",
 } as const;
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

@@ -7713,7 +7713,7 @@ export const useCreateAuditionProgram = <
 };
 
 /**
- * @summary Get teacher's own programs with enrollment counts
+ * @summary Get teacher's own active programs
  */
 export const getListMyAuditionProgramsUrl = () => {
   return `/api/audition-programs/my-programs`;
@@ -7768,7 +7768,7 @@ export type ListMyAuditionProgramsQueryResult = NonNullable<
 export type ListMyAuditionProgramsQueryError = ErrorType<UnauthorizedResponse>;
 
 /**
- * @summary Get teacher's own programs with enrollment counts
+ * @summary Get teacher's own active programs
  */
 
 export function useListMyAuditionPrograms<
