@@ -442,6 +442,7 @@ export type BookingType = (typeof BookingType)[keyof typeof BookingType];
 export const BookingType = {
   lesson: "lesson",
   event: "event",
+  coaching: "coaching",
 } as const;
 
 export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
@@ -517,6 +518,7 @@ export type CreateBookingBodyType =
 export const CreateBookingBodyType = {
   lesson: "lesson",
   event: "event",
+  coaching: "coaching",
 } as const;
 
 export interface CreateBookingBody {

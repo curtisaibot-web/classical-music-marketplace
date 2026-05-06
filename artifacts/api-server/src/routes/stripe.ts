@@ -8,6 +8,7 @@ import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
 
 const PLATFORM_FEE_RATE = 0.15;
+const COACHING_PLATFORM_FEE_RATE = 0.20;
 
 const router: IRouter = Router();
 
@@ -83,7 +84,7 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
     if (teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
         ...sessionParams.payment_intent_data,
-        application_fee_amount: Math.round(booking.priceInCents * PLATFORM_FEE_RATE),
+        application_fee_amount: Math.round(booking.priceInCents * (booking.type === "coaching" ? COACHING_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE)),
         transfer_data: {
           destination: teacherProfile.stripeAccountId,
         },

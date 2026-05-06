@@ -499,6 +499,32 @@ function CoachingCard() {
           <p className="text-sm text-muted-foreground">No coaching sessions booked yet.</p>
         ) : (
           <div className="space-y-3">
+            {(() => {
+              const paidBookings = bookings.filter(b => b.status === "confirmed" || b.status === "completed");
+              if (paidBookings.length > 0) {
+                const grossCents = paidBookings.reduce((s, b) => s + b.priceInCents, 0);
+                const feeCents = Math.round(grossCents * 0.20);
+                const netCents = grossCents - feeCents;
+                return (
+                  <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs space-y-1">
+                    <p className="font-medium text-foreground">Earnings summary</p>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Gross ({paidBookings.length} session{paidBookings.length !== 1 ? "s" : ""})</span>
+                      <span>${(grossCents / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Platform fee (20%)</span>
+                      <span>−${(feeCents / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1">
+                      <span>Your earnings</span>
+                      <span>${(netCents / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             {bookings.slice(0, 5).map((b) => {
               const studentName = b.student ? `${b.student.firstName ?? ""} ${b.student.lastName ?? ""}`.trim() : "Student";
               const isEditing = (bookingId: number) => editingUrl[bookingId] !== undefined;

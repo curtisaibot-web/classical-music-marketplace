@@ -13,6 +13,7 @@ import {
 import { requireAuth } from "../middlewares/requireAuth";
 
 const PLATFORM_FEE_RATE = 0.15;
+const COACHING_PLATFORM_FEE_RATE = 0.20;
 
 const router: IRouter = Router();
 
@@ -174,7 +175,8 @@ router.post("/bookings", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  const platformFeeInCents = Math.round(priceInCents * PLATFORM_FEE_RATE);
+  const feeRate = parsed.data.type === "coaching" ? COACHING_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
+  const platformFeeInCents = Math.round(priceInCents * feeRate);
 
   const [booking] = await db
     .insert(bookingsTable)

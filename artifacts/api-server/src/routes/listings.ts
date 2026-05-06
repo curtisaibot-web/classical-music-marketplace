@@ -233,7 +233,7 @@ router.post("/listings", requireAuth, requireRole("teacher"), async (req, res): 
 
   const [listing] = await db
     .insert(listingsTable)
-    .values({ ...parsed.data, teacherId: userId })
+    .values({ ...parsed.data, teacherId: userId, priceInCents: parsed.data.priceInCents! })
     .returning();
 
   res.status(201).json(GetListingResponse.parse({ ...listing, teacher: undefined }));

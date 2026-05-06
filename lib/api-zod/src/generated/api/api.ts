@@ -1635,7 +1635,7 @@ export const ListBookingsResponse = zod.object({
       studentId: zod.string(),
       teacherId: zod.string(),
       listingId: zod.number().nullish(),
-      type: zod.enum(["lesson", "event"]),
+      type: zod.enum(["lesson", "event", "coaching"]),
       status: zod.enum([
         "pending",
         "confirmed",
@@ -1748,7 +1748,7 @@ export const ListBookingsResponse = zod.object({
 export const CreateBookingBody = zod.object({
   teacherId: zod.string(),
   listingId: zod.number().optional(),
-  type: zod.enum(["lesson", "event"]),
+  type: zod.enum(["lesson", "event", "coaching"]),
   scheduledAt: zod.coerce.date().optional(),
   durationMinutes: zod.number().optional(),
   notes: zod.string().optional(),
@@ -1770,7 +1770,7 @@ export const GetBookingResponse = zod.object({
   studentId: zod.string(),
   teacherId: zod.string(),
   listingId: zod.number().nullish(),
-  type: zod.enum(["lesson", "event"]),
+  type: zod.enum(["lesson", "event", "coaching"]),
   status: zod.enum([
     "pending",
     "confirmed",
@@ -1893,7 +1893,7 @@ export const UpdateBookingResponse = zod.object({
   studentId: zod.string(),
   teacherId: zod.string(),
   listingId: zod.number().nullish(),
-  type: zod.enum(["lesson", "event"]),
+  type: zod.enum(["lesson", "event", "coaching"]),
   status: zod.enum([
     "pending",
     "confirmed",
@@ -2182,7 +2182,7 @@ export const GetTeacherDashboardResponse = zod.object({
       studentId: zod.string(),
       teacherId: zod.string(),
       listingId: zod.number().nullish(),
-      type: zod.enum(["lesson", "event"]),
+      type: zod.enum(["lesson", "event", "coaching"]),
       status: zod.enum([
         "pending",
         "confirmed",
@@ -2412,7 +2412,7 @@ export const GetStudentDashboardResponse = zod.object({
       studentId: zod.string(),
       teacherId: zod.string(),
       listingId: zod.number().nullish(),
-      type: zod.enum(["lesson", "event"]),
+      type: zod.enum(["lesson", "event", "coaching"]),
       status: zod.enum([
         "pending",
         "confirmed",
