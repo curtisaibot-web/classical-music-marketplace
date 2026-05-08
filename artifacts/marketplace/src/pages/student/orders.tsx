@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useListOrders } from "@workspace/api-client-react";
+import { useListOrders, useCreateOrderCheckout } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock } from "lucide-react";
+import { CreditCard, Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -39,7 +39,34 @@ export default function StudentOrders() {
   const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
   const [usedDownloadIds, setUsedDownloadIds] = useState<Set<number>>(new Set());
   const [downloadingLicenseIds, setDownloadingLicenseIds] = useState<Set<number>>(new Set());
+  const [checkoutingIds, setCheckoutingIds] = useState<Set<number>>(new Set());
   const apiBase = import.meta.env.VITE_API_URL ?? "";
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const createOrderCheckout = useCreateOrderCheckout();
+
+  const handleCompletePayment = (orderId: number) => {
+    setCheckoutingIds((s) => new Set(s).add(orderId));
+    const successUrl = `${window.location.origin}${basePath}/payment/success?type=order&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+    createOrderCheckout.mutate(
+      { data: { orderId, successUrl, cancelUrl } },
+      {
+        onSuccess: (data) => {
+          if (data.checkoutUrl) {
+            window.location.href = data.checkoutUrl;
+          } else {
+            toast.error("No checkout URL returned. Please try again.");
+            setCheckoutingIds((s) => { const next = new Set(s); next.delete(orderId); return next; });
+          }
+        },
+        onError: () => {
+          toast.error("Failed to open payment. Please try again.");
+          setCheckoutingIds((s) => { const next = new Set(s); next.delete(orderId); return next; });
+        },
+      },
+    );
+  };
 
   const { data: licensesData, isLoading: licensesLoading } = useQuery({
     queryKey: ["score-licenses", "purchased"],
@@ -303,7 +330,17 @@ export default function StudentOrders() {
                           <div className="font-bold text-lg text-foreground">
                             ${(order.priceInCents / 100).toFixed(2)}
                           </div>
-                          {isDownloadAvailable(order) ? (
+                          {order.status === "pending" ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleCompletePayment(order.id)}
+                              disabled={checkoutingIds.has(order.id)}
+                              className="gap-1.5"
+                            >
+                              {checkoutingIds.has(order.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+                              Complete Payment
+                            </Button>
+                          ) : isDownloadAvailable(order) ? (
                             <Button
                               size="sm"
                               variant="outline"

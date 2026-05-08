@@ -377,9 +377,13 @@ async function handleCheckoutSessionCompleted(
 }
 
 // ── checkout.session.expired ─────────────────────────────────────────────────
-// When a Stripe session expires without payment (e.g. user abandons checkout),
-// cancel any pending purchased_licenses tied to that session so they don't
-// accumulate as stale rows and block future re-purchase attempts.
+// When a Stripe session expires without payment (e.g. user abandons checkout):
+// - Score licenses: cancel the pending row so the buyer can re-purchase.
+//   (Needed because of the unique-constraint on buyer+score+licenseType — a pending row
+//   blocks a fresh purchase attempt until it is cleaned up.)
+// - Orders and bookings: intentionally left pending. The student can click
+//   "Complete Payment" in their dashboard, which calls the checkout endpoint again
+//   and creates a fresh Stripe session for the same pending record.
 async function handleCheckoutSessionExpired(
   session: Stripe.Checkout.Session,
   eventId: string,

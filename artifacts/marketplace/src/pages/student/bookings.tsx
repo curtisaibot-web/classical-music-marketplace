@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useListBookings, useCreateReview } from "@workspace/api-client-react";
+import { useListBookings, useCreateReview, useCreateBookingCheckout } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Calendar, Clock, MapPin, Music, Star } from "lucide-react";
+import { Calendar, Clock, CreditCard, Loader2, MapPin, Music, Star } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -34,9 +34,36 @@ export default function StudentBookings() {
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [locallySubmittedBookings, setLocallySubmittedBookings] = useState<Set<number>>(new Set());
+  const [checkoutingIds, setCheckoutingIds] = useState<Set<number>>(new Set());
 
   const { data: bookingsData, isLoading } = useListBookings();
   const createReview = useCreateReview();
+  const createBookingCheckout = useCreateBookingCheckout();
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleCompletePayment = (bookingId: number) => {
+    setCheckoutingIds((s) => new Set(s).add(bookingId));
+    const successUrl = `${window.location.origin}${basePath}/payment/success?type=booking&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+    createBookingCheckout.mutate(
+      { data: { bookingId, successUrl, cancelUrl } },
+      {
+        onSuccess: (data) => {
+          if (data.checkoutUrl) {
+            window.location.href = data.checkoutUrl;
+          } else {
+            toast.error("No checkout URL returned. Please try again.");
+            setCheckoutingIds((s) => { const next = new Set(s); next.delete(bookingId); return next; });
+          }
+        },
+        onError: () => {
+          toast.error("Failed to open payment. Please try again.");
+          setCheckoutingIds((s) => { const next = new Set(s); next.delete(bookingId); return next; });
+        },
+      },
+    );
+  };
 
   const getFilteredBookings = () => {
     if (!bookingsData) return [];
@@ -211,6 +238,19 @@ export default function StudentBookings() {
                             ${(booking.priceInCents / 100).toFixed(2)}
                           </span>
                           <div className="flex items-center gap-3">
+                            {booking.status === "pending" && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleCompletePayment(booking.id)}
+                                disabled={checkoutingIds.has(booking.id)}
+                                className="gap-1.5"
+                              >
+                                {checkoutingIds.has(booking.id)
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <CreditCard className="h-3.5 w-3.5" />}
+                                Complete Payment
+                              </Button>
+                            )}
                             {booking.status === "completed" && !booking.hasReview && !locallySubmittedBookings.has(booking.id) && (
                               <Button
                                 size="sm"
