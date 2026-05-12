@@ -729,6 +729,22 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /digital-products/mine/analytics:
+    get:
+      operationId: getMyDigitalProductAnalytics
+      tags: [digital-products]
+      summary: Get sales analytics for the authenticated teacher's digital products
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Digital product sales analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigitalProductAnalytics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /digital-products/{id}:
     get:
       operationId: getDigitalProduct
@@ -4277,6 +4293,40 @@ components:
         total:
           type: integer
       required: [products, total]
+
+    DigitalProductAnalyticsProduct:
+      type: object
+      properties:
+        productId:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        downloadCount:
+          type: integer
+        salesCount:
+          type: integer
+        totalRevenueCents:
+          type: integer
+      required: [productId, title, category, downloadCount, salesCount, totalRevenueCents]
+
+    DigitalProductAnalytics:
+      type: object
+      properties:
+        totalRevenueCents:
+          type: integer
+        totalSalesCount:
+          type: integer
+        totalDownloadCount:
+          type: integer
+        totalProductCount:
+          type: integer
+        byProduct:
+          type: array
+          items:
+            $ref: "#/components/schemas/DigitalProductAnalyticsProduct"
+      required: [totalRevenueCents, totalSalesCount, totalDownloadCount, totalProductCount, byProduct]
 
     CreateDigitalProductBody:
       type: object

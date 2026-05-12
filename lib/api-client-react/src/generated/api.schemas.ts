@@ -470,6 +470,23 @@ export interface DigitalProductListResponse {
   total: number;
 }
 
+export interface DigitalProductAnalyticsProduct {
+  productId: number;
+  title: string;
+  category: string;
+  downloadCount: number;
+  salesCount: number;
+  totalRevenueCents: number;
+}
+
+export interface DigitalProductAnalytics {
+  totalRevenueCents: number;
+  totalSalesCount: number;
+  totalDownloadCount: number;
+  totalProductCount: number;
+  byProduct: DigitalProductAnalyticsProduct[];
+}
+
 export interface CreateDigitalProductBody {
   title: string;
   description?: string;

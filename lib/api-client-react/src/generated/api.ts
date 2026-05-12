@@ -69,6 +69,7 @@ import type {
   DashboardUrlResponse,
   DeclinePracticeRequest200,
   DigitalProduct,
+  DigitalProductAnalytics,
   DigitalProductListResponse,
   DownloadRedirectResponse,
   DownloadScoreLicense200,
@@ -2451,6 +2452,87 @@ export const useCreateDigitalProduct = <
 > => {
   return useMutation(getCreateDigitalProductMutationOptions(options));
 };
+
+/**
+ * @summary Get sales analytics for the authenticated teacher's digital products
+ */
+export const getGetMyDigitalProductAnalyticsUrl = () => {
+  return `/api/digital-products/mine/analytics`;
+};
+
+export const getMyDigitalProductAnalytics = async (
+  options?: RequestInit,
+): Promise<DigitalProductAnalytics> => {
+  return customFetch<DigitalProductAnalytics>(
+    getGetMyDigitalProductAnalyticsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMyDigitalProductAnalyticsQueryKey = () => {
+  return [`/api/digital-products/mine/analytics`] as const;
+};
+
+export const getGetMyDigitalProductAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyDigitalProductAnalyticsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>
+  > = ({ signal }) =>
+    getMyDigitalProductAnalytics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyDigitalProductAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>
+>;
+export type GetMyDigitalProductAnalyticsQueryError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get sales analytics for the authenticated teacher's digital products
+ */
+
+export function useGetMyDigitalProductAnalytics<
+  TData = Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyDigitalProductAnalytics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyDigitalProductAnalyticsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a digital product

@@ -116,21 +116,23 @@ router.get("/digital-products/mine/analytics", requireAuth, requireRole("teacher
       .where(eq(digitalProductsTable.teacherId, userId)),
   ]);
 
-  const productMap = new Map(products.map((p) => [p.id, p]));
+  const ordersByProductId = new Map(
+    orderRows
+      .filter((r) => r.productId != null)
+      .map((r) => [r.productId!, r]),
+  );
 
-  const byProduct = orderRows
-    .filter((r) => r.productId != null)
-    .map((r) => {
-      const product = productMap.get(r.productId!);
-      return {
-        productId: r.productId!,
-        title: product?.title ?? "Unknown",
-        category: product?.category ?? "other",
-        downloadCount: product?.downloadCount ?? 0,
-        salesCount: Number(r.salesCount),
-        totalRevenueCents: Number(r.totalRevenueCents ?? 0),
-      };
-    });
+  const byProduct = products.map((p) => {
+    const order = ordersByProductId.get(p.id);
+    return {
+      productId: p.id,
+      title: p.title,
+      category: p.category,
+      downloadCount: p.downloadCount,
+      salesCount: order ? Number(order.salesCount) : 0,
+      totalRevenueCents: order ? Number(order.totalRevenueCents ?? 0) : 0,
+    };
+  });
 
   const totalRevenueCents = byProduct.reduce((s, p) => s + p.totalRevenueCents, 0);
   const totalSalesCount = byProduct.reduce((s, p) => s + p.salesCount, 0);

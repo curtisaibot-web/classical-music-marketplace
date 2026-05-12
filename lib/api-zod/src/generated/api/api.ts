@@ -1470,6 +1470,26 @@ export const CreateDigitalProductBody = zod.object({
 });
 
 /**
+ * @summary Get sales analytics for the authenticated teacher's digital products
+ */
+export const GetMyDigitalProductAnalyticsResponse = zod.object({
+  totalRevenueCents: zod.number(),
+  totalSalesCount: zod.number(),
+  totalDownloadCount: zod.number(),
+  totalProductCount: zod.number(),
+  byProduct: zod.array(
+    zod.object({
+      productId: zod.number(),
+      title: zod.string(),
+      category: zod.string(),
+      downloadCount: zod.number(),
+      salesCount: zod.number(),
+      totalRevenueCents: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a digital product
  */
 export const GetDigitalProductParams = zod.object({
