@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, count, ilike } from "drizzle-orm";
-import { db, digitalProductsTable, listingsTable, teacherProfilesTable, usersTable } from "@workspace/db";
+import { eq, and, count, ilike, sql } from "drizzle-orm";
+import { db, digitalProductsTable, listingsTable, teacherProfilesTable, usersTable, ordersTable } from "@workspace/db";
 import {
   GetDigitalProductResponse,
   ListDigitalProductsResponse,
@@ -83,6 +83,62 @@ function validateFileKeyOwnership(fileKey: string | null | undefined, teacherId:
   const prefix = `/objects/uploads/${teacherId}/`;
   return fileKey.startsWith(prefix);
 }
+
+router.get("/digital-products/mine/analytics", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+
+  const [orderRows, products] = await Promise.all([
+    db
+      .select({
+        productId: ordersTable.digitalProductId,
+        salesCount: count(ordersTable.id),
+        totalRevenueCents: sql<number>`coalesce(sum(${ordersTable.priceInCents} - ${ordersTable.platformFeeInCents}), 0)`,
+      })
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.sellerId, userId),
+          eq(ordersTable.status, "paid"),
+          eq(ordersTable.type, "digital_product"),
+        ),
+      )
+      .groupBy(ordersTable.digitalProductId),
+    db
+      .select({
+        id: digitalProductsTable.id,
+        title: digitalProductsTable.title,
+        category: digitalProductsTable.category,
+        downloadCount: digitalProductsTable.downloadCount,
+        priceInCents: digitalProductsTable.priceInCents,
+      })
+      .from(digitalProductsTable)
+      .where(eq(digitalProductsTable.teacherId, userId)),
+  ]);
+
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  const byProduct = orderRows
+    .filter((r) => r.productId != null)
+    .map((r) => {
+      const product = productMap.get(r.productId!);
+      return {
+        productId: r.productId!,
+        title: product?.title ?? "Unknown",
+        category: product?.category ?? "other",
+        downloadCount: product?.downloadCount ?? 0,
+        salesCount: Number(r.salesCount),
+        totalRevenueCents: Number(r.totalRevenueCents ?? 0),
+      };
+    });
+
+  const totalRevenueCents = byProduct.reduce((s, p) => s + p.totalRevenueCents, 0);
+  const totalSalesCount = byProduct.reduce((s, p) => s + p.salesCount, 0);
+  const totalDownloadCount = products.reduce((s, p) => s + p.downloadCount, 0);
+  const totalProductCount = products.length;
+
+  res.json({ totalRevenueCents, totalSalesCount, totalDownloadCount, totalProductCount, byProduct });
+});
 
 router.post("/digital-products", requireAuth, requireRole("teacher"), async (req, res): Promise<void> => {
   const auth = getAuth(req);

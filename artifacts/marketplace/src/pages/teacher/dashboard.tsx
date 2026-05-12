@@ -7,7 +7,7 @@ import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -428,6 +428,127 @@ function BookingReelCard() {
               <li key={i}>{tip}</li>
             ))}
           </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface DigitalProductAnalyticsProduct {
+  productId: number;
+  title: string;
+  category: string;
+  downloadCount: number;
+  salesCount: number;
+  totalRevenueCents: number;
+}
+
+interface DigitalProductAnalytics {
+  totalRevenueCents: number;
+  totalSalesCount: number;
+  totalDownloadCount: number;
+  totalProductCount: number;
+  byProduct: DigitalProductAnalyticsProduct[];
+}
+
+function DigitalProductRevenueCard() {
+  const [analytics, setAnalytics] = useState<DigitalProductAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const apiBase = import.meta.env.VITE_API_URL ?? "";
+
+  useEffect(() => {
+    if (hasLoaded) return;
+    setIsLoading(true);
+    fetch(`${apiBase}/api/digital-products/mine/analytics`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setAnalytics(data as DigitalProductAnalytics); })
+      .catch(() => null)
+      .finally(() => { setIsLoading(false); setHasLoaded(true); });
+  }, [apiBase, hasLoaded]);
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    sheet_music: "Sheet Music",
+    lesson_plan: "Lesson Plan",
+    backing_track: "Backing Track",
+    arrangement: "Arrangement",
+    other: "Other",
+  };
+
+  const topProducts = (analytics?.byProduct ?? [])
+    .sort((a, b) => b.totalRevenueCents - a.totalRevenueCents)
+    .slice(0, 5);
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="font-serif text-lg flex items-center gap-2">
+          <ShoppingBag className="h-4 w-4 text-primary" />
+          Digital Product Sales
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+          <Link href="/digital-products">Manage</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="animate-pulse space-y-2">
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-8 bg-muted rounded" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xl font-bold text-foreground">${((analytics?.totalRevenueCents ?? 0) / 100).toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Total Revenue</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xl font-bold text-foreground">{analytics?.totalSalesCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Sales</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <div className="flex items-center gap-1.5">
+                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-xl font-bold text-foreground">{analytics?.totalDownloadCount ?? 0}</p>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Downloads</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xl font-bold text-foreground">{analytics?.totalProductCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Products</p>
+              </div>
+            </div>
+
+            {topProducts.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Top Products</p>
+                {topProducts.map((p) => (
+                  <div key={p.productId} className="flex justify-between text-sm items-center gap-2">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-foreground truncate font-medium">{p.title}</span>
+                      <span className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[p.category] ?? p.category}</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-medium text-foreground">${(p.totalRevenueCents / 100).toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground ml-1.5">{p.salesCount} sold · {p.downloadCount} dl</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Upload sheet music, lesson plans, and backing tracks to start earning passive income.
+              </p>
+            )}
+
+            <Button size="sm" className="w-full" asChild>
+              <Link href="/digital-products">{(analytics?.totalProductCount ?? 0) === 0 ? "Upload Your First Product" : "Manage Products"}</Link>
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>
@@ -1225,6 +1346,8 @@ export default function TeacherDashboard() {
             </Card>
 
             <AuditionPrepCard />
+
+            <DigitalProductRevenueCard />
 
             <ComposerRoyaltyCard />
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useGetMe,
   useUpdateDigitalProduct,
@@ -286,6 +286,13 @@ interface DigitalProduct {
   createdAt: string | Date;
 }
 
+interface ProductAnalytics {
+  productId: number;
+  salesCount: number;
+  totalRevenueCents: number;
+  downloadCount: number;
+}
+
 export default function TeacherDigitalProducts() {
   const { data: user } = useGetMe();
   const queryClient = useQueryClient();
@@ -305,6 +312,21 @@ export default function TeacherDigitalProducts() {
     },
     enabled: !!user?.id,
   });
+
+  const [analyticsMap, setAnalyticsMap] = useState<Map<number, ProductAnalytics>>(new Map());
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${apiBase}/api/digital-products/mine/analytics`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.byProduct) return;
+        const map = new Map<number, ProductAnalytics>(
+          (data.byProduct as ProductAnalytics[]).map((p) => [p.productId, p]),
+        );
+        setAnalyticsMap(map);
+      })
+      .catch(() => null);
+  }, [apiBase, user?.id]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<DigitalProduct | null>(null);
@@ -441,6 +463,15 @@ export default function TeacherDigitalProducts() {
                             <Download className="h-3.5 w-3.5" />
                             {product.downloadCount} downloads
                           </span>
+                          {(() => {
+                            const a = analyticsMap.get(product.id);
+                            if (!a || a.salesCount === 0) return null;
+                            return (
+                              <span className="flex items-center gap-1 text-green-700 font-medium">
+                                {a.salesCount} {a.salesCount === 1 ? "sale" : "sales"} · ${(a.totalRevenueCents / 100).toFixed(2)} earned
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="font-bold text-foreground text-base">
                           ${(product.priceInCents / 100).toFixed(2)}
