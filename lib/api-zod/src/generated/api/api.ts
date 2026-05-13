@@ -1367,6 +1367,10 @@ export const listDigitalProductsQueryLimitDefault = 20;
 export const listDigitalProductsQueryOffsetDefault = 0;
 
 export const ListDigitalProductsQueryParams = zod.object({
+  q: zod.coerce
+    .string()
+    .optional()
+    .describe("Free-text search across title and instrument"),
   category: zod.coerce.string().optional(),
   instrument: zod.coerce.string().optional(),
   limit: zod.coerce.number().default(listDigitalProductsQueryLimitDefault),

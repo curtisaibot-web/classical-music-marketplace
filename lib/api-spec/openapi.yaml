@@ -680,6 +680,11 @@ paths:
       tags: [digital-products]
       summary: Browse digital products
       parameters:
+        - name: q
+          in: query
+          description: Free-text search across title and instrument
+          schema:
+            type: string
         - name: category
           in: query
           schema:

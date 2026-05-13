@@ -2188,6 +2188,10 @@ export type ListMasterclassesParams = {
 };
 
 export type ListDigitalProductsParams = {
+  /**
+   * Free-text search across title and instrument
+   */
+  q?: string;
   category?: string;
   instrument?: string;
   limit?: number;

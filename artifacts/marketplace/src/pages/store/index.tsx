@@ -1,53 +1,122 @@
-import { useState, useEffect } from "react";
-import { Link } from "wouter";
-import { useListDigitalProducts } from "@workspace/api-client-react";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Search, Download, X, AlertCircle } from "lucide-react";
+import { BookOpen, Music, FileText, Search, Download, X, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { useUser } from "@clerk/react";
+import { useCreateOrder, useCreateOrderCheckout, useListDigitalProducts } from "@workspace/api-client-react";
+import { toast } from "sonner";
+import { useDebounce } from "@/hooks/use-debounce";
 
-const CATEGORIES = ["sheet_music", "lesson_plan", "exercise", "theory", "recording", "other"];
+const CATEGORIES = ["sheet_music", "lesson_plan", "backing_track", "arrangement", "other"];
 const CATEGORY_LABELS: Record<string, string> = {
   sheet_music: "Sheet Music",
   lesson_plan: "Lesson Plans",
-  exercise: "Exercises",
-  theory: "Music Theory",
-  recording: "Recordings",
+  backing_track: "Backing Tracks",
+  arrangement: "Arrangements",
   other: "Other",
 };
 
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case "backing_track": return <Music className="h-10 w-10 text-primary opacity-40" />;
+    case "sheet_music":
+    case "arrangement": return <FileText className="h-10 w-10 text-primary opacity-40" />;
+    default: return <BookOpen className="h-10 w-10 text-primary opacity-40" />;
+  }
+};
+
+interface StoreProduct {
+  id: number;
+  title: string;
+  category: string;
+  instrument?: string | null;
+  difficulty?: string | null;
+  priceInCents: number;
+  downloadCount: number;
+  previewUrl?: string | null;
+  teacher?: {
+    user?: { firstName?: string | null; lastName?: string | null } | null;
+    profileImageUrl?: string | null;
+  } | null;
+}
+
 export default function Store() {
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
+  const [checkoutingId, setCheckoutingId] = useState<number | null>(null);
+
+  const debouncedSearch = useDebounce(search, 400);
 
   usePageMeta({
     title: "Digital Store",
-    description: "Premium sheet music, lesson plans, exercises, and recordings from master classical music instructors.",
+    description: "Premium sheet music, lesson plans, backing tracks, and arrangements from master classical music instructors.",
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 500);
-    return () => clearTimeout(timer);
-  }, [search]);
+  const { user, isLoaded } = useUser();
+  const [, navigate] = useLocation();
+  const createOrder = useCreateOrder();
+  const createCheckout = useCreateOrderCheckout();
 
   const { data, isLoading, isError, refetch } = useListDigitalProducts({
-    instrument: debouncedSearch || undefined,
+    q: debouncedSearch || undefined,
     category: activeCategory || undefined,
-    limit: 20,
-  });
+    limit: 40,
+  } as Parameters<typeof useListDigitalProducts>[0]);
 
   const hasActiveFilters = search || activeCategory;
 
   const clearFilters = () => {
     setSearch("");
-    setDebouncedSearch("");
     setActiveCategory("");
+  };
+
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleBuy = (e: React.MouseEvent, product: StoreProduct) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isLoaded || !user) {
+      toast.error("Please sign in to purchase.");
+      navigate("/sign-in");
+      return;
+    }
+
+    if (checkoutingId === product.id) return;
+    setCheckoutingId(product.id);
+
+    createOrder.mutate(
+      { data: { type: "digital_product", digitalProductId: product.id } },
+      {
+        onSuccess: (order) => {
+          const successUrl = `${window.location.origin}${basePath}/payment/success?type=order&session_id={CHECKOUT_SESSION_ID}`;
+          const cancelUrl = `${window.location.origin}${basePath}/payment/cancel`;
+          createCheckout.mutate(
+            { data: { orderId: order.id, successUrl, cancelUrl } },
+            {
+              onSuccess: (data) => {
+                if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+              },
+              onError: () => {
+                toast.error("Failed to open payment. Please try again.");
+                setCheckoutingId(null);
+              },
+            },
+          );
+        },
+        onError: () => {
+          toast.error("Failed to initiate purchase. Please try again.");
+          setCheckoutingId(null);
+        },
+      },
+    );
   };
 
   return (
@@ -58,14 +127,14 @@ export default function Store() {
         <div className="container mx-auto px-4">
           <h1 className="text-4xl font-serif font-bold text-foreground mb-2">Digital Store</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mb-8">
-            Premium sheet music, exercises, and lesson plans crafted by our master instructors.
+            Premium sheet music, backing tracks, and lesson plans crafted by our master instructors.
           </p>
 
           <div className="flex flex-col gap-4 max-w-2xl">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by instrument (e.g. Piano, Violin)..."
+                placeholder="Search by title or instrument (e.g. Piano Sonata, Violin)..."
                 className="pl-10 bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -150,9 +219,9 @@ export default function Store() {
               {data.total} {data.total === 1 ? "product" : "products"} found
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {data.products.map((product) => {
-                const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-                const imgSrc = resolveImageUrl(product.previewUrl, basePath);
+              {(data.products as StoreProduct[]).map((product) => {
+                const imgSrc = resolveImageUrl(product.previewUrl ?? null, basePath);
+                const isBuying = checkoutingId === product.id;
                 return (
                   <Link key={product.id} href={`/store/${product.id}`}>
                     <Card className="h-full hover-elevate transition-all border-border flex flex-col cursor-pointer group overflow-hidden">
@@ -165,7 +234,7 @@ export default function Store() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <BookOpen className="h-12 w-12 text-primary opacity-40 group-hover:scale-110 transition-transform" />
+                            {getCategoryIcon(product.category)}
                           </div>
                         )}
                         <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs text-white/90 bg-black/50 px-2 py-1 rounded backdrop-blur-sm">
@@ -175,7 +244,7 @@ export default function Store() {
                       </div>
                       <CardContent className="p-5 flex flex-col flex-1">
                         <div className="flex justify-between items-start mb-2 gap-2">
-                          <Badge variant="outline" className="font-normal text-xs">
+                          <Badge variant="outline" className="font-normal text-xs shrink-0">
                             {CATEGORY_LABELS[product.category] ?? product.category}
                           </Badge>
                           <span className="font-semibold text-foreground shrink-0">
@@ -183,12 +252,31 @@ export default function Store() {
                           </span>
                         </div>
                         <h3 className="font-medium text-foreground mb-1 line-clamp-2">{product.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
+                        <p className="text-sm text-muted-foreground mb-3">
                           by {product.teacher?.user?.firstName} {product.teacher?.user?.lastName}
                         </p>
-                        <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{product.instrument || "General"}</span>
-                          {product.difficulty && <span className="capitalize">{product.difficulty}</span>}
+                        {product.instrument && (
+                          <p className="text-xs text-muted-foreground mb-3">{product.instrument}{product.difficulty ? ` · ${product.difficulty}` : ""}</p>
+                        )}
+                        <div className="mt-auto">
+                          <Button
+                            size="sm"
+                            className="w-full gap-1.5"
+                            onClick={(e) => handleBuy(e, product)}
+                            disabled={isBuying}
+                          >
+                            {isBuying ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Opening checkout…
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Buy · ${(product.priceInCents / 100).toFixed(2)}
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>

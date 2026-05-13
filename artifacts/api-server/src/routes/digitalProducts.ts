@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, count, ilike, sql } from "drizzle-orm";
+import { eq, and, count, ilike, sql, or } from "drizzle-orm";
 import { db, digitalProductsTable, listingsTable, teacherProfilesTable, usersTable, ordersTable } from "@workspace/db";
 import {
   GetDigitalProductResponse,
@@ -20,10 +20,12 @@ router.get("/digital-products", async (req, res): Promise<void> => {
   const offset = params.success ? (params.data.offset ?? 0) : 0;
   const category = params.success ? params.data.category : undefined;
   const instrument = params.success ? params.data.instrument : undefined;
+  const q = typeof req.query.q === "string" && req.query.q.trim() ? req.query.q.trim() : undefined;
 
   const conditions = [eq(digitalProductsTable.isPublished, true)];
   if (category) conditions.push(eq(digitalProductsTable.category, category));
   if (instrument) conditions.push(ilike(digitalProductsTable.instrument, instrument));
+  if (q) conditions.push(or(ilike(digitalProductsTable.title, `%${q}%`), ilike(digitalProductsTable.instrument, `%${q}%`))!);
 
   const where = and(...conditions);
 
