@@ -1248,10 +1248,18 @@ paths:
                 $ref: "#/components/schemas/EnhancementDownloadUrlResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           description: Enhancement not yet complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "410":
+          description: Enhanced file has expired (30-day limit)
           content:
             application/json:
               schema:

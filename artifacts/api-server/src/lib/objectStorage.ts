@@ -251,6 +251,26 @@ export class ObjectStorageService {
   }
 
   /**
+   * Check whether a file key exists in object storage.
+   * Returns false on any error (e.g. storage not configured) rather than throwing.
+   */
+  async objectExists(fileKey: string): Promise<boolean> {
+    try {
+      if (!fileKey.startsWith("/objects/")) return false;
+      const entityId = fileKey.slice("/objects/".length);
+      let entityDir = this.getPrivateObjectDir();
+      if (!entityDir.endsWith("/")) entityDir = `${entityDir}/`;
+      const fullPath = `${entityDir}${entityId}`;
+      const { bucketName, objectName } = parseObjectPath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const [exists] = await bucket.file(objectName).exists();
+      return exists;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Upload a buffer directly to object storage (used for storing Dolby.io output).
    */
   async uploadBuffer(fileKey: string, buffer: Buffer, contentType: string): Promise<void> {

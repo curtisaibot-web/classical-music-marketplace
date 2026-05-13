@@ -4267,7 +4267,9 @@ export const getGetEnhancementDownloadUrlQueryKey = (id: number) => {
 
 export const getGetEnhancementDownloadUrlQueryOptions = <
   TData = Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
-  TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ErrorEnvelope>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ErrorEnvelope
+  >,
 >(
   id: number,
   options?: {
@@ -4305,7 +4307,7 @@ export type GetEnhancementDownloadUrlQueryResult = NonNullable<
   Awaited<ReturnType<typeof getEnhancementDownloadUrl>>
 >;
 export type GetEnhancementDownloadUrlQueryError = ErrorType<
-  UnauthorizedResponse | NotFoundResponse | ErrorEnvelope
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ErrorEnvelope
 >;
 
 /**
@@ -4314,7 +4316,9 @@ export type GetEnhancementDownloadUrlQueryError = ErrorType<
 
 export function useGetEnhancementDownloadUrl<
   TData = Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
-  TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ErrorEnvelope>,
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse | ErrorEnvelope
+  >,
 >(
   id: number,
   options?: {

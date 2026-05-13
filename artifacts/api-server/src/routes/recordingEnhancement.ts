@@ -93,6 +93,13 @@ router.post(
       return;
     }
 
+    // Verify the file was actually uploaded before charging the user
+    const fileExists = await storage.objectExists(inputFileKey);
+    if (!fileExists) {
+      res.status(422).json({ error: "Uploaded file not found — please re-upload the audio and try again" });
+      return;
+    }
+
     const pricePaidCents = PRICES[level];
     const webhookSecret = randomBytes(32).toString("hex");
 
@@ -253,15 +260,15 @@ router.post(
       return;
     }
 
-    // Generate a signed download URL to use as the public recording URL
-    // The URL is signed for 30 days (matching expiry of the enhanced file)
-    const signedUrl = await storage.getSignedDownloadURL(job.outputFileKey, 30 * 24 * 3600);
-
+    // Store the raw GCS file key in `url` rather than a time-limited signed URL.
+    // The public recordings endpoint generates a fresh signed URL at read time,
+    // so the audio player on the teacher profile will always work regardless of when
+    // the recording was pinned.
     const [recording] = await db
       .insert(teacherRecordingsTable)
       .values({
         teacherId: userId!,
-        url: signedUrl,
+        url: job.outputFileKey,
         title: title.trim(),
         instrument: instrument?.trim() || null,
         isEnhanced: true,
