@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -8,7 +8,39 @@ import { Input } from "@/components/ui/input";
 import { useListLiveConcerts } from "@workspace/api-client-react";
 import type { LiveConcert } from "@workspace/api-client-react";
 import { Calendar, Search, Music, Ticket, Users, Video } from "lucide-react";
-import { format, isFuture, isWithinInterval, subMinutes, addMinutes, formatDistanceToNow } from "date-fns";
+import { format, isFuture, isWithinInterval, subMinutes, addMinutes } from "date-fns";
+
+function useCountdown(targetDate: Date) {
+  const [timeLeft, setTimeLeft] = useState(targetDate.getTime() - Date.now());
+  useEffect(() => {
+    const tick = () => setTimeLeft(targetDate.getTime() - Date.now());
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetDate.getTime()]);
+  return timeLeft;
+}
+
+function formatCountdown(ms: number) {
+  if (ms <= 0) return "Starting now";
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function ConcertCountdown({ scheduledAt }: { scheduledAt: Date }) {
+  const ms = useCountdown(scheduledAt);
+  return (
+    <p className="text-xs font-medium text-primary tabular-nums">
+      Starts in {formatCountdown(ms)}
+    </p>
+  );
+}
 
 function concertStatus(concert: LiveConcert) {
   const scheduled = new Date(concert.scheduledAt);
@@ -75,9 +107,7 @@ function ConcertCard({ concert }: { concert: LiveConcert }) {
             </span>
           </div>
           {status === "upcoming" && (
-            <p className="text-xs font-medium text-primary">
-              Starts {formatDistanceToNow(scheduledAt, { addSuffix: true })}
-            </p>
+            <ConcertCountdown scheduledAt={scheduledAt} />
           )}
           <div className="flex items-center justify-between pt-1 border-t border-border">
             <span className="font-bold text-lg text-foreground">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -8,11 +8,44 @@ import { Separator } from "@/components/ui/separator";
 import { useUser } from "@clerk/react";
 import { useGetLiveConcert, useGetMyLiveConcertTicket, useCreateOrder, useGetMe } from "@workspace/api-client-react";
 import { Calendar, Clock, Music, Ticket, Users, ArrowLeft, Video } from "lucide-react";
-import { format, isPast, isFuture, isWithinInterval, subMinutes, addMinutes, formatDistanceToNow } from "date-fns";
+import { format, isFuture, isWithinInterval, subMinutes, addMinutes } from "date-fns";
 import { toast } from "sonner";
 import { StreamEmbed } from "@/components/stream/StreamEmbed";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function useCountdown(targetDate: Date) {
+  const [timeLeft, setTimeLeft] = useState(targetDate.getTime() - Date.now());
+  useEffect(() => {
+    const tick = () => setTimeLeft(targetDate.getTime() - Date.now());
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [targetDate.getTime()]);
+  return timeLeft;
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Starting now";
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function UpcomingCountdown({ scheduledAt }: { scheduledAt: Date }) {
+  const ms = useCountdown(scheduledAt);
+  return (
+    <span className="flex items-center gap-1.5 text-primary font-medium tabular-nums">
+      <Clock className="h-4 w-4" />
+      Starts in {formatCountdown(ms)}
+    </span>
+  );
+}
 
 function concertStatus(scheduledAt: string, replayUntil: string | null | undefined, isCancelled: boolean) {
   const scheduled = new Date(scheduledAt);
@@ -72,10 +105,11 @@ export default function LiveConcertDetail({ params }: { params: { id: string } }
 
   const status = concertStatus(concert.scheduledAt, concert.replayAvailableUntil, concert.isCancelled);
   const hasTicket = ticketData?.hasTicket ?? false;
-  const canWatch = hasTicket && (status === "live" || status === "replay");
+  const isTeacher = me?.role === "teacher" && me.id === concert.teacherId;
+  const hasAccess = hasTicket || isTeacher;
+  const canWatch = hasAccess && !!concert.streamUrl && (status === "live" || status === "replay");
   const scheduledAt = new Date(concert.scheduledAt);
   const ticketsLeft = concert.maxTickets - concert.soldTickets;
-  const isTeacher = me?.role === "teacher" && me.id === concert.teacherId;
 
   async function handleBuyTicket() {
     if (!isSignedIn) {
@@ -174,10 +208,7 @@ export default function LiveConcertDetail({ params }: { params: { id: string } }
                   {format(scheduledAt, "h:mm a")}
                 </span>
                 {status === "upcoming" && (
-                  <span className="flex items-center gap-1.5 text-primary">
-                    <Clock className="h-4 w-4" />
-                    Starts {formatDistanceToNow(scheduledAt, { addSuffix: true })}
-                  </span>
+                  <UpcomingCountdown scheduledAt={scheduledAt} />
                 )}
               </div>
 

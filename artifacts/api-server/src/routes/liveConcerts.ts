@@ -22,9 +22,11 @@ function formatConcert(
   concert: typeof liveConcertsTable.$inferSelect,
   teacher?: typeof teacherProfilesTable.$inferSelect | null,
   user?: UserRow | null,
+  opts?: { hideStream?: boolean },
 ) {
   return {
     ...concert,
+    streamUrl: opts?.hideStream ? null : concert.streamUrl,
     scheduledAt: concert.scheduledAt.toISOString(),
     replayAvailableUntil: concert.replayAvailableUntil?.toISOString() ?? null,
     createdAt: concert.createdAt.toISOString(),
@@ -67,7 +69,7 @@ router.get("/live-concerts", async (req, res): Promise<void> => {
   const userMap = new Map(users.map(u => [u.id, u]));
 
   res.json({
-    concerts: concerts.map(c => formatConcert(c, teacherMap.get(c.teacherId), userMap.get(c.teacherId))),
+    concerts: concerts.map(c => formatConcert(c, teacherMap.get(c.teacherId), userMap.get(c.teacherId), { hideStream: true })),
     total: concerts.length,
   });
 });
@@ -162,7 +164,29 @@ router.get("/live-concerts/:id", async (req, res): Promise<void> => {
     .from(usersTable)
     .where(eq(usersTable.id, concert.teacherId));
 
-  res.json(formatConcert(concert, teacher, teacherUser));
+  const auth = getAuth(req);
+  const userId = auth.userId;
+
+  let hasStreamAccess = false;
+  if (userId) {
+    if (userId === concert.teacherId) {
+      hasStreamAccess = true;
+    } else {
+      const [ticket] = await db
+        .select({ id: ordersTable.id })
+        .from(ordersTable)
+        .where(
+          and(
+            eq(ordersTable.buyerId, userId),
+            eq(ordersTable.liveConcertId, id),
+            eq(ordersTable.status, "paid"),
+          ),
+        );
+      hasStreamAccess = !!ticket;
+    }
+  }
+
+  res.json(formatConcert(concert, teacher, teacherUser, { hideStream: !hasStreamAccess }));
 });
 
 router.post("/live-concerts", requireAuth, async (req, res): Promise<void> => {
