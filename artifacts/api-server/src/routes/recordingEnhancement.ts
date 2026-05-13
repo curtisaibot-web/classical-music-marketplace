@@ -414,7 +414,11 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
 export async function triggerAudioEnhancement(job: AudioEnhancementJob): Promise<void> {
   const apiKey = process.env.DOLBY_API_KEY;
   if (!apiKey) {
-    logger.warn({ jobId: job.id }, "DOLBY_API_KEY not set — job stays in processing state until callback");
+    logger.error({ jobId: job.id }, "DOLBY_API_KEY not configured — marking job failed");
+    await db
+      .update(audioEnhancementJobsTable)
+      .set({ status: "failed", errorMessage: "Audio processing service is not configured. Please contact support for a refund." })
+      .where(eq(audioEnhancementJobsTable.id, job.id));
     return;
   }
 
@@ -475,7 +479,11 @@ export async function triggerAudioEnhancement(job: AudioEnhancementJob): Promise
 
     logger.info({ jobId: job.id, dlbOutputKey }, "Dolby.io enhancement job started");
   } catch (err) {
-    logger.error({ err, jobId: job.id }, "Failed to start Dolby.io enhancement — job stays in processing");
+    logger.error({ err, jobId: job.id }, "Failed to start Dolby.io enhancement — marking job failed");
+    await db
+      .update(audioEnhancementJobsTable)
+      .set({ status: "failed", errorMessage: "Audio enhancement could not be started. Please contact support." })
+      .where(eq(audioEnhancementJobsTable.id, job.id));
   }
 }
 
