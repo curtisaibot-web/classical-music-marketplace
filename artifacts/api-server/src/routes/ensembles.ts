@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { logger } from "../lib/logger";
+import { sendEmail } from "../lib/email";
 
 const SLUG_RE = /^[a-z0-9-]{3,80}$/;
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -565,10 +566,30 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     splitPct = perMember; // new invitee's share
   }
 
+  // Invitee must already be a Harmonia teacher (registered account with teacher profile)
   const [inviteeUser] = await db
-    .select({ id: usersTable.id })
+    .select({ id: usersTable.id, email: usersTable.email })
     .from(usersTable)
     .where(eq(usersTable.email, normalizedEmail));
+
+  if (!inviteeUser) {
+    res.status(400).json({
+      error: "No Harmonia account found for this email address. The invitee must sign up as a teacher first.",
+    });
+    return;
+  }
+
+  const [inviteeProfile] = await db
+    .select({ userId: teacherProfilesTable.userId })
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, inviteeUser.id));
+
+  if (!inviteeProfile) {
+    res.status(400).json({
+      error: "The invited user does not have a Harmonia teacher profile. Only teachers can be ensemble members.",
+    });
+    return;
+  }
 
   // 256-bit random invite token — secure, single-use, bound by email + expiry on accept
   const inviteToken = randomBytes(32).toString("hex");
@@ -577,7 +598,7 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     .insert(ensembleMembersTable)
     .values({
       ensembleId: id,
-      userId: inviteeUser?.id ?? null,
+      userId: inviteeUser.id,
       inviteEmail: normalizedEmail,
       splitPercent: splitPct,
       status: "invited",
@@ -589,10 +610,31 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
   const BASE = process.env.APP_URL ?? "https://app.harmonia.music";
   const acceptLink = `${BASE}/ensembles/${ensemble.slug}/accept?token=${inviteToken}`;
 
-  // TODO: send via transactional email provider (SendGrid / Resend) — for now logged
+  // Send invite email via configured SMTP; falls back to log if unconfigured
+  const emailResult = await sendEmail({
+    to: normalizedEmail,
+    subject: `You've been invited to join "${ensemble.name}" on Harmonia`,
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+        <h2 style="color:#1a1a1a">Ensemble invitation</h2>
+        <p>You've been invited to join <strong>${ensemble.name}</strong> as a member on Harmonia.</p>
+        <p>Your revenue share: <strong>${splitPct}%</strong></p>
+        <p style="margin-top:24px">
+          <a href="${acceptLink}"
+             style="background:#b45309;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
+            Accept Invitation
+          </a>
+        </p>
+        <p style="color:#666;font-size:13px;margin-top:24px">
+          This link expires in 7 days. If you were not expecting this invitation, you can ignore this email.
+        </p>
+      </div>
+    `,
+  });
+
   logger.info(
-    { ensembleId: id, inviteEmail: normalizedEmail, memberId: member.id },
-    `[INVITE] Ensemble "${ensemble.name}" — send this accept link to ${normalizedEmail}: ${acceptLink}`,
+    { ensembleId: id, inviteEmail: normalizedEmail, memberId: member.id, emailSent: emailResult.sent },
+    `[INVITE] Ensemble "${ensemble.name}" invitation for ${normalizedEmail} — email sent: ${emailResult.sent}`,
   );
 
   // Return member without the token — client doesn't need it
@@ -877,18 +919,22 @@ export async function processEnsembleRevenueSplit(
     return;
   }
 
-  const totalSplit = activeMembers.reduce((sum, m) => sum + m.splitPercent, 0);
-  if (totalSplit === 0) {
+  // Enforce splits sum to 100 — if diverged due to removals, normalize denominator
+  const totalConfiguredSplit = activeMembers.reduce((sum, m) => sum + m.splitPercent, 0);
+  if (totalConfiguredSplit === 0) {
     logger.warn({ bookingId, ensembleId }, "processEnsembleRevenueSplit: total split is 0");
     return;
   }
 
+  // Compute per-member amounts. Uses configuredSplit/totalConfiguredSplit so rounding
+  // errors don't accumulate; the payout is proportional to configured splits.
   for (const member of activeMembers) {
     if (!member.userId) continue;
 
-    const effectiveSplit = member.splitPercent / totalSplit;
-    const grossAmountCents = Math.round(booking.priceInCents * effectiveSplit);
-    const platformFeePortionCents = Math.round(booking.platformFeeInCents * effectiveSplit);
+    // Each member's effective share of the configured splits
+    const effectiveFraction = member.splitPercent / totalConfiguredSplit;
+    const grossAmountCents = Math.round(booking.priceInCents * effectiveFraction);
+    const platformFeePortionCents = Math.round(booking.platformFeeInCents * effectiveFraction);
     const netAmountCents = grossAmountCents - platformFeePortionCents;
 
     let stripeTransferId: string | null = null;

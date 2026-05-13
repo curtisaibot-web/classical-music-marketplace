@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListBookings, getListBookingsQueryKey } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -400,6 +400,43 @@ function PracticePartnersCard() {
   );
 }
 
+function EnsembleBookingHistory({ ensembleId }: { ensembleId: number }) {
+  const { data, isLoading } = useListBookings(
+    { type: "event", limit: 50 },
+    { query: { queryKey: getListBookingsQueryKey({ type: "event", limit: 50 }) } },
+  );
+  const bookings = (data?.bookings ?? []).filter(
+    (b) => (b as typeof b & { ensembleId?: number | null }).ensembleId === ensembleId,
+  );
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Loading bookings…</p>;
+  if (bookings.length === 0) return <p className="text-xs text-muted-foreground">No ensemble bookings yet.</p>;
+
+  return (
+    <div className="space-y-1 max-h-40 overflow-y-auto">
+      {bookings.map((b) => (
+        <div key={b.id} className="flex items-center gap-2 text-xs border border-border rounded px-2 py-1.5">
+          <div className="flex-1 min-w-0">
+            <span className="text-muted-foreground">{b.eventType ?? "Event"}</span>
+            {b.eventDate && (
+              <span className="ml-1 text-muted-foreground">· {new Date(b.eventDate).toLocaleDateString()}</span>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            <span className="font-medium">${(b.priceInCents / 100).toFixed(0)}</span>
+            <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full font-medium ${
+              b.status === "completed" ? "bg-green-100 text-green-700"
+              : b.status === "confirmed" ? "bg-blue-100 text-blue-700"
+              : b.status === "cancelled" ? "bg-red-100 text-red-700"
+              : "bg-amber-100 text-amber-700"
+            }`}>{b.status}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EnsemblePayoutHistory({ ensembleId }: { ensembleId: number }) {
   const { data, isLoading } = useListEnsemblePayouts(ensembleId, {
     query: { queryKey: getListEnsemblePayoutsQueryKey(ensembleId) },
@@ -732,6 +769,14 @@ function MyEnsemblesCard() {
                       Find your listing ID in{" "}
                       <Link href="/listings" className="underline text-primary">Manage Listings</Link>.
                     </p>
+                  </div>
+
+                  {/* Booking history */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> Ensemble Bookings
+                    </p>
+                    <EnsembleBookingHistory ensembleId={ens.id} />
                   </div>
 
                   {/* Payout history */}
