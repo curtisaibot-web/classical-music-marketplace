@@ -267,8 +267,11 @@ router.get("/ensembles/mine", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Public: ensemble detail by slug ─────────────────────────────────────────
 
-// GET /ensembles/by-id/:id — numeric ID route; only accessible by leader or active/invited member
-router.get("/ensembles/by-id/:id", requireAuth, async (req, res): Promise<void> => {
+// Helper: authz-checked ensemble fetch by numeric ID
+async function getEnsembleByIdAuthed(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> {
   const auth = getAuth(req);
   const userId = auth.userId!;
   const id = parseInt(req.params["id"] as string, 10);
@@ -301,7 +304,22 @@ router.get("/ensembles/by-id/:id", requireAuth, async (req, res): Promise<void> 
   const enriched = await formatEnsemble(id);
   if (!enriched) { res.status(404).json({ error: "Ensemble not found" }); return; }
   res.json(enriched);
-});
+}
+
+// GET /ensembles/:id — canonical numeric ID route (registered before :slug catch-all)
+// Uses a middleware guard to only handle purely numeric IDs; falls through to :slug otherwise.
+router.get(
+  "/ensembles/:id",
+  (req, res, next) => {
+    if (/^\d+$/.test(req.params["id"] as string)) return next();
+    next("route");
+  },
+  requireAuth,
+  getEnsembleByIdAuthed,
+);
+
+// GET /ensembles/by-id/:id — legacy alias for the same endpoint
+router.get("/ensembles/by-id/:id", requireAuth, getEnsembleByIdAuthed);
 
 router.get("/ensembles/:slug", async (req, res): Promise<void> => {
   const slug = req.params["slug"] as string;
@@ -604,6 +622,9 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     return;
   }
 
+  // Check if there is a removed row for this email — we'll reactivate it instead of inserting
+  const existingRemovedRow = existingRows.find((r) => r.status === "removed") ?? null;
+
   // ── Validate invitee BEFORE touching any splits ────────────────────────────
   const [inviteeUser] = await db
     .select({ id: usersTable.id, email: usersTable.email })
@@ -649,11 +670,17 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
       res.status(400).json({ error: "splitPercent must be between 1 and 100" });
       return;
     }
-    // Verify adding this share wouldn't push total over 100
     const currentTotal = currentMembers.reduce((sum, m) => sum + m.splitPercent, 0);
     if (currentTotal + rounded > 100) {
       res.status(400).json({
         error: `Cannot add ${rounded}% — current active members already hold ${currentTotal}%. Total would exceed 100%.`,
+      });
+      return;
+    }
+    // Reject if total would be less than 100 — all funds must be allocated
+    if (currentTotal + rounded < 100) {
+      res.status(400).json({
+        error: `Split total would be ${currentTotal + rounded}% — all 100% of revenue must be allocated across members.`,
       });
       return;
     }
@@ -672,22 +699,40 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
   // 256-bit random invite token — secure, single-use, bound by email + expiry on accept
   const inviteToken = randomBytes(32).toString("hex");
 
-  // ── Insert member and rebalance splits atomically ─────────────────────────
+  // ── Upsert member and rebalance splits atomically ─────────────────────────
+  // If a removed row exists for this email, reactivate it (avoids unique-index violation).
   const [member] = await db.transaction(async (tx) => {
-    const inserted = await tx
-      .insert(ensembleMembersTable)
-      .values({
-        ensembleId: id,
-        userId: inviteeUser.id,
-        inviteEmail: normalizedEmail,
-        splitPercent: splitPct,
-        status: "invited",
-        inviteToken,
-        invitedAt: new Date(),
-      })
-      .returning();
+    let upserted;
+    if (existingRemovedRow) {
+      // Reactivate the removed row — preserves the unique (ensemble_id, invite_email) constraint
+      upserted = await tx
+        .update(ensembleMembersTable)
+        .set({
+          userId: inviteeUser.id,
+          splitPercent: splitPct,
+          status: "invited",
+          inviteToken,
+          invitedAt: new Date(),
+          joinedAt: null,
+        })
+        .where(eq(ensembleMembersTable.id, existingRemovedRow.id))
+        .returning();
+    } else {
+      upserted = await tx
+        .insert(ensembleMembersTable)
+        .values({
+          ensembleId: id,
+          userId: inviteeUser.id,
+          inviteEmail: normalizedEmail,
+          splitPercent: splitPct,
+          status: "invited",
+          inviteToken,
+          invitedAt: new Date(),
+        })
+        .returning();
+    }
 
-    // Only rebalance existing members if insert succeeded
+    // Only rebalance existing members if upsert succeeded
     for (const m of rebalancedMembers) {
       await tx
         .update(ensembleMembersTable)
@@ -695,7 +740,7 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
         .where(eq(ensembleMembersTable.id, m.id));
     }
 
-    return inserted;
+    return upserted;
   });
 
   const BASE = process.env.APP_URL ?? "https://app.harmonia.music";
@@ -904,24 +949,56 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
   }
 
   type SplitEntry = { memberId: unknown; splitPercent: unknown };
-  const total = (splits as SplitEntry[]).reduce(
-    (sum, s) => sum + (typeof s.splitPercent === "number" ? s.splitPercent : 0),
-    0,
-  );
+  const typedSplits = splits as SplitEntry[];
+
+  // Validate: each entry must have valid types
+  if (typedSplits.some((s) => typeof s.memberId !== "number" || typeof s.splitPercent !== "number")) {
+    res.status(400).json({ error: "Each split entry must have numeric memberId and splitPercent" });
+    return;
+  }
+
+  const total = typedSplits.reduce((sum, s) => sum + (s.splitPercent as number), 0);
   if (total !== 100) {
     res.status(400).json({ error: `Split percentages must sum to 100 (got ${total})` });
     return;
   }
 
-  for (const split of splits as SplitEntry[]) {
-    if (typeof split.memberId !== "number" || typeof split.splitPercent !== "number") continue;
+  // Fetch all active+invited members and verify the submitted splits cover all of them
+  const activeMembers = await db
+    .select({ id: ensembleMembersTable.id })
+    .from(ensembleMembersTable)
+    .where(
+      and(
+        eq(ensembleMembersTable.ensembleId, id),
+        or(
+          eq(ensembleMembersTable.status, "active"),
+          eq(ensembleMembersTable.status, "invited"),
+        ),
+      ),
+    );
+
+  const submittedIds = new Set(typedSplits.map((s) => s.memberId as number));
+  const missingMembers = activeMembers.filter((m) => !submittedIds.has(m.id));
+  if (missingMembers.length > 0) {
+    res.status(400).json({
+      error: `Submitted splits do not cover all active/invited members. Missing member IDs: ${missingMembers.map((m) => m.id).join(", ")}`,
+    });
+    return;
+  }
+
+  // Apply updates — only for members that actually belong to this ensemble
+  for (const split of typedSplits) {
     await db
       .update(ensembleMembersTable)
-      .set({ splitPercent: Math.round(split.splitPercent) })
+      .set({ splitPercent: Math.round(split.splitPercent as number) })
       .where(
         and(
-          eq(ensembleMembersTable.id, split.memberId),
+          eq(ensembleMembersTable.id, split.memberId as number),
           eq(ensembleMembersTable.ensembleId, id),
+          or(
+            eq(ensembleMembersTable.status, "active"),
+            eq(ensembleMembersTable.status, "invited"),
+          ),
         ),
       );
   }
@@ -1051,10 +1128,19 @@ export async function processEnsembleRevenueSplit(
     return;
   }
 
-  // Enforce splits sum to 100 — normalize if diverged due to member removal
+  // Hard guard: active member splits must sum to exactly 100 before any transfer is issued.
+  // Any divergence (e.g. due to a removed member whose share was never redistributed) is a
+  // configuration error — we abort rather than overpay or underpay.
   const totalConfiguredSplit = activeMembers.reduce((sum, m) => sum + m.splitPercent, 0);
   if (totalConfiguredSplit === 0) {
-    logger.warn({ bookingId, ensembleId }, "processEnsembleRevenueSplit: total split is 0");
+    logger.warn({ bookingId, ensembleId }, "processEnsembleRevenueSplit: total split is 0 — aborting");
+    return;
+  }
+  if (totalConfiguredSplit !== 100) {
+    logger.error(
+      { bookingId, ensembleId, totalConfiguredSplit },
+      "processEnsembleRevenueSplit: active member splits do not sum to 100 — aborting to prevent financial inconsistency",
+    );
     return;
   }
 
