@@ -310,10 +310,14 @@ router.post("/reels/callback", async (req: Request, res: Response) => {
 
     // "ready" without a processedFileUrl would produce a broken reel — treat as failed
     if (status === "ready" && !processedFileUrl) {
+      const missingUrlMessage = "Processing succeeded but no output URL was provided.";
       await db
         .update(videoReelsTable)
-        .set({ status: "failed", errorMessage: "Processing succeeded but no output URL was provided." })
+        .set({ status: "failed", errorMessage: missingUrlMessage })
         .where(eq(videoReelsTable.id, reelId));
+      sendReelStatusEmail({ teacherId: reel.teacherId, status: "failed", errorMessage: missingUrlMessage }).catch(
+        (err) => logger.error({ err, reelId, teacherId: reel.teacherId }, "Unhandled error in reel email notification"),
+      );
       res.status(200).json({ ok: true, message: "Ready status ignored — missing processedFileUrl" });
       return;
     }
@@ -346,6 +350,15 @@ router.post("/reels/callback", async (req: Request, res: Response) => {
   }
 });
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function sendReelStatusEmail(opts: {
   teacherId: string;
   status: "ready" | "failed";
@@ -365,7 +378,7 @@ async function sendReelStatusEmail(opts: {
 
     const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DEV_DOMAIN}`;
     const dashboardUrl = `${appBase}/teacher/dashboard`;
-    const firstName = user.firstName ?? "there";
+    const firstName = escapeHtml(user.firstName ?? "there");
 
     if (opts.status === "ready") {
       await sendEmail({
@@ -384,7 +397,7 @@ async function sendReelStatusEmail(opts: {
         `,
       });
     } else {
-      const reason = opts.errorMessage ?? "An unexpected error occurred during processing.";
+      const reason = escapeHtml(opts.errorMessage ?? "An unexpected error occurred during processing.");
       await sendEmail({
         to: user.email,
         subject: "There was a problem with your Harmonia booking reel",
