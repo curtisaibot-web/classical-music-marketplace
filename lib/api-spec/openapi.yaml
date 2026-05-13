@@ -51,6 +51,8 @@ tags:
     description: Original score marketplace — composer listing and buyer licensing
   - name: practice
     description: Practice partner matching — profiles, requests, sessions
+  - name: live-concerts
+    description: Pay-per-view live concert streaming
 
 paths:
   /healthz:
@@ -672,6 +674,142 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  # ── Live Concerts ──────────────────────────────────────────────────────────
+  /live-concerts:
+    get:
+      operationId: listLiveConcerts
+      tags: [live-concerts]
+      summary: Browse upcoming and live pay-per-view concerts
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of live concerts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveConcertListResponse"
+
+    post:
+      operationId: createLiveConcert
+      tags: [live-concerts]
+      summary: Create a live concert event (teacher only)
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLiveConcertBody"
+      responses:
+        "201":
+          description: Created live concert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveConcert"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /live-concerts/mine:
+    get:
+      operationId: listMyLiveConcerts
+      tags: [live-concerts]
+      summary: Get the authenticated teacher's concerts with revenue stats
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Teacher's concerts with revenue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyLiveConcertsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /live-concerts/{id}:
+    get:
+      operationId: getLiveConcert
+      tags: [live-concerts]
+      summary: Get a live concert by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Live concert detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveConcert"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateLiveConcert
+      tags: [live-concerts]
+      summary: Update a live concert (teacher owner only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLiveConcertBody"
+      responses:
+        "200":
+          description: Updated live concert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveConcert"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /live-concerts/{id}/my-ticket:
+    get:
+      operationId: getMyLiveConcertTicket
+      tags: [live-concerts]
+      summary: Check whether the authenticated user holds a paid ticket for this concert
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyLiveConcertTicketResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   # ── Digital Products ───────────────────────────────────────────────────────
   /digital-products:
@@ -4275,6 +4413,138 @@ components:
         isCancelled:
           type: boolean
 
+    # ── Live Concerts ──────────────────────────────────────────────────────────
+    LiveConcert:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        scheduledAt:
+          type: string
+          format: date-time
+        streamUrl:
+          type: string
+        streamType:
+          type: string
+          enum: [youtube, mux]
+        ticketPriceCents:
+          type: integer
+        maxTickets:
+          type: integer
+        soldTickets:
+          type: integer
+        replayAvailableUntil:
+          type: ["string", "null"]
+          format: date-time
+        imageUrl:
+          type: ["string", "null"]
+        isCancelled:
+          type: boolean
+        teacher:
+          $ref: "#/components/schemas/TeacherProfile"
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, teacherId, title, scheduledAt, streamUrl, streamType, ticketPriceCents, maxTickets, soldTickets, isCancelled, createdAt]
+
+    LiveConcertListResponse:
+      type: object
+      properties:
+        concerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveConcert"
+        total:
+          type: integer
+      required: [concerts, total]
+
+    CreateLiveConcertBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        streamUrl:
+          type: string
+        streamType:
+          type: string
+          enum: [youtube, mux]
+        ticketPriceCents:
+          type: integer
+        maxTickets:
+          type: integer
+        replayAvailableUntil:
+          type: string
+          format: date-time
+        imageUrl:
+          type: string
+      required: [title, scheduledAt, streamUrl, ticketPriceCents]
+
+    UpdateLiveConcertBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        streamUrl:
+          type: string
+        streamType:
+          type: string
+          enum: [youtube, mux]
+        ticketPriceCents:
+          type: integer
+        maxTickets:
+          type: integer
+        replayAvailableUntil:
+          type: string
+          format: date-time
+        imageUrl:
+          type: string
+        isCancelled:
+          type: boolean
+
+    MyLiveConcertsResponse:
+      type: object
+      properties:
+        concerts:
+          type: array
+          items:
+            type: object
+            properties:
+              concert:
+                $ref: "#/components/schemas/LiveConcert"
+              soldTickets:
+                type: integer
+              grossRevenueCents:
+                type: integer
+              netRevenueCents:
+                type: integer
+            required: [concert, soldTickets, grossRevenueCents, netRevenueCents]
+      required: [concerts]
+
+    MyLiveConcertTicketResponse:
+      type: object
+      properties:
+        hasTicket:
+          type: boolean
+        orderId:
+          type: ["integer", "null"]
+      required: [hasTicket]
+
     # ── Digital Product ───────────────────────────────────────────────────────
     DigitalProduct:
       type: object
@@ -4546,13 +4816,15 @@ components:
           type: string
         type:
           type: string
-          enum: [digital_product, masterclass_performer, masterclass_observer, program_enrollment]
+          enum: [digital_product, masterclass_performer, masterclass_observer, program_enrollment, live_concert]
         status:
           type: string
           enum: [pending, paid, refunded, failed]
         digitalProductId:
           type: ["integer", "null"]
         masterclassEventId:
+          type: ["integer", "null"]
+        liveConcertId:
           type: ["integer", "null"]
         priceInCents:
           type: integer
@@ -4589,10 +4861,12 @@ components:
       properties:
         type:
           type: string
-          enum: [digital_product, masterclass_performer, masterclass_observer]
+          enum: [digital_product, masterclass_performer, masterclass_observer, live_concert]
         digitalProductId:
           type: integer
         masterclassEventId:
+          type: integer
+        liveConcertId:
           type: integer
       required: [type]
 

@@ -1,16 +1,19 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download, Video, Ticket, Plus, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const _TEACHER_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 function _teacherApiFetch(path: string) {
@@ -66,6 +69,160 @@ function TeacherActivePartnerRow({ partnership }: { partnership: TeacherDashPart
         <p className="text-xs text-muted-foreground pl-8">{past} session{past !== 1 ? "s" : ""} completed</p>
       )}
     </div>
+  );
+}
+
+function LiveConcertsCard() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useListMyLiveConcerts();
+  const createMutation = useCreateLiveConcert();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    scheduledAt: "",
+    streamUrl: "",
+    streamType: "youtube",
+    ticketPriceCents: "",
+    maxTickets: "500",
+    description: "",
+  });
+
+  const concerts = data?.concerts ?? [];
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title || !form.scheduledAt || !form.streamUrl || !form.ticketPriceCents) {
+      toast.error("Title, date, stream URL, and price are required");
+      return;
+    }
+    try {
+      await createMutation.mutateAsync({
+        data: {
+          title: form.title,
+          scheduledAt: new Date(form.scheduledAt).toISOString(),
+          streamUrl: form.streamUrl,
+          streamType: form.streamType as "youtube" | "mux",
+          ticketPriceCents: Math.round(parseFloat(form.ticketPriceCents) * 100),
+          maxTickets: parseInt(form.maxTickets, 10) || 500,
+          description: form.description || undefined,
+        },
+      });
+      toast.success("Concert created!");
+      setShowForm(false);
+      setForm({ title: "", scheduledAt: "", streamUrl: "", streamType: "youtube", ticketPriceCents: "", maxTickets: "500", description: "" });
+      qc.invalidateQueries({ queryKey: ["listMyLiveConcerts"] });
+    } catch {
+      toast.error("Failed to create concert");
+    }
+  }
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="font-serif text-lg">Live Concerts</CardTitle>
+          {concerts.length > 0 && (
+            <Badge variant="secondary" className="text-xs">{concerts.length}</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
+            <Link href="/live">Browse</Link>
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => setShowForm(!showForm)}>
+            {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {showForm ? "Cancel" : "New"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {showForm && (
+          <form onSubmit={handleCreate} className="space-y-3 border border-border rounded-lg p-4 bg-muted/20">
+            <p className="text-sm font-medium text-foreground">Create Live Concert</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Title *</Label>
+              <Input placeholder="Concert title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date & Time *</Label>
+              <Input type="datetime-local" value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">YouTube / Stream URL *</Label>
+              <Input placeholder="https://youtube.com/watch?v=..." value={form.streamUrl} onChange={e => setForm(f => ({ ...f, streamUrl: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ticket Price ($) *</Label>
+                <Input type="number" min="0" step="0.01" placeholder="9.99" value={form.ticketPriceCents} onChange={e => setForm(f => ({ ...f, ticketPriceCents: e.target.value }))} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Max Tickets</Label>
+                <Input type="number" min="1" value={form.maxTickets} onChange={e => setForm(f => ({ ...f, maxTickets: e.target.value }))} className="h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Textarea placeholder="About this concert..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-sm min-h-[60px]" />
+            </div>
+            <Button type="submit" size="sm" className="w-full" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create Concert"}
+            </Button>
+          </form>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map(i => <div key={i} className="h-14 bg-muted rounded animate-pulse" />)}
+          </div>
+        ) : concerts.length === 0 ? (
+          <div className="text-center py-4 space-y-2">
+            <Video className="h-8 w-8 text-muted-foreground mx-auto" />
+            <p className="text-sm text-muted-foreground">No concerts yet. Create your first live concert!</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {concerts.slice(0, 4).map(({ concert, soldTickets, grossRevenueCents, netRevenueCents }) => {
+              const scheduled = new Date(concert.scheduledAt);
+              const isUpcoming = scheduled > new Date();
+              return (
+                <div key={concert.id} className="flex items-start gap-3 p-2.5 rounded-lg border border-border bg-card hover:bg-muted/10 transition-colors">
+                  <div className="shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Video className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium text-foreground truncate">{concert.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{format(scheduled, "MMM d, yyyy")}</span>
+                      {isUpcoming ? (
+                        <Badge variant="outline" className="text-xs py-0 px-1.5 h-4 border-primary/30 text-primary">Upcoming</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs py-0 px-1.5 h-4">Past</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right space-y-0.5">
+                    <p className="text-xs font-medium text-foreground">${(grossRevenueCents / 100).toFixed(0)} gross</p>
+                    <p className="text-xs text-muted-foreground">
+                      <Ticket className="h-2.5 w-2.5 inline mr-0.5" />{soldTickets} sold
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {concerts.length > 4 && (
+              <p className="text-xs text-muted-foreground text-center">+{concerts.length - 4} more concerts</p>
+            )}
+            <div className="pt-1 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
+              <span>Total net revenue</span>
+              <span className="font-medium text-foreground">
+                ${(concerts.reduce((sum, c) => sum + c.netRevenueCents, 0) / 100).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1352,6 +1509,8 @@ export default function TeacherDashboard() {
             <ComposerRoyaltyCard />
 
             <CoachingCard />
+
+            <LiveConcertsCard />
 
             <PracticePartnersCard />
 

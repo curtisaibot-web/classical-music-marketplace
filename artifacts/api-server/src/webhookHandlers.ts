@@ -1,7 +1,8 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable, liveConcertsTable } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
 import { logger } from "./lib/logger";
@@ -188,9 +189,17 @@ async function handleCheckoutSessionCompleted(
         stripePaymentIntentId: paymentIntentId,
       })
       .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
-      .returning({ id: ordersTable.id });
+      .returning({ id: ordersTable.id, type: ordersTable.type, liveConcertId: ordersTable.liveConcertId });
     if (updatedOrders.length > 0) {
       logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
+      const paidOrder = updatedOrders[0];
+      if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
+        await db
+          .update(liveConcertsTable)
+          .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
+          .where(eq(liveConcertsTable.id, paidOrder.liveConcertId));
+        logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented");
+      }
       await unlockDigitalDownload(orderId);
     } else {
       logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
@@ -452,9 +461,17 @@ async function handlePaymentIntentSucceeded(
         stripePaymentIntentId: paymentIntent.id,
       })
       .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
-      .returning({ id: ordersTable.id });
+      .returning({ id: ordersTable.id, type: ordersTable.type, liveConcertId: ordersTable.liveConcertId });
     if (updatedOrders.length > 0) {
       logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
+      const paidOrder = updatedOrders[0];
+      if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
+        await db
+          .update(liveConcertsTable)
+          .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
+          .where(eq(liveConcertsTable.id, paidOrder.liveConcertId));
+        logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented via payment_intent.succeeded");
+      }
       await unlockDigitalDownload(orderId);
     } else {
       logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");

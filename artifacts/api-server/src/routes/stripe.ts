@@ -147,6 +147,9 @@ router.post("/stripe/checkout/order", requireAuth, async (req, res): Promise<voi
   let productName = "Digital Product";
   if (order.type === "masterclass_performer") productName = "Masterclass — Performer Ticket";
   else if (order.type === "masterclass_observer") productName = "Masterclass — Observer Ticket";
+  else if (order.type === "live_concert") productName = "Live Concert — Ticket";
+
+  const orderFeeRate = order.type === "live_concert" ? 0.20 : PLATFORM_FEE_RATE;
 
   try {
     const stripe = await getUncachableStripeClient();
@@ -182,7 +185,7 @@ router.post("/stripe/checkout/order", requireAuth, async (req, res): Promise<voi
     if (sellerProfile?.stripeAccountId && sellerProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
         ...sessionParams.payment_intent_data,
-        application_fee_amount: Math.round(order.priceInCents * PLATFORM_FEE_RATE),
+        application_fee_amount: Math.round(order.priceInCents * orderFeeRate),
         transfer_data: {
           destination: sellerProfile.stripeAccountId,
         },

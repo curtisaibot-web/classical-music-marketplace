@@ -437,6 +437,98 @@ export interface UpdateMasterclassBody {
   isCancelled?: boolean;
 }
 
+export type LiveConcertStreamType =
+  (typeof LiveConcertStreamType)[keyof typeof LiveConcertStreamType];
+
+export const LiveConcertStreamType = {
+  youtube: "youtube",
+  mux: "mux",
+} as const;
+
+export interface LiveConcert {
+  id: number;
+  teacherId: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  scheduledAt: string;
+  streamUrl: string;
+  streamType: LiveConcertStreamType;
+  ticketPriceCents: number;
+  maxTickets: number;
+  soldTickets: number;
+  /** @nullable */
+  replayAvailableUntil?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  isCancelled: boolean;
+  teacher?: TeacherProfile;
+  createdAt: string;
+}
+
+export interface LiveConcertListResponse {
+  concerts: LiveConcert[];
+  total: number;
+}
+
+export type CreateLiveConcertBodyStreamType =
+  (typeof CreateLiveConcertBodyStreamType)[keyof typeof CreateLiveConcertBodyStreamType];
+
+export const CreateLiveConcertBodyStreamType = {
+  youtube: "youtube",
+  mux: "mux",
+} as const;
+
+export interface CreateLiveConcertBody {
+  title: string;
+  description?: string;
+  scheduledAt: string;
+  streamUrl: string;
+  streamType?: CreateLiveConcertBodyStreamType;
+  ticketPriceCents: number;
+  maxTickets?: number;
+  replayAvailableUntil?: string;
+  imageUrl?: string;
+}
+
+export type UpdateLiveConcertBodyStreamType =
+  (typeof UpdateLiveConcertBodyStreamType)[keyof typeof UpdateLiveConcertBodyStreamType];
+
+export const UpdateLiveConcertBodyStreamType = {
+  youtube: "youtube",
+  mux: "mux",
+} as const;
+
+export interface UpdateLiveConcertBody {
+  title?: string;
+  description?: string;
+  scheduledAt?: string;
+  streamUrl?: string;
+  streamType?: UpdateLiveConcertBodyStreamType;
+  ticketPriceCents?: number;
+  maxTickets?: number;
+  replayAvailableUntil?: string;
+  imageUrl?: string;
+  isCancelled?: boolean;
+}
+
+export type MyLiveConcertsResponseConcertsItem = {
+  concert: LiveConcert;
+  soldTickets: number;
+  grossRevenueCents: number;
+  netRevenueCents: number;
+};
+
+export interface MyLiveConcertsResponse {
+  concerts: MyLiveConcertsResponseConcertsItem[];
+}
+
+export interface MyLiveConcertTicketResponse {
+  hasTicket: boolean;
+  /** @nullable */
+  orderId?: number | null;
+}
+
 export interface DigitalProduct {
   id: number;
   listingId: number;
@@ -636,6 +728,7 @@ export const OrderType = {
   masterclass_performer: "masterclass_performer",
   masterclass_observer: "masterclass_observer",
   program_enrollment: "program_enrollment",
+  live_concert: "live_concert",
 } as const;
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -657,6 +750,8 @@ export interface Order {
   digitalProductId?: number | null;
   /** @nullable */
   masterclassEventId?: number | null;
+  /** @nullable */
+  liveConcertId?: number | null;
   priceInCents: number;
   currency: string;
   /** @nullable */
@@ -681,12 +776,14 @@ export const CreateOrderBodyType = {
   digital_product: "digital_product",
   masterclass_performer: "masterclass_performer",
   masterclass_observer: "masterclass_observer",
+  live_concert: "live_concert",
 } as const;
 
 export interface CreateOrderBody {
   type: CreateOrderBodyType;
   digitalProductId?: number;
   masterclassEventId?: number;
+  liveConcertId?: number;
 }
 
 export interface Review {
@@ -2183,6 +2280,11 @@ export type ListMasterclassesParams = {
    * @maximum 6
    */
   dayOfWeek?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListLiveConcertsParams = {
   limit?: number;
   offset?: number;
 };

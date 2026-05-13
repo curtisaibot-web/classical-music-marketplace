@@ -26,6 +26,7 @@ import orgsRouter from "./orgs";
 import scoresRouter from "./scores";
 import coachesRouter from "./coaches";
 import practiceRouter from "./practice";
+import liveConcertsRouter from "./liveConcerts";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(orgsRouter);
 router.use(scoresRouter);
 router.use(coachesRouter);
 router.use(practiceRouter);
+router.use(liveConcertsRouter);
 
 export default router;

@@ -1361,6 +1361,372 @@ export const UpdateMasterclassResponse = zod.object({
 });
 
 /**
+ * @summary Browse upcoming and live pay-per-view concerts
+ */
+export const listLiveConcertsQueryLimitDefault = 20;
+export const listLiveConcertsQueryOffsetDefault = 0;
+
+export const ListLiveConcertsQueryParams = zod.object({
+  limit: zod.coerce.number().default(listLiveConcertsQueryLimitDefault),
+  offset: zod.coerce.number().default(listLiveConcertsQueryOffsetDefault),
+});
+
+export const ListLiveConcertsResponse = zod.object({
+  concerts: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      scheduledAt: zod.coerce.date(),
+      streamUrl: zod.string(),
+      streamType: zod.enum(["youtube", "mux"]),
+      ticketPriceCents: zod.number(),
+      maxTickets: zod.number(),
+      soldTickets: zod.number(),
+      replayAvailableUntil: zod.coerce.date().nullish(),
+      imageUrl: zod.string().nullish(),
+      isCancelled: zod.boolean(),
+      teacher: zod
+        .object({
+          id: zod.number(),
+          userId: zod.string(),
+          bio: zod.string().nullish(),
+          instruments: zod.array(zod.string()),
+          genres: zod.array(zod.string()),
+          city: zod.string().nullish(),
+          country: zod.string().nullish(),
+          timezone: zod.string().nullish(),
+          hourlyRate: zod.number().nullish(),
+          currency: zod.string(),
+          yearsExperience: zod.number().nullish(),
+          education: zod.string().nullish(),
+          averageRating: zod.number(),
+          reviewCount: zod.number(),
+          isVerified: zod.boolean(),
+          profileImageUrl: zod.string().nullish(),
+          websiteUrl: zod.string().nullish(),
+          videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
+          stripeOnboarded: zod.boolean(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
+          user: zod
+            .object({
+              id: zod.string(),
+              email: zod.string(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+              role: zod
+                .union([
+                  zod.literal("teacher"),
+                  zod.literal("student"),
+                  zod.literal(null),
+                ])
+                .nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .optional(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a live concert event (teacher only)
+ */
+export const CreateLiveConcertBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  scheduledAt: zod.coerce.date(),
+  streamUrl: zod.string(),
+  streamType: zod.enum(["youtube", "mux"]).optional(),
+  ticketPriceCents: zod.number(),
+  maxTickets: zod.number().optional(),
+  replayAvailableUntil: zod.coerce.date().optional(),
+  imageUrl: zod.string().optional(),
+});
+
+/**
+ * @summary Get the authenticated teacher's concerts with revenue stats
+ */
+export const ListMyLiveConcertsResponse = zod.object({
+  concerts: zod.array(
+    zod.object({
+      concert: zod.object({
+        id: zod.number(),
+        teacherId: zod.string(),
+        title: zod.string(),
+        description: zod.string().nullish(),
+        scheduledAt: zod.coerce.date(),
+        streamUrl: zod.string(),
+        streamType: zod.enum(["youtube", "mux"]),
+        ticketPriceCents: zod.number(),
+        maxTickets: zod.number(),
+        soldTickets: zod.number(),
+        replayAvailableUntil: zod.coerce.date().nullish(),
+        imageUrl: zod.string().nullish(),
+        isCancelled: zod.boolean(),
+        teacher: zod
+          .object({
+            id: zod.number(),
+            userId: zod.string(),
+            bio: zod.string().nullish(),
+            instruments: zod.array(zod.string()),
+            genres: zod.array(zod.string()),
+            city: zod.string().nullish(),
+            country: zod.string().nullish(),
+            timezone: zod.string().nullish(),
+            hourlyRate: zod.number().nullish(),
+            currency: zod.string(),
+            yearsExperience: zod.number().nullish(),
+            education: zod.string().nullish(),
+            averageRating: zod.number(),
+            reviewCount: zod.number(),
+            isVerified: zod.boolean(),
+            profileImageUrl: zod.string().nullish(),
+            websiteUrl: zod.string().nullish(),
+            videoIntroUrl: zod.string().nullish(),
+            profileSlug: zod.string().nullish(),
+            stripeOnboarded: zod.boolean(),
+            isProSubscriber: zod.boolean().optional(),
+            cancellationPolicyHours: zod.number().optional(),
+            cancellationFeePercent: zod.number().optional(),
+            isPubliclyVisible: zod
+              .boolean()
+              .describe(
+                "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+              ),
+            orgId: zod
+              .number()
+              .nullish()
+              .describe("The organisation this teacher belongs to, if any."),
+            user: zod
+              .object({
+                id: zod.string(),
+                email: zod.string(),
+                firstName: zod.string().nullish(),
+                lastName: zod.string().nullish(),
+                imageUrl: zod.string().nullish(),
+                role: zod
+                  .union([
+                    zod.literal("teacher"),
+                    zod.literal("student"),
+                    zod.literal(null),
+                  ])
+                  .nullish(),
+                createdAt: zod.coerce.date(),
+              })
+              .optional(),
+            createdAt: zod.coerce.date(),
+          })
+          .optional(),
+        createdAt: zod.coerce.date(),
+      }),
+      soldTickets: zod.number(),
+      grossRevenueCents: zod.number(),
+      netRevenueCents: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a live concert by ID
+ */
+export const GetLiveConcertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetLiveConcertResponse = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  scheduledAt: zod.coerce.date(),
+  streamUrl: zod.string(),
+  streamType: zod.enum(["youtube", "mux"]),
+  ticketPriceCents: zod.number(),
+  maxTickets: zod.number(),
+  soldTickets: zod.number(),
+  replayAvailableUntil: zod.coerce.date().nullish(),
+  imageUrl: zod.string().nullish(),
+  isCancelled: zod.boolean(),
+  teacher: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      bio: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      genres: zod.array(zod.string()),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      timezone: zod.string().nullish(),
+      hourlyRate: zod.number().nullish(),
+      currency: zod.string(),
+      yearsExperience: zod.number().nullish(),
+      education: zod.string().nullish(),
+      averageRating: zod.number(),
+      reviewCount: zod.number(),
+      isVerified: zod.boolean(),
+      profileImageUrl: zod.string().nullish(),
+      websiteUrl: zod.string().nullish(),
+      videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+      stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
+      user: zod
+        .object({
+          id: zod.string(),
+          email: zod.string(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
+          role: zod
+            .union([
+              zod.literal("teacher"),
+              zod.literal("student"),
+              zod.literal(null),
+            ])
+            .nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a live concert (teacher owner only)
+ */
+export const UpdateLiveConcertParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateLiveConcertBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  scheduledAt: zod.coerce.date().optional(),
+  streamUrl: zod.string().optional(),
+  streamType: zod.enum(["youtube", "mux"]).optional(),
+  ticketPriceCents: zod.number().optional(),
+  maxTickets: zod.number().optional(),
+  replayAvailableUntil: zod.coerce.date().optional(),
+  imageUrl: zod.string().optional(),
+  isCancelled: zod.boolean().optional(),
+});
+
+export const UpdateLiveConcertResponse = zod.object({
+  id: zod.number(),
+  teacherId: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  scheduledAt: zod.coerce.date(),
+  streamUrl: zod.string(),
+  streamType: zod.enum(["youtube", "mux"]),
+  ticketPriceCents: zod.number(),
+  maxTickets: zod.number(),
+  soldTickets: zod.number(),
+  replayAvailableUntil: zod.coerce.date().nullish(),
+  imageUrl: zod.string().nullish(),
+  isCancelled: zod.boolean(),
+  teacher: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      bio: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      genres: zod.array(zod.string()),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      timezone: zod.string().nullish(),
+      hourlyRate: zod.number().nullish(),
+      currency: zod.string(),
+      yearsExperience: zod.number().nullish(),
+      education: zod.string().nullish(),
+      averageRating: zod.number(),
+      reviewCount: zod.number(),
+      isVerified: zod.boolean(),
+      profileImageUrl: zod.string().nullish(),
+      websiteUrl: zod.string().nullish(),
+      videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+      stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
+      user: zod
+        .object({
+          id: zod.string(),
+          email: zod.string(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
+          role: zod
+            .union([
+              zod.literal("teacher"),
+              zod.literal("student"),
+              zod.literal(null),
+            ])
+            .nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Check whether the authenticated user holds a paid ticket for this concert
+ */
+export const GetMyLiveConcertTicketParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetMyLiveConcertTicketResponse = zod.object({
+  hasTicket: zod.boolean(),
+  orderId: zod.number().nullish(),
+});
+
+/**
  * @summary Browse digital products
  */
 export const listDigitalProductsQueryLimitDefault = 20;
@@ -2071,10 +2437,12 @@ export const ListOrdersResponse = zod.object({
         "masterclass_performer",
         "masterclass_observer",
         "program_enrollment",
+        "live_concert",
       ]),
       status: zod.enum(["pending", "paid", "refunded", "failed"]),
       digitalProductId: zod.number().nullish(),
       masterclassEventId: zod.number().nullish(),
+      liveConcertId: zod.number().nullish(),
       priceInCents: zod.number(),
       currency: zod.string(),
       downloadUrl: zod.string().nullish(),
@@ -2095,9 +2463,11 @@ export const CreateOrderBody = zod.object({
     "digital_product",
     "masterclass_performer",
     "masterclass_observer",
+    "live_concert",
   ]),
   digitalProductId: zod.number().optional(),
   masterclassEventId: zod.number().optional(),
+  liveConcertId: zod.number().optional(),
 });
 
 /**
@@ -2116,10 +2486,12 @@ export const GetOrderResponse = zod.object({
     "masterclass_performer",
     "masterclass_observer",
     "program_enrollment",
+    "live_concert",
   ]),
   status: zod.enum(["pending", "paid", "refunded", "failed"]),
   digitalProductId: zod.number().nullish(),
   masterclassEventId: zod.number().nullish(),
+  liveConcertId: zod.number().nullish(),
   priceInCents: zod.number(),
   currency: zod.string(),
   downloadUrl: zod.string().nullish(),
@@ -2156,10 +2528,12 @@ export const RefreshOrderDownloadResponse = zod.object({
     "masterclass_performer",
     "masterclass_observer",
     "program_enrollment",
+    "live_concert",
   ]),
   status: zod.enum(["pending", "paid", "refunded", "failed"]),
   digitalProductId: zod.number().nullish(),
   masterclassEventId: zod.number().nullish(),
+  liveConcertId: zod.number().nullish(),
   priceInCents: zod.number(),
   currency: zod.string(),
   downloadUrl: zod.string().nullish(),
@@ -2609,10 +2983,12 @@ export const GetStudentDashboardResponse = zod.object({
         "masterclass_performer",
         "masterclass_observer",
         "program_enrollment",
+        "live_concert",
       ]),
       status: zod.enum(["pending", "paid", "refunded", "failed"]),
       digitalProductId: zod.number().nullish(),
       masterclassEventId: zod.number().nullish(),
+      liveConcertId: zod.number().nullish(),
       priceInCents: zod.number(),
       currency: zod.string(),
       downloadUrl: zod.string().nullish(),

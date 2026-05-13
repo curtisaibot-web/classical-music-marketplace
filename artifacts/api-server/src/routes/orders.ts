@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
 import { eq, and, or } from "drizzle-orm";
-import { db, ordersTable, digitalProductsTable, masterclassEventsTable } from "@workspace/db";
+import { db, ordersTable, digitalProductsTable, masterclassEventsTable, liveConcertsTable } from "@workspace/db";
 import {
   GetOrderResponse,
   ListOrdersResponse,
@@ -57,6 +57,39 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     }
     priceInCents = product.priceInCents;
     sellerId = product.teacherId;
+  } else if (parsed.data.type === "live_concert" && parsed.data.liveConcertId) {
+    const [concert] = await db
+      .select()
+      .from(liveConcertsTable)
+      .where(eq(liveConcertsTable.id, parsed.data.liveConcertId));
+    if (!concert) {
+      res.status(404).json({ error: "Concert not found" });
+      return;
+    }
+    if (concert.isCancelled) {
+      res.status(400).json({ error: "This concert has been cancelled" });
+      return;
+    }
+    if (concert.soldTickets >= concert.maxTickets) {
+      res.status(400).json({ error: "This concert is sold out" });
+      return;
+    }
+    const [existingTicket] = await db
+      .select()
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.buyerId, userId),
+          eq(ordersTable.liveConcertId, concert.id),
+          eq(ordersTable.status, "paid"),
+        ),
+      );
+    if (existingTicket) {
+      res.status(400).json({ error: "You already have a ticket for this concert" });
+      return;
+    }
+    priceInCents = concert.ticketPriceCents;
+    sellerId = concert.teacherId;
   } else if (parsed.data.masterclassEventId) {
     const [event] = await db
       .select()

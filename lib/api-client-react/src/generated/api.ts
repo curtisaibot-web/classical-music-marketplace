@@ -56,6 +56,7 @@ import type {
   CreateExpenseBody,
   CreateInvoiceBody,
   CreateListingBody,
+  CreateLiveConcertBody,
   CreateMasterclassBody,
   CreateOrderBody,
   CreateOrderCheckoutBody,
@@ -95,6 +96,7 @@ import type {
   ListDigitalProductsParams,
   ListExpensesParams,
   ListListingsParams,
+  ListLiveConcertsParams,
   ListMasterclassesParams,
   ListOrdersParams,
   ListPartnershipSessions200,
@@ -103,9 +105,13 @@ import type {
   ListTeachersParams,
   Listing,
   ListingListResponse,
+  LiveConcert,
+  LiveConcertListResponse,
   Masterclass,
   MasterclassListResponse,
   MyCampaignsResponse,
+  MyLiveConcertTicketResponse,
+  MyLiveConcertsResponse,
   MyScoreListResponse,
   NotFoundResponse,
   OnboardUserBody,
@@ -163,6 +169,7 @@ import type {
   UpdateExpenseBody,
   UpdateInvoiceBody,
   UpdateListingBody,
+  UpdateLiveConcertBody,
   UpdateMasterclassBody,
   UpdateOrgBody,
   UpdateScoreBody,
@@ -2260,6 +2267,533 @@ export const useUpdateMasterclass = <
 > => {
   return useMutation(getUpdateMasterclassMutationOptions(options));
 };
+
+/**
+ * @summary Browse upcoming and live pay-per-view concerts
+ */
+export const getListLiveConcertsUrl = (params?: ListLiveConcertsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/live-concerts?${stringifiedParams}`
+    : `/api/live-concerts`;
+};
+
+export const listLiveConcerts = async (
+  params?: ListLiveConcertsParams,
+  options?: RequestInit,
+): Promise<LiveConcertListResponse> => {
+  return customFetch<LiveConcertListResponse>(getListLiveConcertsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLiveConcertsQueryKey = (
+  params?: ListLiveConcertsParams,
+) => {
+  return [`/api/live-concerts`, ...(params ? [params] : [])] as const;
+};
+
+export const getListLiveConcertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLiveConcerts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListLiveConcertsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLiveConcerts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListLiveConcertsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLiveConcerts>>
+  > = ({ signal }) => listLiveConcerts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLiveConcerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLiveConcertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLiveConcerts>>
+>;
+export type ListLiveConcertsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Browse upcoming and live pay-per-view concerts
+ */
+
+export function useListLiveConcerts<
+  TData = Awaited<ReturnType<typeof listLiveConcerts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListLiveConcertsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLiveConcerts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLiveConcertsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a live concert event (teacher only)
+ */
+export const getCreateLiveConcertUrl = () => {
+  return `/api/live-concerts`;
+};
+
+export const createLiveConcert = async (
+  createLiveConcertBody: CreateLiveConcertBody,
+  options?: RequestInit,
+): Promise<LiveConcert> => {
+  return customFetch<LiveConcert>(getCreateLiveConcertUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLiveConcertBody),
+  });
+};
+
+export const getCreateLiveConcertMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLiveConcert>>,
+    TError,
+    { data: BodyType<CreateLiveConcertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLiveConcert>>,
+  TError,
+  { data: BodyType<CreateLiveConcertBody> },
+  TContext
+> => {
+  const mutationKey = ["createLiveConcert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLiveConcert>>,
+    { data: BodyType<CreateLiveConcertBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLiveConcert(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLiveConcertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLiveConcert>>
+>;
+export type CreateLiveConcertMutationBody = BodyType<CreateLiveConcertBody>;
+export type CreateLiveConcertMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a live concert event (teacher only)
+ */
+export const useCreateLiveConcert = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLiveConcert>>,
+    TError,
+    { data: BodyType<CreateLiveConcertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLiveConcert>>,
+  TError,
+  { data: BodyType<CreateLiveConcertBody> },
+  TContext
+> => {
+  return useMutation(getCreateLiveConcertMutationOptions(options));
+};
+
+/**
+ * @summary Get the authenticated teacher's concerts with revenue stats
+ */
+export const getListMyLiveConcertsUrl = () => {
+  return `/api/live-concerts/mine`;
+};
+
+export const listMyLiveConcerts = async (
+  options?: RequestInit,
+): Promise<MyLiveConcertsResponse> => {
+  return customFetch<MyLiveConcertsResponse>(getListMyLiveConcertsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyLiveConcertsQueryKey = () => {
+  return [`/api/live-concerts/mine`] as const;
+};
+
+export const getListMyLiveConcertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyLiveConcerts>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyLiveConcerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyLiveConcertsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyLiveConcerts>>
+  > = ({ signal }) => listMyLiveConcerts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyLiveConcerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyLiveConcertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyLiveConcerts>>
+>;
+export type ListMyLiveConcertsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Get the authenticated teacher's concerts with revenue stats
+ */
+
+export function useListMyLiveConcerts<
+  TData = Awaited<ReturnType<typeof listMyLiveConcerts>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyLiveConcerts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyLiveConcertsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a live concert by ID
+ */
+export const getGetLiveConcertUrl = (id: number) => {
+  return `/api/live-concerts/${id}`;
+};
+
+export const getLiveConcert = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LiveConcert> => {
+  return customFetch<LiveConcert>(getGetLiveConcertUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLiveConcertQueryKey = (id: number) => {
+  return [`/api/live-concerts/${id}`] as const;
+};
+
+export const getGetLiveConcertQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLiveConcert>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLiveConcert>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLiveConcertQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLiveConcert>>> = ({
+    signal,
+  }) => getLiveConcert(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLiveConcert>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLiveConcertQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLiveConcert>>
+>;
+export type GetLiveConcertQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a live concert by ID
+ */
+
+export function useGetLiveConcert<
+  TData = Awaited<ReturnType<typeof getLiveConcert>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLiveConcert>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLiveConcertQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a live concert (teacher owner only)
+ */
+export const getUpdateLiveConcertUrl = (id: number) => {
+  return `/api/live-concerts/${id}`;
+};
+
+export const updateLiveConcert = async (
+  id: number,
+  updateLiveConcertBody: UpdateLiveConcertBody,
+  options?: RequestInit,
+): Promise<LiveConcert> => {
+  return customFetch<LiveConcert>(getUpdateLiveConcertUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLiveConcertBody),
+  });
+};
+
+export const getUpdateLiveConcertMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLiveConcert>>,
+    TError,
+    { id: number; data: BodyType<UpdateLiveConcertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLiveConcert>>,
+  TError,
+  { id: number; data: BodyType<UpdateLiveConcertBody> },
+  TContext
+> => {
+  const mutationKey = ["updateLiveConcert"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLiveConcert>>,
+    { id: number; data: BodyType<UpdateLiveConcertBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLiveConcert(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLiveConcertMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLiveConcert>>
+>;
+export type UpdateLiveConcertMutationBody = BodyType<UpdateLiveConcertBody>;
+export type UpdateLiveConcertMutationError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update a live concert (teacher owner only)
+ */
+export const useUpdateLiveConcert = <
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLiveConcert>>,
+    TError,
+    { id: number; data: BodyType<UpdateLiveConcertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLiveConcert>>,
+  TError,
+  { id: number; data: BodyType<UpdateLiveConcertBody> },
+  TContext
+> => {
+  return useMutation(getUpdateLiveConcertMutationOptions(options));
+};
+
+/**
+ * @summary Check whether the authenticated user holds a paid ticket for this concert
+ */
+export const getGetMyLiveConcertTicketUrl = (id: number) => {
+  return `/api/live-concerts/${id}/my-ticket`;
+};
+
+export const getMyLiveConcertTicket = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MyLiveConcertTicketResponse> => {
+  return customFetch<MyLiveConcertTicketResponse>(
+    getGetMyLiveConcertTicketUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetMyLiveConcertTicketQueryKey = (id: number) => {
+  return [`/api/live-concerts/${id}/my-ticket`] as const;
+};
+
+export const getGetMyLiveConcertTicketQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyLiveConcertTicket>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyLiveConcertTicket>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyLiveConcertTicketQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyLiveConcertTicket>>
+  > = ({ signal }) => getMyLiveConcertTicket(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyLiveConcertTicket>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyLiveConcertTicketQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyLiveConcertTicket>>
+>;
+export type GetMyLiveConcertTicketQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Check whether the authenticated user holds a paid ticket for this concert
+ */
+
+export function useGetMyLiveConcertTicket<
+  TData = Awaited<ReturnType<typeof getMyLiveConcertTicket>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyLiveConcertTicket>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyLiveConcertTicketQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Browse digital products

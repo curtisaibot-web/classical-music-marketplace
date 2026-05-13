@@ -18,17 +18,21 @@ export default function PaymentSuccess() {
   const isOrder = type === "order" || type === "masterclass_performer" || type === "masterclass_observer";
   const isCampaign = type === "campaign";
   const isProgramEnrollment = type === "program_enrollment";
+  const isLiveConcert = type === "live_concert";
+  const concertId = params.get("concertId");
 
   const heading = isCampaign ? "Pledge Received!" : "Payment Successful!";
   const subtext = isBooking
     ? "Your lesson has been booked and payment received. The teacher will confirm shortly."
     : isProgramEnrollment
       ? "You're enrolled! Your audition prep program is ready to begin."
-      : isOrder
-        ? "Your purchase is confirmed. You can access your items in your orders."
-        : isCampaign
-          ? "Your card has been authorized. If the campaign reaches its goal, your payment will be captured and you'll receive your tickets by email."
-          : "Your payment was processed successfully.";
+      : isLiveConcert
+        ? "Your ticket is confirmed! Come back when the concert goes live to watch."
+        : isOrder
+          ? "Your purchase is confirmed. You can access your items in your orders."
+          : isCampaign
+            ? "Your card has been authorized. If the campaign reaches its goal, your payment will be captured and you'll receive your tickets by email."
+            : "Your payment was processed successfully.";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -79,6 +83,21 @@ export default function PaymentSuccess() {
                   Once all sessions are complete, you'll receive a certificate of completion.
                 </li>
               </ul>
+            ) : isLiveConcert ? (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">1.</span>
+                  Your ticket is confirmed — you now have access to the live stream.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">2.</span>
+                  Return to the concert page when it goes live to watch.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold mt-0.5">3.</span>
+                  If a replay is available, you can watch it after the concert ends.
+                </li>
+              </ul>
             ) : isBooking ? (
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
@@ -121,6 +140,13 @@ export default function PaymentSuccess() {
                 <Link href="/my-programs">
                   <BookOpen className="h-4 w-4 mr-2" />
                   View My Programs
+                </Link>
+              </Button>
+            ) : isLiveConcert && concertId ? (
+              <Button asChild>
+                <Link href={`/live/${concertId}`}>
+                  <Music className="h-4 w-4 mr-2" />
+                  Go to Concert
                 </Link>
               </Button>
             ) : isBooking ? (

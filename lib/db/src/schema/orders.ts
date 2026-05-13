@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { digitalProductsTable } from "./digitalProducts";
 import { masterclassEventsTable } from "./masterclassEvents";
+import { liveConcertsTable } from "./liveConcerts";
 
 export const orderStatusEnum = pgEnum("order_status", [
   "pending",
@@ -12,7 +13,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "failed",
 ]);
 
-export const orderTypeEnum = pgEnum("order_type", ["digital_product", "masterclass_performer", "masterclass_observer", "program_enrollment"]);
+export const orderTypeEnum = pgEnum("order_type", ["digital_product", "masterclass_performer", "masterclass_observer", "program_enrollment", "live_concert"]);
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -22,12 +23,13 @@ export const ordersTable = pgTable("orders", {
   status: orderStatusEnum("status").notNull().default("pending"),
   digitalProductId: integer("digital_product_id").references(() => digitalProductsTable.id, { onDelete: "set null" }),
   masterclassEventId: integer("masterclass_event_id").references(() => masterclassEventsTable.id, { onDelete: "set null" }),
+  liveConcertId: integer("live_concert_id").references(() => liveConcertsTable.id, { onDelete: "set null" }),
   priceInCents: integer("price_in_cents").notNull(),
   platformFeeInCents: integer("platform_fee_in_cents").notNull().default(0),
   currency: text("currency").notNull().default("USD"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
-  downloadUrl: text("download_url"), // signed, expiring URL
+  downloadUrl: text("download_url"),
   downloadExpiresAt: timestamp("download_expires_at", { withTimezone: true }),
   downloadCount: integer("download_count").notNull().default(0),
   paidAt: timestamp("paid_at", { withTimezone: true }),

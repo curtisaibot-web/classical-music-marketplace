@@ -3,6 +3,7 @@ export * from "./teacherProfiles";
 export * from "./studentProfiles";
 export * from "./listings";
 export * from "./masterclassEvents";
+export * from "./liveConcerts";
 export * from "./eventListingDetails";
 export * from "./digitalProducts";
 export * from "./bookings";
