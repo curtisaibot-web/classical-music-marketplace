@@ -249,6 +249,11 @@ router.post("/orders/:id/refresh-download", requireAuth, async (req, res): Promi
     return;
   }
 
+  if (!order.downloadExpiresAt || order.downloadExpiresAt > new Date()) {
+    res.status(409).json({ error: "Download window is still active. Refresh is only available after the link has expired." });
+    return;
+  }
+
   const freshExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const [updated] = await db
