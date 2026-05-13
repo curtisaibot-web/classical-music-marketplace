@@ -20,7 +20,7 @@ router.get("/digital-products", async (req, res): Promise<void> => {
   const offset = params.success ? (params.data.offset ?? 0) : 0;
   const category = params.success ? params.data.category : undefined;
   const instrument = params.success ? params.data.instrument : undefined;
-  const q = typeof req.query.q === "string" && req.query.q.trim() ? req.query.q.trim() : undefined;
+  const q = params.success && params.data.q ? params.data.q.trim() || undefined : undefined;
 
   const conditions = [eq(digitalProductsTable.isPublished, true)];
   if (category) conditions.push(eq(digitalProductsTable.category, category));

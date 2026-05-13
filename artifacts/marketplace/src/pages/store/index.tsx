@@ -10,7 +10,7 @@ import { BookOpen, Music, FileText, Search, Download, X, AlertCircle, Loader2, S
 import { resolveImageUrl } from "@/lib/image-url";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useUser } from "@clerk/react";
-import { useCreateOrder, useCreateOrderCheckout, useListDigitalProducts } from "@workspace/api-client-react";
+import { type DigitalProduct, useCreateOrder, useCreateOrderCheckout, useListDigitalProducts } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 
@@ -31,21 +31,6 @@ const getCategoryIcon = (category: string) => {
     default: return <BookOpen className="h-10 w-10 text-primary opacity-40" />;
   }
 };
-
-interface StoreProduct {
-  id: number;
-  title: string;
-  category: string;
-  instrument?: string | null;
-  difficulty?: string | null;
-  priceInCents: number;
-  downloadCount: number;
-  previewUrl?: string | null;
-  teacher?: {
-    user?: { firstName?: string | null; lastName?: string | null } | null;
-    profileImageUrl?: string | null;
-  } | null;
-}
 
 export default function Store() {
   const [search, setSearch] = useState("");
@@ -68,7 +53,7 @@ export default function Store() {
     q: debouncedSearch || undefined,
     category: activeCategory || undefined,
     limit: 40,
-  } as Parameters<typeof useListDigitalProducts>[0]);
+  });
 
   const hasActiveFilters = search || activeCategory;
 
@@ -79,7 +64,7 @@ export default function Store() {
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const handleBuy = (e: React.MouseEvent, product: StoreProduct) => {
+  const handleBuy = (e: React.MouseEvent, product: DigitalProduct) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -102,7 +87,12 @@ export default function Store() {
             { data: { orderId: order.id, successUrl, cancelUrl } },
             {
               onSuccess: (data) => {
-                if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+                if (data.checkoutUrl) {
+                  window.location.href = data.checkoutUrl;
+                } else {
+                  toast.error("No checkout URL returned. Please try again.");
+                  setCheckoutingId(null);
+                }
               },
               onError: () => {
                 toast.error("Failed to open payment. Please try again.");
@@ -219,7 +209,7 @@ export default function Store() {
               {data.total} {data.total === 1 ? "product" : "products"} found
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(data.products as StoreProduct[]).map((product) => {
+              {data.products.map((product) => {
                 const imgSrc = resolveImageUrl(product.previewUrl ?? null, basePath);
                 const isBuying = checkoutingId === product.id;
                 return (
