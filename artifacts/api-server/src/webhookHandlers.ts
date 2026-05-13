@@ -180,39 +180,62 @@ async function handleCheckoutSessionCompleted(
       throw new Error(`Order ${orderId} not found for checkout session ${session.id} (event ${eventId})`);
     }
 
-    const updatedOrders = await db
-      .update(ordersTable)
-      .set({
-        status: "paid",
-        paidAt: new Date(),
-        stripeCheckoutSessionId: session.id,
-        stripePaymentIntentId: paymentIntentId,
-      })
-      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
-      .returning({ id: ordersTable.id, type: ordersTable.type, liveConcertId: ordersTable.liveConcertId });
-    if (updatedOrders.length > 0) {
-      logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
-      const paidOrder = updatedOrders[0];
-      if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
-        const updated = await db
+    const [orderMeta] = await db
+      .select({ type: ordersTable.type, liveConcertId: ordersTable.liveConcertId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    if (!orderMeta || orderMeta.status !== "pending") {
+      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update (checkout.session.completed)");
+    } else if (orderMeta.type === "live_concert" && orderMeta.liveConcertId != null) {
+      const liveConcertId = orderMeta.liveConcertId;
+      await db.transaction(async (tx) => {
+        const slot = await tx
           .update(liveConcertsTable)
           .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
           .where(
             and(
-              eq(liveConcertsTable.id, paidOrder.liveConcertId),
+              eq(liveConcertsTable.id, liveConcertId),
               sql`${liveConcertsTable.soldTickets} < ${liveConcertsTable.maxTickets}`,
             ),
           )
           .returning({ id: liveConcertsTable.id });
-        if (updated.length === 0) {
-          logger.warn({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert already at capacity — sold_tickets NOT incremented (over-capacity payment)");
+        if (slot.length === 0) {
+          await tx
+            .update(ordersTable)
+            .set({ status: "failed" })
+            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")));
+          logger.warn({ orderId, liveConcertId, eventId }, "Live concert at capacity — order marked failed (checkout.session.completed)");
         } else {
-          logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented");
+          await tx
+            .update(ordersTable)
+            .set({
+              status: "paid",
+              paidAt: new Date(),
+              stripeCheckoutSessionId: session.id,
+              stripePaymentIntentId: paymentIntentId,
+            })
+            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")));
+          logger.info({ orderId, liveConcertId, eventId }, "Live concert ticket claimed and order paid (checkout.session.completed)");
         }
-      }
-      await unlockDigitalDownload(orderId);
+      });
     } else {
-      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+      const updatedOrders = await db
+        .update(ordersTable)
+        .set({
+          status: "paid",
+          paidAt: new Date(),
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId,
+        })
+        .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
+        .returning({ id: ordersTable.id });
+      if (updatedOrders.length > 0) {
+        logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
+        await unlockDigitalDownload(orderId);
+      } else {
+        logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+      }
     }
   }
 
@@ -463,38 +486,60 @@ async function handlePaymentIntentSucceeded(
       throw new Error(`Invalid order_id in payment_intent metadata: ${metadata.order_id}`);
     }
 
-    const updatedOrders = await db
-      .update(ordersTable)
-      .set({
-        status: "paid",
-        paidAt: new Date(),
-        stripePaymentIntentId: paymentIntent.id,
-      })
-      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
-      .returning({ id: ordersTable.id, type: ordersTable.type, liveConcertId: ordersTable.liveConcertId });
-    if (updatedOrders.length > 0) {
-      logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
-      const paidOrder = updatedOrders[0];
-      if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
-        const updated = await db
+    const [orderMeta] = await db
+      .select({ type: ordersTable.type, liveConcertId: ordersTable.liveConcertId, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+
+    if (!orderMeta || orderMeta.status !== "pending") {
+      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update (payment_intent.succeeded)");
+    } else if (orderMeta.type === "live_concert" && orderMeta.liveConcertId != null) {
+      const liveConcertId = orderMeta.liveConcertId;
+      await db.transaction(async (tx) => {
+        const slot = await tx
           .update(liveConcertsTable)
           .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
           .where(
             and(
-              eq(liveConcertsTable.id, paidOrder.liveConcertId),
+              eq(liveConcertsTable.id, liveConcertId),
               sql`${liveConcertsTable.soldTickets} < ${liveConcertsTable.maxTickets}`,
             ),
           )
           .returning({ id: liveConcertsTable.id });
-        if (updated.length === 0) {
-          logger.warn({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert already at capacity — sold_tickets NOT incremented via payment_intent.succeeded");
+        if (slot.length === 0) {
+          await tx
+            .update(ordersTable)
+            .set({ status: "failed" })
+            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")));
+          logger.warn({ orderId, liveConcertId, eventId }, "Live concert at capacity — order marked failed (payment_intent.succeeded)");
         } else {
-          logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented via payment_intent.succeeded");
+          await tx
+            .update(ordersTable)
+            .set({
+              status: "paid",
+              paidAt: new Date(),
+              stripePaymentIntentId: paymentIntent.id,
+            })
+            .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")));
+          logger.info({ orderId, liveConcertId, eventId }, "Live concert ticket claimed and order paid (payment_intent.succeeded)");
         }
-      }
-      await unlockDigitalDownload(orderId);
+      });
     } else {
-      logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+      const updatedOrders = await db
+        .update(ordersTable)
+        .set({
+          status: "paid",
+          paidAt: new Date(),
+          stripePaymentIntentId: paymentIntent.id,
+        })
+        .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "pending")))
+        .returning({ id: ordersTable.id });
+      if (updatedOrders.length > 0) {
+        logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
+        await unlockDigitalDownload(orderId);
+      } else {
+        logger.info({ orderId, eventId }, "Order already in non-pending state — skipping idempotent update");
+      }
     }
   }
 }
