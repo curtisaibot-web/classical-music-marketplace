@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "wouter";
-import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, useListAuditionPrograms, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, getListAuditionProgramsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useGetTeacher, useGetTeacherListings, useGetTeacherReviews, useCreateBooking, useCreateBookingCheckout, useGetUserReel, useListAuditionPrograms, useListBookings, useCreateReview, getGetTeacherQueryKey, getGetTeacherListingsQueryKey, getGetTeacherReviewsQueryKey, getGetUserReelQueryKey, getListAuditionProgramsQueryKey, getListBookingsQueryKey, CreateBookingBodyType } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -196,6 +197,74 @@ export default function TeacherProfile() {
   };
 
   const isBookingPending = createBooking.isPending || createCheckout.isPending;
+
+  // ── Review dialog state ──
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewBody, setReviewBody] = useState("");
+  const [reviewBookingId, setReviewBookingId] = useState<number | undefined>(undefined);
+  const [reviewSubmittedForTeacher, setReviewSubmittedForTeacher] = useState(false);
+
+  const queryClient = useQueryClient();
+  const createReview = useCreateReview();
+
+  const { data: bookingsData } = useListBookings(undefined, {
+    query: { enabled: isLoaded && !!user, queryKey: getListBookingsQueryKey() },
+  });
+
+  const eligibleBooking = bookingsData?.bookings.find(
+    (b) => b.teacherId === userId && b.status === "completed" && !b.hasReview,
+  );
+  const canLeaveReview = !!eligibleBooking && !reviewSubmittedForTeacher;
+
+  const openReviewDialog = () => {
+    setReviewRating(0);
+    setReviewHoverRating(0);
+    setReviewTitle("");
+    setReviewBody("");
+    setReviewBookingId(eligibleBooking?.id);
+    setReviewOpen(true);
+  };
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (reviewRating === 0) {
+      toast.error("Please select a star rating");
+      return;
+    }
+    createReview.mutate(
+      {
+        data: {
+          teacherId: userId,
+          bookingId: reviewBookingId,
+          rating: reviewRating,
+          title: reviewTitle || undefined,
+          body: reviewBody || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Review submitted! Thank you for your feedback.");
+          setReviewOpen(false);
+          setReviewSubmittedForTeacher(true);
+          queryClient.invalidateQueries({ queryKey: getGetTeacherReviewsQueryKey(userId) });
+          queryClient.invalidateQueries({ queryKey: getGetTeacherQueryKey(userId) });
+        },
+        onError: (err: Error) => {
+          const msg = err?.message ?? "";
+          if (msg.includes("already reviewed")) {
+            toast.error("You've already reviewed this teacher.");
+            setReviewSubmittedForTeacher(true);
+          } else {
+            toast.error("Failed to submit review. Please try again.");
+          }
+          setReviewOpen(false);
+        },
+      },
+    );
+  };
 
   const lessons = listingsData?.listings.filter(l => l.type === "lesson") ?? [];
   const masterclasses = listingsData?.listings.filter(l => l.type === "masterclass") ?? [];
@@ -557,6 +626,27 @@ export default function TeacherProfile() {
 
             {/* Reviews */}
             <section>
+              {canLeaveReview && (
+                <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <Star className="h-5 w-5 text-primary shrink-0" />
+                    <div>
+                      <p className="font-medium text-foreground text-sm">You had a lesson with {firstName}!</p>
+                      <p className="text-xs text-muted-foreground">Share your experience to help other students.</p>
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={openReviewDialog} className="shrink-0 gap-1.5">
+                    <Star className="h-3.5 w-3.5" />
+                    Leave a Review
+                  </Button>
+                </div>
+              )}
+              {reviewSubmittedForTeacher && (
+                <div className="mb-5 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  Your review has been submitted. Thank you!
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-5">
                 <h2 className="text-xl font-serif font-semibold text-foreground">Reviews</h2>
                 {teacher.reviewCount > 0 && (
@@ -799,6 +889,75 @@ export default function TeacherProfile() {
               <Button type="button" variant="outline" onClick={() => setBookingModalOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={!bookingDate || !bookingSlot || isBookingPending}>
                 {isBookingPending ? "Opening checkout..." : "Continue to Payment"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Review Dialog ── */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Leave a Review</DialogTitle>
+            <DialogDescription>
+              Share your experience with {firstName}. Your feedback helps other students.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitReview} className="space-y-5 pt-2">
+            <div className="space-y-2">
+              <Label>Star Rating <span className="text-destructive">*</span></Label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    onMouseEnter={() => setReviewHoverRating(star)}
+                    onMouseLeave={() => setReviewHoverRating(0)}
+                    className="p-1 transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`h-7 w-7 transition-colors ${
+                        star <= (reviewHoverRating || reviewRating)
+                          ? "fill-primary text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  </button>
+                ))}
+                {reviewRating > 0 && (
+                  <span className="ml-2 self-center text-sm text-muted-foreground">
+                    {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][reviewRating]}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-review-title">Title <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="profile-review-title"
+                placeholder="Summarize your experience"
+                value={reviewTitle}
+                onChange={(e) => setReviewTitle(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-review-body">Your Review <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                id="profile-review-body"
+                placeholder="Tell others about your lesson — teaching style, communication, what you learned..."
+                value={reviewBody}
+                onChange={(e) => setReviewBody(e.target.value)}
+                rows={4}
+                maxLength={1000}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={createReview.isPending || reviewRating === 0}>
+                {createReview.isPending ? "Submitting..." : "Submit Review"}
               </Button>
             </DialogFooter>
           </form>
