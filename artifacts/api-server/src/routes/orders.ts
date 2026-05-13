@@ -80,6 +80,7 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
       .where(
         and(
           eq(ordersTable.buyerId, userId),
+          eq(ordersTable.type, "live_concert"),
           eq(ordersTable.liveConcertId, concert.id),
           eq(ordersTable.status, "paid"),
         ),
@@ -112,15 +113,30 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
 
   const platformFeeInCents = Math.round(priceInCents * PLATFORM_FEE_RATE);
 
+  const type = parsed.data.type;
+  const insertValues: Parameters<typeof db.insert>[0] extends never ? never : Record<string, unknown> = {
+    type,
+    buyerId: userId,
+    sellerId,
+    priceInCents,
+    platformFeeInCents,
+    ...(type === "digital_product" && parsed.data.digitalProductId
+      ? { digitalProductId: parsed.data.digitalProductId }
+      : {}),
+    ...(type === "live_concert" && parsed.data.liveConcertId
+      ? { liveConcertId: parsed.data.liveConcertId }
+      : {}),
+    ...(
+      (type === "masterclass_observer" || type === "masterclass_performer") &&
+      parsed.data.masterclassEventId
+        ? { masterclassEventId: parsed.data.masterclassEventId }
+        : {}
+    ),
+  };
+
   const [order] = await db
     .insert(ordersTable)
-    .values({
-      ...parsed.data,
-      buyerId: userId,
-      sellerId,
-      priceInCents,
-      platformFeeInCents,
-    })
+    .values(insertValues as typeof ordersTable.$inferInsert)
     .returning();
 
   res.status(201).json(GetOrderResponse.parse(order));

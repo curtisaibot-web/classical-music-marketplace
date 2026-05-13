@@ -178,6 +178,7 @@ router.get("/live-concerts/:id", async (req, res): Promise<void> => {
         .where(
           and(
             eq(ordersTable.buyerId, userId),
+            eq(ordersTable.type, "live_concert"),
             eq(ordersTable.liveConcertId, id),
             eq(ordersTable.status, "paid"),
           ),
@@ -319,6 +320,7 @@ router.get("/live-concerts/:id/my-ticket", requireAuth, async (req, res): Promis
     .where(
       and(
         eq(ordersTable.buyerId, userId),
+        eq(ordersTable.type, "live_concert"),
         eq(ordersTable.liveConcertId, id),
         eq(ordersTable.status, "paid"),
       ),
