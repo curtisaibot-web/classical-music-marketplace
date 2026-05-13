@@ -957,9 +957,25 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
     return;
   }
 
-  const total = typedSplits.reduce((sum, s) => sum + (s.splitPercent as number), 0);
+  // Round each value first so the sum check and persistence use the same values — no post-validation drift
+  const roundedSplits = typedSplits.map((s) => ({
+    memberId: s.memberId as number,
+    splitPercent: Math.round(s.splitPercent as number),
+  }));
+
+  // Per-entry bounds: each rounded value must be between 0 and 100 inclusive
+  const outOfRange = roundedSplits.find((s) => s.splitPercent < 0 || s.splitPercent > 100);
+  if (outOfRange) {
+    res.status(400).json({
+      error: `Each member's splitPercent must be between 0 and 100 (got ${outOfRange.splitPercent} for memberId ${outOfRange.memberId})`,
+    });
+    return;
+  }
+
+  // Sum must be exactly 100 after rounding — checked on rounded values to prevent drift
+  const total = roundedSplits.reduce((sum, s) => sum + s.splitPercent, 0);
   if (total !== 100) {
-    res.status(400).json({ error: `Split percentages must sum to 100 (got ${total})` });
+    res.status(400).json({ error: `Split percentages must sum to 100 after rounding (got ${total})` });
     return;
   }
 
@@ -986,14 +1002,14 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
     return;
   }
 
-  // Apply updates — only for members that actually belong to this ensemble
-  for (const split of typedSplits) {
+  // Apply updates — using pre-rounded values, only for members that actually belong to this ensemble
+  for (const split of roundedSplits) {
     await db
       .update(ensembleMembersTable)
-      .set({ splitPercent: Math.round(split.splitPercent as number) })
+      .set({ splitPercent: split.splitPercent })
       .where(
         and(
-          eq(ensembleMembersTable.id, split.memberId as number),
+          eq(ensembleMembersTable.id, split.memberId),
           eq(ensembleMembersTable.ensembleId, id),
           or(
             eq(ensembleMembersTable.status, "active"),
