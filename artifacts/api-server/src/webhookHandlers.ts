@@ -183,13 +183,16 @@ async function handleCheckoutSessionCompleted(
       await processEnsembleRevenueSplit(
         bookingId,
         ensembleIdForPayout,
-        async (accountId: string, amountCents: number, bId: number) => {
-          const transfer = await stripe.transfers.create({
-            amount: amountCents,
-            currency: "usd",
-            destination: accountId,
-            description: `Ensemble booking payout — booking #${bId}`,
-          });
+        async (accountId: string, amountCents: number, bId: number, idempotencyKey: string) => {
+          const transfer = await stripe.transfers.create(
+            {
+              amount: amountCents,
+              currency: "usd",
+              destination: accountId,
+              description: `Ensemble booking payout — booking #${bId}`,
+            },
+            { idempotencyKey },
+          );
           return transfer.id;
         },
       );
@@ -527,13 +530,16 @@ async function handlePaymentIntentSucceeded(
       await processEnsembleRevenueSplit(
         bookingId,
         ensembleIdForPayout,
-        async (accountId: string, amountCents: number, bId: number) => {
-          const transfer = await stripe.transfers.create({
-            amount: amountCents,
-            currency: "usd",
-            destination: accountId,
-            description: `Ensemble booking payout — booking #${bId}`,
-          });
+        async (accountId: string, amountCents: number, bId: number, idempotencyKey: string) => {
+          const transfer = await stripe.transfers.create(
+            {
+              amount: amountCents,
+              currency: "usd",
+              destination: accountId,
+              description: `Ensemble booking payout — booking #${bId}`,
+            },
+            { idempotencyKey },
+          );
           return transfer.id;
         },
       );

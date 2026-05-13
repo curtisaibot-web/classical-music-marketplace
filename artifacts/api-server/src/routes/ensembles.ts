@@ -261,6 +261,15 @@ router.get("/ensembles/mine", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Public: ensemble detail by slug ─────────────────────────────────────────
 
+// GET /ensembles/by-id/:id — numeric ID route for authenticated access by id
+router.get("/ensembles/by-id/:id", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ensemble id" }); return; }
+  const enriched = await formatEnsemble(id);
+  if (!enriched) { res.status(404).json({ error: "Ensemble not found" }); return; }
+  res.json(enriched);
+});
+
 router.get("/ensembles/:slug", async (req, res): Promise<void> => {
   const slug = req.params["slug"] as string;
 
@@ -370,6 +379,33 @@ router.post("/ensembles", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ─── Update ensemble ──────────────────────────────────────────────────────────
+
+// Canonical PUT /ensembles/:id — alias for backward compat with /ensembles/:id/update
+router.put("/ensembles/:id", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ensemble id" }); return; }
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
+  if (!ensemble) { res.status(404).json({ error: "Ensemble not found" }); return; }
+  if (ensemble.leaderId !== userId) { res.status(403).json({ error: "Only the ensemble leader can update the ensemble" }); return; }
+  const body = req.body as Record<string, unknown>;
+  const updates: Partial<typeof ensemblesTable.$inferInsert> = {};
+  if (typeof body.name === "string") updates.name = body.name;
+  if (typeof body.bio === "string") updates.bio = body.bio;
+  if (typeof body.photoUrl === "string") updates.photoUrl = body.photoUrl;
+  if (typeof body.city === "string") updates.city = body.city;
+  if (typeof body.priceInCents === "number") updates.priceInCents = body.priceInCents;
+  if (Array.isArray(body.genres)) updates.genres = body.genres.filter((g): g is string => typeof g === "string");
+  if (Array.isArray(body.instruments)) updates.instruments = body.instruments.filter((i): i is string => typeof i === "string");
+  if (Array.isArray(body.recordings)) updates.recordings = body.recordings.filter((r): r is string => typeof r === "string");
+  if (typeof body.status === "string" && ["pending", "active", "archived"].includes(body.status)) {
+    updates.status = body.status as "pending" | "active" | "archived";
+  }
+  await db.update(ensemblesTable).set(updates).where(eq(ensemblesTable.id, id));
+  const enriched = await formatEnsemble(id);
+  res.json(enriched);
+});
 
 router.put("/ensembles/:id/update", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -955,7 +991,7 @@ router.get("/ensembles/:id/payouts", requireAuth, async (req, res): Promise<void
 export async function processEnsembleRevenueSplit(
   bookingId: number,
   ensembleId: number,
-  stripeTransfer?: (accountId: string, amountCents: number, bookingId: number) => Promise<string | null>,
+  stripeTransfer?: (accountId: string, amountCents: number, bookingId: number, idempotencyKey: string) => Promise<string | null>,
 ): Promise<void> {
   const [booking] = await db
     .select()
@@ -1022,15 +1058,18 @@ export async function processEnsembleRevenueSplit(
       continue;
     }
 
-    const effectiveFraction = member.splitPercent / totalConfiguredSplit;
-    const grossAmountCents = Math.round(booking.priceInCents * effectiveFraction);
-    const platformFeePortionCents = Math.round(booking.platformFeeInCents * effectiveFraction);
-    const netAmountCents = grossAmountCents - platformFeePortionCents;
+    // Payout amount = splitPercent / 100 of net booking amount (gross - platform fee).
+    // This honours the configured percentage directly — not normalised by totalConfiguredSplit.
+    const memberNetAmountCents = Math.round(
+      (booking.priceInCents - booking.platformFeeInCents) * (member.splitPercent / 100),
+    );
+    const memberGrossAmountCents = Math.round(booking.priceInCents * (member.splitPercent / 100));
+    const memberPlatformFeePortionCents = memberGrossAmountCents - memberNetAmountCents;
 
     let stripeTransferId: string | null = null;
     let payoutStatus: "pending" | "completed" | "failed" = "pending";
 
-    if (stripeTransfer && netAmountCents > 0) {
+    if (stripeTransfer && memberNetAmountCents > 0) {
       const [teacherProfile] = await db
         .select({
           stripeAccountId: teacherProfilesTable.stripeAccountId,
@@ -1040,8 +1079,16 @@ export async function processEnsembleRevenueSplit(
         .where(eq(teacherProfilesTable.userId, member.userId));
 
       if (teacherProfile?.stripeAccountId && teacherProfile.stripeOnboarded) {
+        // Deterministic idempotency key: prevents duplicate Stripe transfers on
+        // concurrent/duplicate webhook deliveries for the same booking + member pair.
+        const idempotencyKey = `ensemble-payout-${bookingId}-${member.userId}`;
         try {
-          stripeTransferId = await stripeTransfer(teacherProfile.stripeAccountId, netAmountCents, bookingId);
+          stripeTransferId = await stripeTransfer(
+            teacherProfile.stripeAccountId,
+            memberNetAmountCents,
+            bookingId,
+            idempotencyKey,
+          );
           payoutStatus = stripeTransferId ? "completed" : "pending";
         } catch (err) {
           logger.error({ err, bookingId, memberId: member.userId }, "Stripe transfer failed for ensemble member");
@@ -1050,6 +1097,10 @@ export async function processEnsembleRevenueSplit(
       }
     }
 
+    const grossAmountCents = memberGrossAmountCents;
+    const platformFeePortionCents = memberPlatformFeePortionCents;
+    const netAmountCents = memberNetAmountCents;
+
     if (retryableMemberIds.has(member.userId)) {
       // Update the existing failed/pending row rather than inserting a duplicate
       await db
@@ -1057,7 +1108,9 @@ export async function processEnsembleRevenueSplit(
         .set({ stripeTransferId, status: payoutStatus })
         .where(and(eq(payoutsTable.bookingId, bookingId), eq(payoutsTable.memberId, member.userId)));
     } else {
-      // First-time insert; onConflictDoNothing guards against concurrent webhook deliveries
+      // First-time insert; onConflictDoNothing guards against concurrent webhook deliveries.
+      // The unique constraint on (booking_id, member_id) is the hard idempotency guard;
+      // this call is a no-op if a concurrent webhook already inserted the row.
       await db
         .insert(payoutsTable)
         .values({
