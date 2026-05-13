@@ -7334,7 +7334,7 @@ components:
               type: ["string", "null"]
             profileSlug:
               type: ["string", "null"]
-      required: [id, ensembleId, inviteEmail, splitPercent, status, invitedAt]
+      required: [id, ensembleId, splitPercent, status]
 
     EnsembleEventListing:
       type: object

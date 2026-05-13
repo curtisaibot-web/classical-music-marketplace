@@ -912,10 +912,41 @@ router.delete(
       return;
     }
 
-    await db
-      .update(ensembleMembersTable)
-      .set({ status: "removed" })
-      .where(eq(ensembleMembersTable.id, member.id));
+    // Remove the member and auto-rebalance remaining active/invited splits to sum to 100.
+    // Leader absorbs any remainder to keep total exact (same strategy as equal-split invite).
+    await db.transaction(async (tx) => {
+      await tx
+        .update(ensembleMembersTable)
+        .set({ status: "removed", splitPercent: 0 })
+        .where(eq(ensembleMembersTable.id, member.id));
+
+      const remaining = await tx
+        .select({ id: ensembleMembersTable.id, userId: ensembleMembersTable.userId, splitPercent: ensembleMembersTable.splitPercent })
+        .from(ensembleMembersTable)
+        .where(
+          and(
+            eq(ensembleMembersTable.ensembleId, id),
+            or(
+              eq(ensembleMembersTable.status, "active"),
+              eq(ensembleMembersTable.status, "invited"),
+            ),
+          ),
+        );
+
+      if (remaining.length > 0) {
+        const perMember = Math.floor(100 / remaining.length);
+        const leaderRemainder = 100 - perMember * remaining.length;
+        const leaderRow = remaining.find((m) => m.userId === ensemble.leaderId) ?? remaining[0];
+
+        for (const m of remaining) {
+          const newSplit = m.id === leaderRow.id ? perMember + leaderRemainder : perMember;
+          await tx
+            .update(ensembleMembersTable)
+            .set({ splitPercent: newSplit })
+            .where(eq(ensembleMembersTable.id, m.id));
+        }
+      }
+    });
 
     res.status(204).send();
   },

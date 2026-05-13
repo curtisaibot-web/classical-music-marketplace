@@ -1763,11 +1763,11 @@ export const ListEnsemblesResponse = zod.object({
               id: zod.number(),
               ensembleId: zod.number(),
               userId: zod.string().nullish(),
-              inviteEmail: zod.string(),
+              inviteEmail: zod.string().optional(),
               splitPercent: zod.number(),
               status: zod.enum(["invited", "active", "removed"]),
               inviteToken: zod.string().nullish(),
-              invitedAt: zod.coerce.date(),
+              invitedAt: zod.coerce.date().optional(),
               joinedAt: zod.coerce.date().nullish(),
               user: zod
                 .object({
@@ -1851,11 +1851,11 @@ export const ListMyEnsemblesResponse = zod.object({
               id: zod.number(),
               ensembleId: zod.number(),
               userId: zod.string().nullish(),
-              inviteEmail: zod.string(),
+              inviteEmail: zod.string().optional(),
               splitPercent: zod.number(),
               status: zod.enum(["invited", "active", "removed"]),
               inviteToken: zod.string().nullish(),
-              invitedAt: zod.coerce.date(),
+              invitedAt: zod.coerce.date().optional(),
               joinedAt: zod.coerce.date().nullish(),
               user: zod
                 .object({
@@ -1926,11 +1926,11 @@ export const GetEnsembleResponse = zod
           id: zod.number(),
           ensembleId: zod.number(),
           userId: zod.string().nullish(),
-          inviteEmail: zod.string(),
+          inviteEmail: zod.string().optional(),
           splitPercent: zod.number(),
           status: zod.enum(["invited", "active", "removed"]),
           inviteToken: zod.string().nullish(),
-          invitedAt: zod.coerce.date(),
+          invitedAt: zod.coerce.date().optional(),
           joinedAt: zod.coerce.date().nullish(),
           user: zod
             .object({
@@ -2010,11 +2010,11 @@ export const UpdateEnsembleResponse = zod
           id: zod.number(),
           ensembleId: zod.number(),
           userId: zod.string().nullish(),
-          inviteEmail: zod.string(),
+          inviteEmail: zod.string().optional(),
           splitPercent: zod.number(),
           status: zod.enum(["invited", "active", "removed"]),
           inviteToken: zod.string().nullish(),
-          invitedAt: zod.coerce.date(),
+          invitedAt: zod.coerce.date().optional(),
           joinedAt: zod.coerce.date().nullish(),
           user: zod
             .object({
@@ -2107,11 +2107,11 @@ export const AcceptEnsembleInviteResponse = zod.object({
   id: zod.number(),
   ensembleId: zod.number(),
   userId: zod.string().nullish(),
-  inviteEmail: zod.string(),
+  inviteEmail: zod.string().optional(),
   splitPercent: zod.number(),
   status: zod.enum(["invited", "active", "removed"]),
   inviteToken: zod.string().nullish(),
-  invitedAt: zod.coerce.date(),
+  invitedAt: zod.coerce.date().optional(),
   joinedAt: zod.coerce.date().nullish(),
   user: zod
     .object({
@@ -2186,11 +2186,11 @@ export const UpdateEnsembleSplitsResponse = zod
           id: zod.number(),
           ensembleId: zod.number(),
           userId: zod.string().nullish(),
-          inviteEmail: zod.string(),
+          inviteEmail: zod.string().optional(),
           splitPercent: zod.number(),
           status: zod.enum(["invited", "active", "removed"]),
           inviteToken: zod.string().nullish(),
-          invitedAt: zod.coerce.date(),
+          invitedAt: zod.coerce.date().optional(),
           joinedAt: zod.coerce.date().nullish(),
           user: zod
             .object({

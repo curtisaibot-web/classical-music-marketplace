@@ -2256,12 +2256,12 @@ export interface EnsembleMember {
   ensembleId: number;
   /** @nullable */
   userId?: string | null;
-  inviteEmail: string;
+  inviteEmail?: string;
   splitPercent: number;
   status: EnsembleMemberStatus;
   /** @nullable */
   inviteToken?: string | null;
-  invitedAt: string;
+  invitedAt?: string;
   /** @nullable */
   joinedAt?: string | null;
   /** @nullable */

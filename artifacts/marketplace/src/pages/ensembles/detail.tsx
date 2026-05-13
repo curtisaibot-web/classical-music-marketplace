@@ -191,11 +191,11 @@ export default function EnsembleDetail() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {activeMembers.map((member) => {
                   const name =
-                    member.user
+                    (member.user
                       ? [member.user.firstName, member.user.lastName]
                           .filter(Boolean)
                           .join(" ") || member.inviteEmail
-                      : member.inviteEmail;
+                      : member.inviteEmail) ?? "Member";
                   const avatar =
                     member.profile?.profileImageUrl ??
                     member.user?.imageUrl ??
