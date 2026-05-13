@@ -3456,6 +3456,7 @@ export const getRefreshOrderDownloadMutationOptions = <
     | UnauthorizedResponse
     | ForbiddenResponse
     | NotFoundResponse
+    | void
   >,
   TContext = unknown,
 >(options?: {
@@ -3502,6 +3503,7 @@ export type RefreshOrderDownloadMutationError = ErrorType<
   | UnauthorizedResponse
   | ForbiddenResponse
   | NotFoundResponse
+  | void
 >;
 
 /**
@@ -3513,6 +3515,7 @@ export const useRefreshOrderDownload = <
     | UnauthorizedResponse
     | ForbiddenResponse
     | NotFoundResponse
+    | void
   >,
   TContext = unknown,
 >(options?: {

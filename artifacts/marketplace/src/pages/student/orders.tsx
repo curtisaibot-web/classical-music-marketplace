@@ -98,7 +98,7 @@ export default function StudentOrders() {
     try {
       const resp = await fetch(`${apiBase}/api/orders/${orderId}/download`, { credentials: "include" });
       if (resp.status === 410) {
-        toast.error("Download link has expired. Please contact the seller.");
+        toast.error("Download link has expired. Use the 'Request new link' button to get a fresh window.");
         return;
       }
       if (resp.status === 403) {

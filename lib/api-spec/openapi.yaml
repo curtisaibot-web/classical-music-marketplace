@@ -1042,6 +1042,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Download window is still active — refresh only available after expiry
 
   # ── Storage ────────────────────────────────────────────────────────────────
   /storage/uploads/request-url:
