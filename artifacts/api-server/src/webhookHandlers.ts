@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable, liveConcertsTable } from "@workspace/db";
+import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable, liveConcertsTable, audioEnhancementJobsTable } from "@workspace/db";
 import { processEnsembleRevenueSplit } from "./routes/ensembles";
 import { sql } from "drizzle-orm";
 import { processCampaignSuccess } from "./routes/campaigns";
@@ -369,6 +369,50 @@ async function handleCheckoutSessionCompleted(
     } else {
       logger.info({ purchasedLicenseId, eventId }, "Score license already in non-pending state — idempotent skip");
     }
+    return;
+  }
+
+  if (metadata.type === "audio_enhancement" && metadata.job_id) {
+    const jobId = parseInt(metadata.job_id, 10);
+    if (isNaN(jobId)) {
+      throw new Error(`Invalid job_id in audio_enhancement session metadata: ${metadata.job_id}`);
+    }
+
+    const [existing] = await db
+      .select({ id: audioEnhancementJobsTable.id, status: audioEnhancementJobsTable.status })
+      .from(audioEnhancementJobsTable)
+      .where(eq(audioEnhancementJobsTable.id, jobId));
+
+    if (!existing) {
+      throw new Error(`AudioEnhancementJob ${jobId} not found for session ${session.id} (event ${eventId})`);
+    }
+
+    if (existing.status !== "pending") {
+      logger.info({ jobId, eventId }, "Audio enhancement job already in non-pending state — idempotent skip");
+      return;
+    }
+
+    await db
+      .update(audioEnhancementJobsTable)
+      .set({
+        status: "processing",
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId ?? null,
+      })
+      .where(and(eq(audioEnhancementJobsTable.id, jobId), eq(audioEnhancementJobsTable.status, "pending")));
+
+    // Re-fetch to get the full job record for Dolby.io trigger
+    const [job] = await db
+      .select()
+      .from(audioEnhancementJobsTable)
+      .where(eq(audioEnhancementJobsTable.id, jobId));
+
+    if (job) {
+      const { triggerAudioEnhancement } = await import("./routes/recordingEnhancement");
+      await triggerAudioEnhancement(job);
+    }
+
+    logger.info({ jobId, sessionId: session.id, eventId }, "Audio enhancement job queued for processing");
     return;
   }
 

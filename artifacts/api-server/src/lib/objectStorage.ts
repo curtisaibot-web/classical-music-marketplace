@@ -208,6 +208,68 @@ export class ObjectStorageService {
     return objectFile;
   }
 
+  /**
+   * Generate a presigned PUT URL for uploading a raw audio recording.
+   * Files land in the /recordings/ namespace, separate from uploads and images.
+   */
+  async getRecordingUploadURL(userId: string): Promise<{ uploadUrl: string; fileKey: string }> {
+    const privateObjectDir = this.getPrivateObjectDir();
+
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/recordings/${userId}/${objectId}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const uploadUrl = await signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+
+    const fileKey = `/objects/recordings/${userId}/${objectId}`;
+    return { uploadUrl, fileKey };
+  }
+
+  /**
+   * Generate a presigned GET URL for downloading a file (used for enhanced audio delivery).
+   */
+  async getSignedDownloadURL(fileKey: string, ttlSec: number = 3600): Promise<string> {
+    if (!fileKey.startsWith("/objects/")) {
+      throw new ObjectNotFoundError();
+    }
+
+    const entityId = fileKey.slice("/objects/".length);
+    let entityDir = this.getPrivateObjectDir();
+    if (!entityDir.endsWith("/")) {
+      entityDir = `${entityDir}/`;
+    }
+    const fullPath = `${entityDir}${entityId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    return signObjectURL({ bucketName, objectName, method: "GET", ttlSec });
+  }
+
+  /**
+   * Upload a buffer directly to object storage (used for storing Dolby.io output).
+   */
+  async uploadBuffer(fileKey: string, buffer: Buffer, contentType: string): Promise<void> {
+    if (!fileKey.startsWith("/objects/")) {
+      throw new Error("fileKey must start with /objects/");
+    }
+
+    const entityId = fileKey.slice("/objects/".length);
+    let entityDir = this.getPrivateObjectDir();
+    if (!entityDir.endsWith("/")) {
+      entityDir = `${entityDir}/`;
+    }
+    const fullPath = `${entityDir}${entityId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    await file.save(buffer, { contentType, resumable: false });
+  }
+
   normalizeObjectEntityPath(rawPath: string): string {
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;

@@ -2380,6 +2380,72 @@ export const ListEnsemblePayoutsResponse = zod.object({
 });
 
 /**
+ * @summary Request a presigned URL to upload a raw audio recording
+ */
+export const RequestRecordingUploadUrlResponse = zod.object({
+  uploadUrl: zod.string(),
+  fileKey: zod.string(),
+});
+
+/**
+ * @summary Create a Stripe Checkout session for audio enhancement
+ */
+export const CreateEnhancementCheckoutBody = zod.object({
+  inputFileKey: zod.string(),
+  level: zod.enum(["standard", "professional"]),
+  successUrl: zod.string(),
+  cancelUrl: zod.string(),
+});
+
+export const CreateEnhancementCheckoutResponse = zod.object({
+  checkoutUrl: zod.string().nullish(),
+  jobId: zod.number(),
+});
+
+/**
+ * @summary List my audio enhancement jobs
+ */
+export const ListEnhancementJobsResponse = zod.object({
+  jobs: zod.array(
+    zod.object({
+      id: zod.number(),
+      level: zod.enum(["standard", "professional"]),
+      status: zod.enum(["pending", "processing", "done", "failed"]),
+      pricePaidCents: zod.number(),
+      inputFileKey: zod.string(),
+      outputFileKey: zod.string().nullish(),
+      errorMessage: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      expiresAt: zod.coerce.date().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a signed download URL for a completed enhancement job
+ */
+export const GetEnhancementDownloadUrlParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetEnhancementDownloadUrlResponse = zod.object({
+  downloadUrl: zod.string(),
+  expiresAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Pin an enhanced recording to the public teacher profile
+ */
+export const PinEnhancedRecordingParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PinEnhancedRecordingBody = zod.object({
+  title: zod.string(),
+  instrument: zod.string().optional(),
+});
+
+/**
  * @summary Browse digital products
  */
 export const listDigitalProductsQueryLimitDefault = 20;

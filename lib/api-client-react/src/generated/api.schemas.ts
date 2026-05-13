@@ -2383,6 +2383,80 @@ export interface EnsemblePayoutListResponse {
   payouts: EnsemblePayout[];
 }
 
+export interface RecordingUploadUrlResponse {
+  uploadUrl: string;
+  fileKey: string;
+}
+
+export type CreateEnhancementCheckoutBodyLevel =
+  (typeof CreateEnhancementCheckoutBodyLevel)[keyof typeof CreateEnhancementCheckoutBodyLevel];
+
+export const CreateEnhancementCheckoutBodyLevel = {
+  standard: "standard",
+  professional: "professional",
+} as const;
+
+export interface CreateEnhancementCheckoutBody {
+  inputFileKey: string;
+  level: CreateEnhancementCheckoutBodyLevel;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface EnhancementCheckoutResponse {
+  /** @nullable */
+  checkoutUrl?: string | null;
+  jobId: number;
+}
+
+export type AudioEnhancementJobLevel =
+  (typeof AudioEnhancementJobLevel)[keyof typeof AudioEnhancementJobLevel];
+
+export const AudioEnhancementJobLevel = {
+  standard: "standard",
+  professional: "professional",
+} as const;
+
+export type AudioEnhancementJobStatus =
+  (typeof AudioEnhancementJobStatus)[keyof typeof AudioEnhancementJobStatus];
+
+export const AudioEnhancementJobStatus = {
+  pending: "pending",
+  processing: "processing",
+  done: "done",
+  failed: "failed",
+} as const;
+
+export interface AudioEnhancementJob {
+  id: number;
+  level: AudioEnhancementJobLevel;
+  status: AudioEnhancementJobStatus;
+  pricePaidCents: number;
+  inputFileKey: string;
+  /** @nullable */
+  outputFileKey?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
+  createdAt: string;
+  /** @nullable */
+  expiresAt?: string | null;
+}
+
+export interface EnhancementJobListResponse {
+  jobs: AudioEnhancementJob[];
+}
+
+export interface EnhancementDownloadUrlResponse {
+  downloadUrl: string;
+  /** @nullable */
+  expiresAt?: string | null;
+}
+
+export interface PinEnhancedRecordingBody {
+  title: string;
+  instrument?: string;
+}
+
 /**
  * Unauthorized
  */

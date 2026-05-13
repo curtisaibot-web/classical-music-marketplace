@@ -28,6 +28,7 @@ import coachesRouter from "./coaches";
 import practiceRouter from "./practice";
 import liveConcertsRouter from "./liveConcerts";
 import ensemblesRouter from "./ensembles";
+import recordingEnhancementRouter from "./recordingEnhancement";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(coachesRouter);
 router.use(practiceRouter);
 router.use(liveConcertsRouter);
 router.use(ensemblesRouter);
+router.use(recordingEnhancementRouter);
 
 export default router;

@@ -1,13 +1,14 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListEnsembleBookings, getListEnsembleBookingsQueryKey, useRemoveEnsembleMember, getListMyEnsemblesQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListEnsembleBookings, getListEnsembleBookingsQueryKey, useRemoveEnsembleMember, getListMyEnsemblesQueryKey, useRequestRecordingUploadUrl, useCreateEnhancementCheckout, useListEnhancementJobs, getListEnhancementJobsQueryKey, usePinEnhancedRecording } from "@workspace/api-client-react";
+import type { AudioEnhancementJob } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download, Video, Ticket, Plus, X, Sliders } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download, Video, Ticket, Plus, X, Sliders, Wand2, Mic2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -397,6 +398,277 @@ function PracticePartnersCard() {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+const ENHANCEMENT_LEVELS = [
+  { value: "standard", label: "Standard", price: "$9.99", description: "Noise reduction, EQ" },
+  { value: "professional", label: "Professional", price: "$24.99", description: "Full mastering, reverb removal, dynamic range optimisation" },
+] as const;
+
+const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav", "audio/m4a", "audio/mp4", "audio/aac"];
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+
+function RecordingEnhancementCard() {
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [level, setLevel] = useState<"standard" | "professional">("standard");
+  const [uploading, setUploading] = useState(false);
+  const [pinJobId, setPinJobId] = useState<number | null>(null);
+  const [pinTitle, setPinTitle] = useState("");
+  const [pinInstrument, setPinInstrument] = useState("");
+
+  const requestUploadUrl = useRequestRecordingUploadUrl();
+  const createCheckout = useCreateEnhancementCheckout();
+  const pinMutation = usePinEnhancedRecording();
+
+  const { data: jobsData, isLoading: jobsLoading } = useListEnhancementJobs({
+    query: {
+      queryKey: getListEnhancementJobsQueryKey(),
+      refetchInterval: (query) => {
+        const jobs = query.state.data?.jobs ?? [];
+        const hasActive = jobs.some((j) => j.status === "pending" || j.status === "processing");
+        return hasActive ? 8000 : false;
+      },
+    },
+  });
+  const jobs = jobsData?.jobs ?? [];
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    if (!f) return;
+    if (!ALLOWED_AUDIO_TYPES.includes(f.type) && !f.name.match(/\.(mp3|wav|m4a|aac)$/i)) {
+      toast.error("Unsupported file type. Please upload MP3, WAV, or M4A.");
+      return;
+    }
+    if (f.size > MAX_AUDIO_BYTES) {
+      toast.error("File too large. Maximum size is 50 MB.");
+      return;
+    }
+    setSelectedFile(f);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) { toast.error("Please select an audio file first."); return; }
+    setUploading(true);
+    try {
+      const { uploadUrl, fileKey } = await requestUploadUrl.mutateAsync();
+      const uploadResp = await fetch(uploadUrl, {
+        method: "PUT",
+        body: selectedFile,
+        headers: { "Content-Type": selectedFile.type || "audio/mpeg" },
+      });
+      if (!uploadResp.ok) throw new Error("Upload failed");
+
+      const successUrl = `${window.location.origin}${window.location.pathname}?enhancement=success`;
+      const cancelUrl = `${window.location.origin}${window.location.pathname}`;
+      const data = await createCheckout.mutateAsync({
+        data: { inputFileKey: fileKey, level, successUrl, cancelUrl },
+      });
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast.error("Could not create checkout session. Please try again.");
+      }
+    } catch (err) {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePin = async (jobId: number) => {
+    if (!pinTitle.trim()) { toast.error("Please enter a title for this recording."); return; }
+    try {
+      await pinMutation.mutateAsync({ id: jobId, data: { title: pinTitle.trim(), instrument: pinInstrument.trim() || undefined } });
+      toast.success("Recording pinned to your public profile!");
+      setPinJobId(null);
+      setPinTitle("");
+      setPinInstrument("");
+      qc.invalidateQueries({ queryKey: getListEnhancementJobsQueryKey() });
+    } catch {
+      toast.error("Failed to pin recording. Please try again.");
+    }
+  };
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader>
+        <CardTitle className="font-serif text-lg flex items-center gap-2">
+          <Wand2 className="h-5 w-5 text-primary" />
+          Enhance a Recording
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">Upload a phone recording. Receive a studio-quality version in minutes.</p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Upload form */}
+        <div className="space-y-3 rounded-lg border border-dashed border-border p-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-muted-foreground">Enhancement Level</label>
+            <div className="grid grid-cols-2 gap-2">
+              {ENHANCEMENT_LEVELS.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLevel(l.value)}
+                  className={`rounded-lg border p-3 text-left text-xs transition-colors ${level === l.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+                >
+                  <div className="font-semibold text-foreground">{l.label} — {l.price}</div>
+                  <div className="text-muted-foreground mt-0.5">{l.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".mp3,.wav,.m4a,.aac,audio/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Mic2 className="h-3.5 w-3.5 mr-1.5" />
+              {selectedFile ? selectedFile.name.slice(0, 24) + (selectedFile.name.length > 24 ? "…" : "") : "Choose audio file"}
+            </Button>
+            <Button size="sm" disabled={!selectedFile || uploading} onClick={handleSubmit} className="ml-auto">
+              {uploading ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
+              {uploading ? "Uploading…" : "Enhance & Pay"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">MP3, WAV, or M4A · up to 50 MB · stored for 30 days</p>
+        </div>
+
+        {/* Jobs list */}
+        {jobsLoading ? (
+          <div className="animate-pulse space-y-2">
+            <div className="h-12 bg-muted rounded-lg" />
+          </div>
+        ) : jobs.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Your Enhancement Jobs</p>
+            {[...jobs].reverse().map((job) => (
+              <EnhancementJobRow
+                key={job.id}
+                job={job}
+                isPinning={pinJobId === job.id}
+                pinTitle={pinTitle}
+                pinInstrument={pinInstrument}
+                onStartPin={() => { setPinJobId(job.id); setPinTitle(""); setPinInstrument(""); }}
+                onCancelPin={() => setPinJobId(null)}
+                onPinTitleChange={setPinTitle}
+                onPinInstrumentChange={setPinInstrument}
+                onPinSubmit={() => handlePin(job.id)}
+                isPinPending={pinMutation.isPending}
+              />
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EnhancementJobRow({
+  job, isPinning, pinTitle, pinInstrument,
+  onStartPin, onCancelPin, onPinTitleChange, onPinInstrumentChange, onPinSubmit, isPinPending,
+}: {
+  job: AudioEnhancementJob;
+  isPinning: boolean;
+  pinTitle: string;
+  pinInstrument: string;
+  onStartPin: () => void;
+  onCancelPin: () => void;
+  onPinTitleChange: (v: string) => void;
+  onPinInstrumentChange: (v: string) => void;
+  onPinSubmit: () => void;
+  isPinPending: boolean;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const resp = await fetch(`${BASE}/api/recordings/enhancement/jobs/${job.id}/download-url`, { credentials: "include" });
+      if (!resp.ok) throw new Error("Failed to get download URL");
+      const data = await resp.json() as { downloadUrl: string };
+      const a = document.createElement("a");
+      a.href = data.downloadUrl;
+      a.download = `enhanced-recording-${job.id}.wav`;
+      a.click();
+    } catch {
+      toast.error("Failed to get download link. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const statusBadge = {
+    pending: <Badge variant="outline" className="text-xs">Pending payment</Badge>,
+    processing: <Badge className="text-xs bg-blue-600 animate-pulse">Processing…</Badge>,
+    done: <Badge className="text-xs bg-green-600">Done</Badge>,
+    failed: <Badge variant="destructive" className="text-xs">Failed</Badge>,
+  }[job.status] ?? null;
+
+  const levelLabel = job.level === "professional" ? "Professional" : "Standard";
+  const dateStr = format(new Date(job.createdAt), "MMM d, yyyy");
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs">
+          {statusBadge}
+          <span className="text-muted-foreground">{levelLabel} · {dateStr}</span>
+        </div>
+        {job.status === "processing" && (
+          <span className="text-xs text-muted-foreground italic">Est. 1–3 min</span>
+        )}
+      </div>
+
+      {job.status === "done" && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={downloading} onClick={handleDownload}>
+            {downloading ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+            Download
+          </Button>
+          {!isPinning ? (
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onStartPin}>
+              <Plus className="h-3 w-3 mr-1" />
+              Pin to Profile
+            </Button>
+          ) : (
+            <div className="flex items-end gap-2 flex-wrap w-full mt-1">
+              <div className="flex-1 min-w-[120px]">
+                <label className="text-xs text-muted-foreground mb-1 block">Title *</label>
+                <Input value={pinTitle} onChange={(e) => onPinTitleChange(e.target.value)} placeholder="e.g. Bach Cello Suite No. 1" className="h-7 text-xs" />
+              </div>
+              <div className="flex-1 min-w-[100px]">
+                <label className="text-xs text-muted-foreground mb-1 block">Instrument</label>
+                <Input value={pinInstrument} onChange={(e) => onPinInstrumentChange(e.target.value)} placeholder="e.g. Cello" className="h-7 text-xs" />
+              </div>
+              <Button size="sm" className="h-7 text-xs" disabled={isPinPending || !pinTitle.trim()} onClick={onPinSubmit}>
+                {isPinPending ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : null} Pin
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancelPin}>Cancel</Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {job.status === "failed" && job.errorMessage && (
+        <p className="text-xs text-destructive">{job.errorMessage}</p>
+      )}
+
+      {job.expiresAt && job.status === "done" && (
+        <p className="text-xs text-muted-foreground">
+          Expires {format(new Date(job.expiresAt), "MMM d, yyyy")}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -1887,6 +2159,9 @@ export default function TeacherDashboard() {
           <div className="space-y-8">
             {/* Booking Reel Card */}
             <BookingReelCard />
+
+            {/* Recording Enhancement Card */}
+            <RecordingEnhancementCard />
 
             {/* Stripe Connect Card */}
             <Card className="border-border shadow-sm">

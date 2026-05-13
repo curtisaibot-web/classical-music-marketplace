@@ -7,6 +7,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: audio-enhancement
+    description: Recording enhancement jobs
   - name: health
     description: Health operations
   - name: users
@@ -1158,6 +1160,132 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  # ── Audio Enhancement ─────────────────────────────────────────────────────
+
+  /recordings/enhancement/request-upload-url:
+    post:
+      operationId: requestRecordingUploadUrl
+      tags: [audio-enhancement]
+      summary: Request a presigned URL to upload a raw audio recording
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingUploadUrlResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /recordings/enhancement/checkout:
+    post:
+      operationId: createEnhancementCheckout
+      tags: [audio-enhancement]
+      summary: Create a Stripe Checkout session for audio enhancement
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnhancementCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL and job ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnhancementCheckoutResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /recordings/enhancement/jobs:
+    get:
+      operationId: listEnhancementJobs
+      tags: [audio-enhancement]
+      summary: List my audio enhancement jobs
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: List of enhancement jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnhancementJobListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /recordings/enhancement/jobs/{id}/download-url:
+    get:
+      operationId: getEnhancementDownloadUrl
+      tags: [audio-enhancement]
+      summary: Get a signed download URL for a completed enhancement job
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Signed download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnhancementDownloadUrlResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Enhancement not yet complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /recordings/enhancement/jobs/{id}/pin:
+    post:
+      operationId: pinEnhancedRecording
+      tags: [audio-enhancement]
+      summary: Pin an enhanced recording to the public teacher profile
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PinEnhancedRecordingBody"
+      responses:
+        "201":
+          description: Recording pinned to profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherRecording"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Max recordings reached or enhancement not complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   # ── Digital Products ───────────────────────────────────────────────────────
   /digital-products:
@@ -7516,3 +7644,90 @@ components:
           items:
             $ref: "#/components/schemas/EnsemblePayout"
       required: [payouts]
+
+    RecordingUploadUrlResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+        fileKey:
+          type: string
+      required: [uploadUrl, fileKey]
+
+    CreateEnhancementCheckoutBody:
+      type: object
+      properties:
+        inputFileKey:
+          type: string
+        level:
+          type: string
+          enum: [standard, professional]
+        successUrl:
+          type: string
+        cancelUrl:
+          type: string
+      required: [inputFileKey, level, successUrl, cancelUrl]
+
+    EnhancementCheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: ["string", "null"]
+        jobId:
+          type: integer
+      required: [jobId]
+
+    AudioEnhancementJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        level:
+          type: string
+          enum: [standard, professional]
+        status:
+          type: string
+          enum: [pending, processing, done, failed]
+        pricePaidCents:
+          type: integer
+        inputFileKey:
+          type: string
+        outputFileKey:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [id, level, status, pricePaidCents, inputFileKey, createdAt]
+
+    EnhancementJobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AudioEnhancementJob"
+      required: [jobs]
+
+    EnhancementDownloadUrlResponse:
+      type: object
+      properties:
+        downloadUrl:
+          type: string
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [downloadUrl]
+
+    PinEnhancedRecordingBody:
+      type: object
+      properties:
+        title:
+          type: string
+        instrument:
+          type: string
+      required: [title]

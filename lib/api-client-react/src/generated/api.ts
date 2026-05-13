@@ -54,6 +54,7 @@ import type {
   CreateConnectOnboardingBody,
   CreateContractBody,
   CreateDigitalProductBody,
+  CreateEnhancementCheckoutBody,
   CreateEnsembleBody,
   CreateExpenseBody,
   CreateInvoiceBody,
@@ -76,6 +77,9 @@ import type {
   DigitalProductListResponse,
   DownloadRedirectResponse,
   DownloadScoreLicense200,
+  EnhancementCheckoutResponse,
+  EnhancementDownloadUrlResponse,
+  EnhancementJobListResponse,
   EnrollmentListResponse,
   EnsembleListResponse,
   EnsembleMember,
@@ -132,6 +136,7 @@ import type {
   OrgMembersResponse,
   OrgResponse,
   OrgSubscribeResponse,
+  PinEnhancedRecordingBody,
   PracticeMatchListResponse,
   PracticePartnership,
   PracticePartnershipListResponse,
@@ -145,6 +150,7 @@ import type {
   ProgramEnrollmentDetail,
   ProposePracticeSessionBody,
   PurchasedLicenseListResponse,
+  RecordingUploadUrlResponse,
   ReelCallbackAck,
   ReelCallbackBody,
   RemoveOrgMember200,
@@ -3974,6 +3980,446 @@ export function useListEnsemblePayouts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Request a presigned URL to upload a raw audio recording
+ */
+export const getRequestRecordingUploadUrlUrl = () => {
+  return `/api/recordings/enhancement/request-upload-url`;
+};
+
+export const requestRecordingUploadUrl = async (
+  options?: RequestInit,
+): Promise<RecordingUploadUrlResponse> => {
+  return customFetch<RecordingUploadUrlResponse>(
+    getRequestRecordingUploadUrlUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRequestRecordingUploadUrlMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["requestRecordingUploadUrl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
+    void
+  > = () => {
+    return requestRecordingUploadUrl(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestRecordingUploadUrlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestRecordingUploadUrl>>
+>;
+
+export type RequestRecordingUploadUrlMutationError =
+  ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary Request a presigned URL to upload a raw audio recording
+ */
+export const useRequestRecordingUploadUrl = <
+  TError = ErrorType<UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRequestRecordingUploadUrlMutationOptions(options));
+};
+
+/**
+ * @summary Create a Stripe Checkout session for audio enhancement
+ */
+export const getCreateEnhancementCheckoutUrl = () => {
+  return `/api/recordings/enhancement/checkout`;
+};
+
+export const createEnhancementCheckout = async (
+  createEnhancementCheckoutBody: CreateEnhancementCheckoutBody,
+  options?: RequestInit,
+): Promise<EnhancementCheckoutResponse> => {
+  return customFetch<EnhancementCheckoutResponse>(
+    getCreateEnhancementCheckoutUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEnhancementCheckoutBody),
+    },
+  );
+};
+
+export const getCreateEnhancementCheckoutMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEnhancementCheckout>>,
+    TError,
+    { data: BodyType<CreateEnhancementCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEnhancementCheckout>>,
+  TError,
+  { data: BodyType<CreateEnhancementCheckoutBody> },
+  TContext
+> => {
+  const mutationKey = ["createEnhancementCheckout"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEnhancementCheckout>>,
+    { data: BodyType<CreateEnhancementCheckoutBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEnhancementCheckout(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEnhancementCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEnhancementCheckout>>
+>;
+export type CreateEnhancementCheckoutMutationBody =
+  BodyType<CreateEnhancementCheckoutBody>;
+export type CreateEnhancementCheckoutMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a Stripe Checkout session for audio enhancement
+ */
+export const useCreateEnhancementCheckout = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEnhancementCheckout>>,
+    TError,
+    { data: BodyType<CreateEnhancementCheckoutBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEnhancementCheckout>>,
+  TError,
+  { data: BodyType<CreateEnhancementCheckoutBody> },
+  TContext
+> => {
+  return useMutation(getCreateEnhancementCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary List my audio enhancement jobs
+ */
+export const getListEnhancementJobsUrl = () => {
+  return `/api/recordings/enhancement/jobs`;
+};
+
+export const listEnhancementJobs = async (
+  options?: RequestInit,
+): Promise<EnhancementJobListResponse> => {
+  return customFetch<EnhancementJobListResponse>(getListEnhancementJobsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEnhancementJobsQueryKey = () => {
+  return [`/api/recordings/enhancement/jobs`] as const;
+};
+
+export const getListEnhancementJobsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEnhancementJobs>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEnhancementJobs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEnhancementJobsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEnhancementJobs>>
+  > = ({ signal }) => listEnhancementJobs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEnhancementJobs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEnhancementJobsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEnhancementJobs>>
+>;
+export type ListEnhancementJobsQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List my audio enhancement jobs
+ */
+
+export function useListEnhancementJobs<
+  TData = Awaited<ReturnType<typeof listEnhancementJobs>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listEnhancementJobs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEnhancementJobsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a signed download URL for a completed enhancement job
+ */
+export const getGetEnhancementDownloadUrlUrl = (id: number) => {
+  return `/api/recordings/enhancement/jobs/${id}/download-url`;
+};
+
+export const getEnhancementDownloadUrl = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EnhancementDownloadUrlResponse> => {
+  return customFetch<EnhancementDownloadUrlResponse>(
+    getGetEnhancementDownloadUrlUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetEnhancementDownloadUrlQueryKey = (id: number) => {
+  return [`/api/recordings/enhancement/jobs/${id}/download-url`] as const;
+};
+
+export const getGetEnhancementDownloadUrlQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEnhancementDownloadUrlQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEnhancementDownloadUrl>>
+  > = ({ signal }) =>
+    getEnhancementDownloadUrl(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEnhancementDownloadUrlQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEnhancementDownloadUrl>>
+>;
+export type GetEnhancementDownloadUrlQueryError = ErrorType<
+  UnauthorizedResponse | NotFoundResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Get a signed download URL for a completed enhancement job
+ */
+
+export function useGetEnhancementDownloadUrl<
+  TData = Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
+  TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ErrorEnvelope>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEnhancementDownloadUrl>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEnhancementDownloadUrlQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Pin an enhanced recording to the public teacher profile
+ */
+export const getPinEnhancedRecordingUrl = (id: number) => {
+  return `/api/recordings/enhancement/jobs/${id}/pin`;
+};
+
+export const pinEnhancedRecording = async (
+  id: number,
+  pinEnhancedRecordingBody: PinEnhancedRecordingBody,
+  options?: RequestInit,
+): Promise<TeacherRecording> => {
+  return customFetch<TeacherRecording>(getPinEnhancedRecordingUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pinEnhancedRecordingBody),
+  });
+};
+
+export const getPinEnhancedRecordingMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ErrorEnvelope
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pinEnhancedRecording>>,
+    TError,
+    { id: number; data: BodyType<PinEnhancedRecordingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof pinEnhancedRecording>>,
+  TError,
+  { id: number; data: BodyType<PinEnhancedRecordingBody> },
+  TContext
+> => {
+  const mutationKey = ["pinEnhancedRecording"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof pinEnhancedRecording>>,
+    { id: number; data: BodyType<PinEnhancedRecordingBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return pinEnhancedRecording(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PinEnhancedRecordingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof pinEnhancedRecording>>
+>;
+export type PinEnhancedRecordingMutationBody =
+  BodyType<PinEnhancedRecordingBody>;
+export type PinEnhancedRecordingMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ErrorEnvelope
+>;
+
+/**
+ * @summary Pin an enhanced recording to the public teacher profile
+ */
+export const usePinEnhancedRecording = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ErrorEnvelope
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof pinEnhancedRecording>>,
+    TError,
+    { id: number; data: BodyType<PinEnhancedRecordingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof pinEnhancedRecording>>,
+  TError,
+  { id: number; data: BodyType<PinEnhancedRecordingBody> },
+  TContext
+> => {
+  return useMutation(getPinEnhancedRecordingMutationOptions(options));
+};
 
 /**
  * @summary Browse digital products
