@@ -219,4 +219,45 @@ router.get("/orders/:id/download", requireAuth, async (req, res): Promise<void> 
   }
 });
 
+router.post("/orders/:id/refresh-download", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.buyerId, userId)));
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  if (order.type !== "digital_product") {
+    res.status(400).json({ error: "This order is not a digital product" });
+    return;
+  }
+
+  if (order.status !== "paid") {
+    res.status(403).json({ error: "Payment required before downloading" });
+    return;
+  }
+
+  const freshExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({ downloadCount: 0, downloadExpiresAt: freshExpiresAt })
+    .where(eq(ordersTable.id, order.id))
+    .returning();
+
+  res.json(GetOrderResponse.parse(updated));
+});
+
 export default router;

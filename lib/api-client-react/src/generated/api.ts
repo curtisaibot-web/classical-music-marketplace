@@ -3434,6 +3434,105 @@ export function useGetOrderDownload<
 }
 
 /**
+ * @summary Refresh an expired download window for a purchased digital product
+ */
+export const getRefreshOrderDownloadUrl = (id: number) => {
+  return `/api/orders/${id}/refresh-download`;
+};
+
+export const refreshOrderDownload = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Order> => {
+  return customFetch<Order>(getRefreshOrderDownloadUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRefreshOrderDownloadMutationOptions = <
+  TError = ErrorType<
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshOrderDownload>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof refreshOrderDownload>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["refreshOrderDownload"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof refreshOrderDownload>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return refreshOrderDownload(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshOrderDownloadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshOrderDownload>>
+>;
+
+export type RefreshOrderDownloadMutationError = ErrorType<
+  | BadRequestResponse
+  | UnauthorizedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+>;
+
+/**
+ * @summary Refresh an expired download window for a purchased digital product
+ */
+export const useRefreshOrderDownload = <
+  TError = ErrorType<
+    | BadRequestResponse
+    | UnauthorizedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof refreshOrderDownload>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof refreshOrderDownload>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRefreshOrderDownloadMutationOptions(options));
+};
+
+/**
  * @summary Request a presigned URL for file upload
  */
 export const getRequestUploadUrlUrl = () => {

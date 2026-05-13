@@ -2141,6 +2141,35 @@ export const GetOrderDownloadResponse = zod.object({
 });
 
 /**
+ * @summary Refresh an expired download window for a purchased digital product
+ */
+export const RefreshOrderDownloadParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RefreshOrderDownloadResponse = zod.object({
+  id: zod.number(),
+  buyerId: zod.string(),
+  sellerId: zod.string(),
+  type: zod.enum([
+    "digital_product",
+    "masterclass_performer",
+    "masterclass_observer",
+    "program_enrollment",
+  ]),
+  status: zod.enum(["pending", "paid", "refunded", "failed"]),
+  digitalProductId: zod.number().nullish(),
+  masterclassEventId: zod.number().nullish(),
+  priceInCents: zod.number(),
+  currency: zod.string(),
+  downloadUrl: zod.string().nullish(),
+  downloadExpiresAt: zod.coerce.date().nullish(),
+  downloadCount: zod.number(),
+  paidAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useListOrders, useCreateOrderCheckout } from "@workspace/api-client-react";
+import { useListOrders, useCreateOrderCheckout, useRefreshOrderDownload, getListOrdersQueryKey } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock } from "lucide-react";
+import { CreditCard, Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const LICENSE_LABELS: Record<string, string> = {
   personal: "Personal / Practice",
@@ -40,10 +40,13 @@ export default function StudentOrders() {
   const [usedDownloadIds, setUsedDownloadIds] = useState<Set<number>>(new Set());
   const [downloadingLicenseIds, setDownloadingLicenseIds] = useState<Set<number>>(new Set());
   const [checkoutingIds, setCheckoutingIds] = useState<Set<number>>(new Set());
+  const [refreshingIds, setRefreshingIds] = useState<Set<number>>(new Set());
   const apiBase = import.meta.env.VITE_API_URL ?? "";
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  const queryClient = useQueryClient();
   const createOrderCheckout = useCreateOrderCheckout();
+  const refreshDownload = useRefreshOrderDownload();
 
   const handleCompletePayment = (orderId: number) => {
     setCheckoutingIds((s) => new Set(s).add(orderId));
@@ -120,6 +123,26 @@ export default function StudentOrders() {
     } finally {
       setDownloadingIds((s) => { const next = new Set(s); next.delete(orderId); return next; });
     }
+  };
+
+  const handleRefreshDownload = (orderId: number) => {
+    setRefreshingIds((s) => new Set(s).add(orderId));
+    refreshDownload.mutate(
+      { id: orderId },
+      {
+        onSuccess: () => {
+          toast.success("New 24-hour download window opened!");
+          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+          setUsedDownloadIds((s) => { const next = new Set(s); next.delete(orderId); return next; });
+        },
+        onError: () => {
+          toast.error("Failed to refresh download link. Please try again.");
+        },
+        onSettled: () => {
+          setRefreshingIds((s) => { const next = new Set(s); next.delete(orderId); return next; });
+        },
+      },
+    );
   };
 
   const handleLicenseDownload = async (licenseId: number) => {
@@ -286,7 +309,7 @@ export default function StudentOrders() {
           {/* ── Digital Product Orders ─────────────────────────────────────── */}
           <section>
             <h2 className="text-xl font-serif font-semibold mb-4">Digital Product Orders</h2>
-            <p className="text-xs text-muted-foreground mb-4">Download links are valid for 24 hours after purchase.</p>
+            <p className="text-xs text-muted-foreground mb-4">Download links are valid for 24 hours after purchase. If your link expires, you can request a new one at any time.</p>
 
             {ordersLoading ? (
               <div className="space-y-4">
@@ -352,10 +375,18 @@ export default function StudentOrders() {
                               Download
                             </Button>
                           ) : isExpired(order) ? (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                              <span>Link expired</span>
-                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRefreshDownload(order.id)}
+                              disabled={refreshingIds.has(order.id)}
+                              className="gap-1.5"
+                            >
+                              {refreshingIds.has(order.id)
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <RefreshCw className="h-3.5 w-3.5" />}
+                              Request new link
+                            </Button>
                           ) : usedDownloadIds.has(order.id) ? (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />

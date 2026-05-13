@@ -1015,6 +1015,34 @@ paths:
         "410":
           description: Download link has expired
 
+  /orders/{id}/refresh-download:
+    post:
+      operationId: refreshOrderDownload
+      tags: [orders]
+      summary: Refresh an expired download window for a purchased digital product
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Refreshed order with new 24-hour download window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ── Storage ────────────────────────────────────────────────────────────────
   /storage/uploads/request-url:
     post:
