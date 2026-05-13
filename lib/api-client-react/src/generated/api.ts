@@ -154,6 +154,7 @@ import type {
   ReelCallbackAck,
   ReelCallbackBody,
   RemoveOrgMember200,
+  RequestUploadUrlBody,
   Review,
   ReviewListResponse,
   ScoreLicenseCheckoutBody,
@@ -3989,6 +3990,7 @@ export const getRequestRecordingUploadUrlUrl = () => {
 };
 
 export const requestRecordingUploadUrl = async (
+  requestUploadUrlBody: RequestUploadUrlBody,
   options?: RequestInit,
 ): Promise<RecordingUploadUrlResponse> => {
   return customFetch<RecordingUploadUrlResponse>(
@@ -3996,25 +3998,27 @@ export const requestRecordingUploadUrl = async (
     {
       ...options,
       method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(requestUploadUrlBody),
     },
   );
 };
 
 export const getRequestRecordingUploadUrlMutationOptions = <
-  TError = ErrorType<UnauthorizedResponse>,
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
     TError,
-    void,
+    { data: BodyType<RequestUploadUrlBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
   TError,
-  void,
+  { data: BodyType<RequestUploadUrlBody> },
   TContext
 > => {
   const mutationKey = ["requestRecordingUploadUrl"];
@@ -4028,9 +4032,11 @@ export const getRequestRecordingUploadUrlMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
-    void
-  > = () => {
-    return requestRecordingUploadUrl(requestOptions);
+    { data: BodyType<RequestUploadUrlBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestRecordingUploadUrl(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -4039,28 +4045,30 @@ export const getRequestRecordingUploadUrlMutationOptions = <
 export type RequestRecordingUploadUrlMutationResult = NonNullable<
   Awaited<ReturnType<typeof requestRecordingUploadUrl>>
 >;
-
-export type RequestRecordingUploadUrlMutationError =
-  ErrorType<UnauthorizedResponse>;
+export type RequestRecordingUploadUrlMutationBody =
+  BodyType<RequestUploadUrlBody>;
+export type RequestRecordingUploadUrlMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
 
 /**
  * @summary Request a presigned URL to upload a raw audio recording
  */
 export const useRequestRecordingUploadUrl = <
-  TError = ErrorType<UnauthorizedResponse>,
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
     TError,
-    void,
+    { data: BodyType<RequestUploadUrlBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof requestRecordingUploadUrl>>,
   TError,
-  void,
+  { data: BodyType<RequestUploadUrlBody> },
   TContext
 > => {
   return useMutation(getRequestRecordingUploadUrlMutationOptions(options));

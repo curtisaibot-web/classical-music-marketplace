@@ -2386,6 +2386,13 @@ export interface EnsemblePayoutListResponse {
   payouts: EnsemblePayout[];
 }
 
+export interface RequestUploadUrlBody {
+  /** MIME type of the audio file (e.g. audio/mpeg, audio/wav) */
+  contentType: string;
+  /** File size in bytes (must be <= 52428800) */
+  fileSize: number;
+}
+
 export interface RecordingUploadUrlResponse {
   uploadUrl: string;
   fileKey: string;

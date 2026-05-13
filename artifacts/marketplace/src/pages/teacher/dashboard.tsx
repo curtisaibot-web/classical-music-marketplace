@@ -453,7 +453,9 @@ function RecordingEnhancementCard() {
     if (!selectedFile) { toast.error("Please select an audio file first."); return; }
     setUploading(true);
     try {
-      const { uploadUrl, fileKey } = await requestUploadUrl.mutateAsync();
+      const { uploadUrl, fileKey } = await requestUploadUrl.mutateAsync({
+        data: { contentType: selectedFile.type || "audio/mpeg", fileSize: selectedFile.size },
+      });
       const uploadResp = await fetch(uploadUrl, {
         method: "PUT",
         body: selectedFile,

@@ -1169,6 +1169,12 @@ paths:
       tags: [audio-enhancement]
       summary: Request a presigned URL to upload a raw audio recording
       security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
       responses:
         "200":
           description: Presigned upload URL
@@ -1176,6 +1182,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RecordingUploadUrlResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -7648,6 +7656,17 @@ components:
           items:
             $ref: "#/components/schemas/EnsemblePayout"
       required: [payouts]
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        contentType:
+          type: string
+          description: MIME type of the audio file (e.g. audio/mpeg, audio/wav)
+        fileSize:
+          type: integer
+          description: File size in bytes (must be <= 52428800)
+      required: [contentType, fileSize]
 
     RecordingUploadUrlResponse:
       type: object

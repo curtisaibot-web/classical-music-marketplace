@@ -26,6 +26,12 @@ const LEVEL_LABELS: Record<string, string> = {
   professional: "Professional Audio Enhancement ($24.99)",
 };
 
+const ALLOWED_AUDIO_MIME_TYPES = new Set([
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
+  "audio/m4a", "audio/mp4", "audio/aac", "audio/x-m4a",
+]);
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024; // 50 MB
+
 // ─── Request upload URL ───────────────────────────────────────────────────────
 
 router.post(
@@ -34,6 +40,17 @@ router.post(
   requireRole("teacher"),
   async (req, res): Promise<void> => {
     const { userId } = getAuth(req);
+    const { contentType, fileSize } = req.body as { contentType?: string; fileSize?: number };
+
+    if (!contentType || !ALLOWED_AUDIO_MIME_TYPES.has(contentType.toLowerCase().split(";")[0].trim())) {
+      res.status(400).json({ error: "Unsupported audio type. Upload MP3, WAV, or M4A." });
+      return;
+    }
+    if (typeof fileSize !== "number" || fileSize <= 0 || fileSize > MAX_AUDIO_BYTES) {
+      res.status(400).json({ error: "File too large or invalid. Maximum size is 50 MB." });
+      return;
+    }
+
     try {
       const { uploadUrl, fileKey } = await storage.getRecordingUploadURL(userId!);
       res.json({ uploadUrl, fileKey });
@@ -69,8 +86,10 @@ router.post(
       return;
     }
 
-    if (!inputFileKey.startsWith("/objects/recordings/")) {
-      res.status(400).json({ error: "Invalid inputFileKey — must be a recording upload path" });
+    // Enforce ownership: the file must live under this user's upload prefix (IDOR prevention)
+    const expectedPrefix = `/objects/recordings/${userId}/`;
+    if (!inputFileKey.startsWith(expectedPrefix)) {
+      res.status(403).json({ error: "Invalid inputFileKey — file does not belong to the authenticated user" });
       return;
     }
 
@@ -342,7 +361,7 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
         audioBuffer = Buffer.from(await response.arrayBuffer());
         contentType = response.headers.get("content-type") || "audio/wav";
       } else {
-        // Production path: ask Dolby.io for a signed URL to the dlb:// output, then download it.
+        // Production path: externalJobId holds the exact dlb:// output key set at job kickoff.
         const apiKey = process.env.DOLBY_API_KEY;
         if (!apiKey || !job.externalJobId) {
           throw new Error("No DOLBY_API_KEY or externalJobId — cannot retrieve output");
@@ -350,7 +369,7 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
         const outputResp = await fetch("https://api.dolby.io/media/output", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-          body: JSON.stringify({ url: `dlb://out/enhanced-${id}-${job.externalJobId}.wav` }),
+          body: JSON.stringify({ url: job.externalJobId }),
           signal: AbortSignal.timeout(30_000),
         });
         if (!outputResp.ok) throw new Error(`Dolby output API: ${outputResp.status}`);
@@ -406,9 +425,18 @@ export async function triggerAudioEnhancement(job: AudioEnhancementJob): Promise
     const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DEV_DOMAIN}`;
     const callbackUrl = `${appBase}/api/recordings/enhancement/callback?job_id=${job.id}&secret=${job.webhookSecret}`;
 
+    // Deterministic dlb:// output key stored on the job BEFORE submitting to Dolby.
+    // The callback uses this exact value for /media/output retrieval — no reconstruction needed.
+    const dlbOutputKey = `dlb://out/enhanced-${job.id}-${randomUUID()}.wav`;
+
+    await db
+      .update(audioEnhancementJobsTable)
+      .set({ externalJobId: dlbOutputKey })
+      .where(eq(audioEnhancementJobsTable.id, job.id));
+
     const enhanceBody = {
       input: { url: signedInputUrl },
-      output: { url: `dlb://out/enhanced-${job.id}-${randomUUID()}.wav` },
+      output: { url: dlbOutputKey },
       content: { type: "music" },
       ...(job.level === "professional"
         ? {
@@ -442,13 +470,10 @@ export async function triggerAudioEnhancement(job: AudioEnhancementJob): Promise
       throw new Error(`Dolby.io enhance request failed: ${resp.status} ${text}`);
     }
 
-    const data = await resp.json() as { job_id: string };
-    await db
-      .update(audioEnhancementJobsTable)
-      .set({ externalJobId: data.job_id })
-      .where(eq(audioEnhancementJobsTable.id, job.id));
+    // externalJobId already holds dlbOutputKey; no further update needed for output retrieval.
+    await resp.json(); // consume response body
 
-    logger.info({ jobId: job.id, dolbyJobId: data.job_id }, "Dolby.io enhancement job started");
+    logger.info({ jobId: job.id, dlbOutputKey }, "Dolby.io enhancement job started");
   } catch (err) {
     logger.error({ err, jobId: job.id }, "Failed to start Dolby.io enhancement — job stays in processing");
   }

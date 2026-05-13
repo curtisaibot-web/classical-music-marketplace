@@ -2384,6 +2384,13 @@ export const ListEnsemblePayoutsResponse = zod.object({
 /**
  * @summary Request a presigned URL to upload a raw audio recording
  */
+export const RequestRecordingUploadUrlBody = zod.object({
+  contentType: zod
+    .string()
+    .describe("MIME type of the audio file (e.g. audio\/mpeg, audio\/wav)"),
+  fileSize: zod.number().describe("File size in bytes (must be <= 52428800)"),
+});
+
 export const RequestRecordingUploadUrlResponse = zod.object({
   uploadUrl: zod.string(),
   fileKey: zod.string(),
