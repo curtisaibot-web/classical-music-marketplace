@@ -42,6 +42,13 @@ async function generateUniqueEnsembleSlug(name: string): Promise<string> {
   return `ensemble-${randomBytes(4).toString("hex")}`;
 }
 
+/** Strip fields that must never appear in any API response */
+function stripSensitive<T extends Record<string, unknown>>(obj: T): Omit<T, "inviteToken"> {
+  const { inviteToken: _token, ...safe } = obj as Record<string, unknown> & { inviteToken?: unknown };
+  return safe as Omit<T, "inviteToken">;
+}
+
+/** Full enrichment for authenticated users (leader/members) — strips inviteToken */
 async function formatEnsemble(ensembleId: number) {
   const [ensemble] = await db
     .select()
@@ -85,7 +92,6 @@ async function formatEnsemble(ensembleId: number) {
           .where(inArray(teacherProfilesTable.userId, userIds))
       : [];
 
-  // Fetch active event listings linked to this ensemble
   const listings = await db
     .select()
     .from(listingsTable)
@@ -103,13 +109,95 @@ async function formatEnsemble(ensembleId: number) {
   const enrichedMembers = members
     .filter((m) => m.status !== "removed")
     .map((m) => ({
-      ...m,
+      ...stripSensitive(m as Record<string, unknown> as (typeof m & Record<string, unknown>)),
       user: m.userId ? (userMap.get(m.userId) ?? null) : null,
       profile: m.userId ? (profileMap.get(m.userId) ?? null) : null,
     }));
 
   return { ...ensemble, members: enrichedMembers, listings };
 }
+
+/** Public-safe enrichment for unauthenticated browse/detail:
+ *  - Only active members
+ *  - inviteToken always stripped
+ *  - inviteEmail masked (hidden from public) */
+async function formatPublicEnsemble(ensembleId: number) {
+  const [ensemble] = await db
+    .select()
+    .from(ensemblesTable)
+    .where(eq(ensemblesTable.id, ensembleId));
+  if (!ensemble) return null;
+
+  const members = await db
+    .select()
+    .from(ensembleMembersTable)
+    .where(
+      and(
+        eq(ensembleMembersTable.ensembleId, ensembleId),
+        eq(ensembleMembersTable.status, "active"),
+      ),
+    );
+
+  const userIds = members
+    .map((m) => m.userId)
+    .filter((id): id is string => id !== null);
+
+  const users =
+    userIds.length > 0
+      ? await db
+          .select({
+            id: usersTable.id,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            imageUrl: usersTable.imageUrl,
+          })
+          .from(usersTable)
+          .where(inArray(usersTable.id, userIds))
+      : [];
+
+  const profileRows =
+    userIds.length > 0
+      ? await db
+          .select({
+            userId: teacherProfilesTable.userId,
+            profileImageUrl: teacherProfilesTable.profileImageUrl,
+            instruments: teacherProfilesTable.instruments,
+            city: teacherProfilesTable.city,
+            profileSlug: teacherProfilesTable.profileSlug,
+          })
+          .from(teacherProfilesTable)
+          .where(inArray(teacherProfilesTable.userId, userIds))
+      : [];
+
+  const listings = await db
+    .select()
+    .from(listingsTable)
+    .where(
+      and(
+        eq(listingsTable.ensembleId, ensembleId),
+        eq(listingsTable.status, "active"),
+        eq(listingsTable.type, "event"),
+      ),
+    );
+
+  const userMap = new Map(users.map((u) => [u.id, u]));
+  const profileMap = new Map(profileRows.map((p) => [p.userId, p]));
+
+  const publicMembers = members.map((m) => ({
+    id: m.id,
+    ensembleId: m.ensembleId,
+    userId: m.userId,
+    splitPercent: m.splitPercent,
+    status: m.status,
+    joinedAt: m.joinedAt,
+    user: m.userId ? (userMap.get(m.userId) ?? null) : null,
+    profile: m.userId ? (profileMap.get(m.userId) ?? null) : null,
+  }));
+
+  return { ...ensemble, members: publicMembers, listings };
+}
+
+// ─── Public browse ────────────────────────────────────────────────────────────
 
 router.get("/ensembles", async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
@@ -122,8 +210,13 @@ router.get("/ensembles", async (req, res): Promise<void> => {
     .limit(limit)
     .offset(offset);
 
-  res.json({ ensembles: rows, total: rows.length });
+  // Return enriched public data so the client type (EnsembleWithMembers[]) is satisfied
+  const enriched = await Promise.all(rows.map((r) => formatPublicEnsemble(r.id)));
+  const valid = enriched.filter((e) => e !== null);
+  res.json({ ensembles: valid, total: valid.length });
 });
+
+// ─── Authenticated: my ensembles ──────────────────────────────────────────────
 
 router.get("/ensembles/mine", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -159,14 +252,16 @@ router.get("/ensembles/mine", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  // Return enriched ensembles with members so the dashboard can show splits
+  // Authenticated: use full enrichment (includes invited members + emails)
   const enriched = await Promise.all(allIds.map(formatEnsemble));
   const valid = enriched.filter((e) => e !== null);
   res.json({ ensembles: valid, total: valid.length });
 });
 
+// ─── Public: ensemble detail by slug ─────────────────────────────────────────
+
 router.get("/ensembles/:slug", async (req, res): Promise<void> => {
-  const slug = req.params.slug;
+  const slug = req.params["slug"] as string;
 
   const [ensemble] = await db
     .select()
@@ -178,9 +273,11 @@ router.get("/ensembles/:slug", async (req, res): Promise<void> => {
     return;
   }
 
-  const enriched = await formatEnsemble(ensemble.id);
+  const enriched = await formatPublicEnsemble(ensemble.id);
   res.json(enriched);
 });
+
+// ─── Create ensemble ──────────────────────────────────────────────────────────
 
 router.post("/ensembles", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
@@ -257,7 +354,7 @@ router.post("/ensembles", requireAuth, async (req, res): Promise<void> => {
     .from(usersTable)
     .where(eq(usersTable.id, userId));
 
-  // Leader starts with 100% split — gets rebalanced as members are added
+  // Leader starts at 100% — rebalanced as members join
   await db.insert(ensembleMembersTable).values({
     ensembleId: ensemble.id,
     userId,
@@ -271,10 +368,12 @@ router.post("/ensembles", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(enriched);
 });
 
+// ─── Update ensemble ──────────────────────────────────────────────────────────
+
 router.put("/ensembles/:id/update", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ensemble id" });
     return;
@@ -296,7 +395,6 @@ router.put("/ensembles/:id/update", requireAuth, async (req, res): Promise<void>
   }
 
   const body = req.body as Record<string, unknown>;
-
   const updates: Partial<typeof ensemblesTable.$inferInsert> = {};
   if (typeof body.name === "string") updates.name = body.name;
   if (typeof body.bio === "string") updates.bio = body.bio;
@@ -316,10 +414,87 @@ router.put("/ensembles/:id/update", requireAuth, async (req, res): Promise<void>
   res.json(enriched);
 });
 
+// ─── Associate an event listing with this ensemble ────────────────────────────
+
+router.put("/ensembles/:id/listings/:listingId", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = parseInt(req.params["id"] as string, 10);
+  const listingId = parseInt(req.params["listingId"] as string, 10);
+
+  if (isNaN(id) || isNaN(listingId)) {
+    res.status(400).json({ error: "Invalid ensemble or listing id" });
+    return;
+  }
+
+  const [ensemble] = await db
+    .select()
+    .from(ensemblesTable)
+    .where(eq(ensemblesTable.id, id));
+
+  if (!ensemble) {
+    res.status(404).json({ error: "Ensemble not found" });
+    return;
+  }
+  if (ensemble.leaderId !== userId) {
+    res.status(403).json({ error: "Only the ensemble leader can link listings" });
+    return;
+  }
+
+  const [listing] = await db
+    .select()
+    .from(listingsTable)
+    .where(and(eq(listingsTable.id, listingId), eq(listingsTable.teacherId, userId)));
+
+  if (!listing) {
+    res.status(404).json({ error: "Listing not found or does not belong to you" });
+    return;
+  }
+  if (listing.type !== "event") {
+    res.status(400).json({ error: "Only event listings can be linked to an ensemble" });
+    return;
+  }
+
+  await db
+    .update(listingsTable)
+    .set({ ensembleId: id })
+    .where(eq(listingsTable.id, listingId));
+
+  res.json({ ok: true, listingId, ensembleId: id });
+});
+
+/** Detach a listing from this ensemble */
+router.delete("/ensembles/:id/listings/:listingId", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = parseInt(req.params["id"] as string, 10);
+  const listingId = parseInt(req.params["listingId"] as string, 10);
+
+  if (isNaN(id) || isNaN(listingId)) {
+    res.status(400).json({ error: "Invalid ids" });
+    return;
+  }
+
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
+  if (!ensemble || ensemble.leaderId !== userId) {
+    res.status(403).json({ error: "Not authorized" });
+    return;
+  }
+
+  await db
+    .update(listingsTable)
+    .set({ ensembleId: null })
+    .where(and(eq(listingsTable.id, listingId), eq(listingsTable.teacherId, userId)));
+
+  res.status(204).send();
+});
+
+// ─── Invite member ────────────────────────────────────────────────────────────
+
 router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ensemble id" });
     return;
@@ -334,7 +509,6 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     res.status(404).json({ error: "Ensemble not found" });
     return;
   }
-
   if (ensemble.leaderId !== userId) {
     res.status(403).json({ error: "Only the ensemble leader can invite members" });
     return;
@@ -360,9 +534,13 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  // Load current active members to compute equal split if none specified
+  // Load current active members with their userId to distinguish leader
   const currentMembers = await db
-    .select({ id: ensembleMembersTable.id, splitPercent: ensembleMembersTable.splitPercent })
+    .select({
+      id: ensembleMembersTable.id,
+      userId: ensembleMembersTable.userId,
+      splitPercent: ensembleMembersTable.splitPercent,
+    })
     .from(ensembleMembersTable)
     .where(and(eq(ensembleMembersTable.ensembleId, id), eq(ensembleMembersTable.status, "active")));
 
@@ -372,17 +550,19 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
   if (typeof splitPercent === "number" && splitPercent > 0) {
     splitPct = Math.round(splitPercent);
   } else {
-    // Default: equal split across all members (floor, leader absorbs remainder)
-    splitPct = Math.floor(100 / totalMembersAfterInvite);
-    const leaderMember = currentMembers.find((m) => m.id === currentMembers[0]?.id);
-    if (leaderMember) {
-      const sumOthers = splitPct * (currentMembers.length - 1);
-      const leaderShare = 100 - sumOthers - splitPct;
+    // Equal split across all members: floor per member, leader absorbs remainder
+    const perMember = Math.floor(100 / totalMembersAfterInvite);
+    const leaderShare = 100 - perMember * (totalMembersAfterInvite - 1);
+
+    // Update ALL existing active members to the new equal shares
+    for (const m of currentMembers) {
+      const isLeader = m.userId === ensemble.leaderId;
       await db
         .update(ensembleMembersTable)
-        .set({ splitPercent: leaderShare })
-        .where(eq(ensembleMembersTable.id, leaderMember.id));
+        .set({ splitPercent: isLeader ? leaderShare : perMember })
+        .where(eq(ensembleMembersTable.id, m.id));
     }
+    splitPct = perMember; // new invitee's share
   }
 
   const [inviteeUser] = await db
@@ -390,7 +570,8 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     .from(usersTable)
     .where(eq(usersTable.email, normalizedEmail));
 
-  const inviteToken = randomBytes(24).toString("hex");
+  // 256-bit random invite token — secure, single-use, bound by email + expiry on accept
+  const inviteToken = randomBytes(32).toString("hex");
 
   const [member] = await db
     .insert(ensembleMembersTable)
@@ -407,18 +588,23 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
 
   const BASE = process.env.APP_URL ?? "https://app.harmonia.music";
   const acceptLink = `${BASE}/ensembles/${ensemble.slug}/accept?token=${inviteToken}`;
+
+  // TODO: send via transactional email provider (SendGrid / Resend) — for now logged
   logger.info(
     { ensembleId: id, inviteEmail: normalizedEmail, memberId: member.id },
-    `[INVITE] Ensemble "${ensemble.name}" invite for ${normalizedEmail} — accept link: ${acceptLink}`,
+    `[INVITE] Ensemble "${ensemble.name}" — send this accept link to ${normalizedEmail}: ${acceptLink}`,
   );
 
-  res.status(201).json(member);
+  // Return member without the token — client doesn't need it
+  res.status(201).json(stripSensitive(member as Record<string, unknown> as (typeof member & Record<string, unknown>)));
 });
+
+// ─── Accept invite ────────────────────────────────────────────────────────────
 
 router.post("/ensembles/:id/accept", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ensemble id" });
     return;
@@ -451,8 +637,7 @@ router.post("/ensembles/:id/accept", requireAuth, async (req, res): Promise<void
   }
 
   // Enforce 7-day expiry
-  const ageMs = Date.now() - new Date(member.invitedAt).getTime();
-  if (ageMs > INVITE_EXPIRY_MS) {
+  if (Date.now() - new Date(member.invitedAt).getTime() > INVITE_EXPIRY_MS) {
     res.status(400).json({ error: "This invitation has expired. Please ask the ensemble leader to send a new one." });
     return;
   }
@@ -481,7 +666,7 @@ router.post("/ensembles/:id/accept", requireAuth, async (req, res): Promise<void
     .where(eq(ensembleMembersTable.id, member.id))
     .returning();
 
-  // If all outstanding invites have been accepted, promote ensemble to active
+  // Promote ensemble to active if all outstanding invites resolved
   const allMembers = await db
     .select()
     .from(ensembleMembersTable)
@@ -497,8 +682,10 @@ router.post("/ensembles/:id/accept", requireAuth, async (req, res): Promise<void
       .where(and(eq(ensemblesTable.id, id), eq(ensemblesTable.status, "pending")));
   }
 
-  res.json(updated);
+  res.json(stripSensitive(updated as Record<string, unknown> as (typeof updated & Record<string, unknown>)));
 });
+
+// ─── Remove member ────────────────────────────────────────────────────────────
 
 router.delete(
   "/ensembles/:id/members/:memberId",
@@ -506,8 +693,8 @@ router.delete(
   async (req, res): Promise<void> => {
     const auth = getAuth(req);
     const userId = auth.userId!;
-    const id = parseInt(req.params.id, 10);
-    const memberUserId = req.params.memberId;
+    const id = parseInt(req.params["id"] as string, 10);
+    const memberUserId = req.params["memberId"] as string;
 
     if (isNaN(id)) {
       res.status(400).json({ error: "Invalid ensemble id" });
@@ -523,12 +710,10 @@ router.delete(
       res.status(404).json({ error: "Ensemble not found" });
       return;
     }
-
     if (ensemble.leaderId !== userId) {
       res.status(403).json({ error: "Only the ensemble leader can remove members" });
       return;
     }
-
     if (memberUserId === userId) {
       res.status(400).json({ error: "The leader cannot remove themselves" });
       return;
@@ -558,25 +743,22 @@ router.delete(
   },
 );
 
+// ─── Update splits ────────────────────────────────────────────────────────────
+
 router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ensemble id" });
     return;
   }
 
-  const [ensemble] = await db
-    .select()
-    .from(ensemblesTable)
-    .where(eq(ensemblesTable.id, id));
-
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
   if (!ensemble) {
     res.status(404).json({ error: "Ensemble not found" });
     return;
   }
-
   if (ensemble.leaderId !== userId) {
     res.status(403).json({ error: "Only the ensemble leader can update split percentages" });
     return;
@@ -593,7 +775,6 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
     (sum, s) => sum + (typeof s.splitPercent === "number" ? s.splitPercent : 0),
     0,
   );
-
   if (total !== 100) {
     res.status(400).json({ error: `Split percentages must sum to 100 (got ${total})` });
     return;
@@ -616,20 +797,18 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
   res.json(enriched);
 });
 
+// ─── List payouts ─────────────────────────────────────────────────────────────
+
 router.get("/ensembles/:id/payouts", requireAuth, async (req, res): Promise<void> => {
   const auth = getAuth(req);
   const userId = auth.userId!;
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid ensemble id" });
     return;
   }
 
-  const [ensemble] = await db
-    .select()
-    .from(ensemblesTable)
-    .where(eq(ensemblesTable.id, id));
-
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
   if (!ensemble) {
     res.status(404).json({ error: "Ensemble not found" });
     return;
@@ -652,13 +831,11 @@ router.get("/ensembles/:id/payouts", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  const payouts = await db
-    .select()
-    .from(payoutsTable)
-    .where(eq(payoutsTable.ensembleId, id));
-
+  const payouts = await db.select().from(payoutsTable).where(eq(payoutsTable.ensembleId, id));
   res.json({ payouts });
 });
+
+// ─── Revenue split processor (called by webhook handler) ─────────────────────
 
 export async function processEnsembleRevenueSplit(
   bookingId: number,
@@ -719,7 +896,10 @@ export async function processEnsembleRevenueSplit(
 
     if (stripeTransfer && netAmountCents > 0) {
       const [teacherProfile] = await db
-        .select({ stripeAccountId: teacherProfilesTable.stripeAccountId, stripeOnboarded: teacherProfilesTable.stripeOnboarded })
+        .select({
+          stripeAccountId: teacherProfilesTable.stripeAccountId,
+          stripeOnboarded: teacherProfilesTable.stripeOnboarded,
+        })
         .from(teacherProfilesTable)
         .where(eq(teacherProfilesTable.userId, member.userId));
 

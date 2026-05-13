@@ -2492,6 +2492,12 @@ export type ListEnsemblesParams = {
   offset?: number;
 };
 
+export type LinkEnsembleListing200 = {
+  ok: boolean;
+  listingId: number;
+  ensembleId: number;
+};
+
 export type ListDigitalProductsParams = {
   /**
    * Free-text search across title and instrument

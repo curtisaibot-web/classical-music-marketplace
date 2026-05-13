@@ -96,6 +96,7 @@ import type {
   InviteOrgMemberBody,
   InvoiceListResponse,
   InvoiceResponse,
+  LinkEnsembleListing200,
   ListAuditionProgramsParams,
   ListBookingsParams,
   ListCoaches200,
@@ -3240,6 +3241,187 @@ export const useUpdateEnsemble = <
   TContext
 > => {
   return useMutation(getUpdateEnsembleMutationOptions(options));
+};
+
+/**
+ * @summary Associate an event listing with this ensemble (leader only)
+ */
+export const getLinkEnsembleListingUrl = (id: number, listingId: number) => {
+  return `/api/ensembles/${id}/listings/${listingId}`;
+};
+
+export const linkEnsembleListing = async (
+  id: number,
+  listingId: number,
+  options?: RequestInit,
+): Promise<LinkEnsembleListing200> => {
+  return customFetch<LinkEnsembleListing200>(
+    getLinkEnsembleListingUrl(id, listingId),
+    {
+      ...options,
+      method: "PUT",
+    },
+  );
+};
+
+export const getLinkEnsembleListingMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkEnsembleListing>>,
+    TError,
+    { id: number; listingId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof linkEnsembleListing>>,
+  TError,
+  { id: number; listingId: number },
+  TContext
+> => {
+  const mutationKey = ["linkEnsembleListing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof linkEnsembleListing>>,
+    { id: number; listingId: number }
+  > = (props) => {
+    const { id, listingId } = props ?? {};
+
+    return linkEnsembleListing(id, listingId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LinkEnsembleListingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkEnsembleListing>>
+>;
+
+export type LinkEnsembleListingMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Associate an event listing with this ensemble (leader only)
+ */
+export const useLinkEnsembleListing = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof linkEnsembleListing>>,
+    TError,
+    { id: number; listingId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof linkEnsembleListing>>,
+  TError,
+  { id: number; listingId: number },
+  TContext
+> => {
+  return useMutation(getLinkEnsembleListingMutationOptions(options));
+};
+
+/**
+ * @summary Detach an event listing from this ensemble (leader only)
+ */
+export const getUnlinkEnsembleListingUrl = (id: number, listingId: number) => {
+  return `/api/ensembles/${id}/listings/${listingId}`;
+};
+
+export const unlinkEnsembleListing = async (
+  id: number,
+  listingId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getUnlinkEnsembleListingUrl(id, listingId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlinkEnsembleListingMutationOptions = <
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkEnsembleListing>>,
+    TError,
+    { id: number; listingId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkEnsembleListing>>,
+  TError,
+  { id: number; listingId: number },
+  TContext
+> => {
+  const mutationKey = ["unlinkEnsembleListing"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkEnsembleListing>>,
+    { id: number; listingId: number }
+  > = (props) => {
+    const { id, listingId } = props ?? {};
+
+    return unlinkEnsembleListing(id, listingId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkEnsembleListingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkEnsembleListing>>
+>;
+
+export type UnlinkEnsembleListingMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary Detach an event listing from this ensemble (leader only)
+ */
+export const useUnlinkEnsembleListing = <
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkEnsembleListing>>,
+    TError,
+    { id: number; listingId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkEnsembleListing>>,
+  TError,
+  { id: number; listingId: number },
+  TContext
+> => {
+  return useMutation(getUnlinkEnsembleListingMutationOptions(options));
 };
 
 /**

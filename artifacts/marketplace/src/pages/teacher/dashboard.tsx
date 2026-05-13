@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -400,6 +400,38 @@ function PracticePartnersCard() {
   );
 }
 
+function EnsemblePayoutHistory({ ensembleId }: { ensembleId: number }) {
+  const { data, isLoading } = useListEnsemblePayouts(ensembleId, {
+    query: { queryKey: getListEnsemblePayoutsQueryKey(ensembleId) },
+  });
+  const payouts = data?.payouts ?? [];
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Loading payouts…</p>;
+  if (payouts.length === 0) return <p className="text-xs text-muted-foreground">No payouts yet.</p>;
+
+  return (
+    <div className="space-y-1 max-h-40 overflow-y-auto">
+      {payouts.map((p) => (
+        <div key={p.id} className="flex items-center gap-2 text-xs border border-border rounded px-2 py-1.5">
+          <div className="flex-1 min-w-0">
+            <span className="text-muted-foreground">Booking #{p.bookingId}</span>
+            <span className="mx-1 text-muted-foreground">·</span>
+            <span>{p.splitPercent}% split</span>
+          </div>
+          <div className="shrink-0 text-right">
+            <span className="font-medium">${((p.netAmountCents ?? 0) / 100).toFixed(2)}</span>
+            <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full font-medium ${
+              p.status === "completed" ? "bg-green-100 text-green-700"
+              : p.status === "failed" ? "bg-red-100 text-red-700"
+              : "bg-amber-100 text-amber-700"
+            }`}>{p.status}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MyEnsemblesCard() {
   const qc = useQueryClient();
   const { data, isLoading } = useListMyEnsembles();
@@ -414,6 +446,7 @@ function MyEnsemblesCard() {
   const [inviteSplit, setInviteSplit] = useState("0");
   const [editSplits, setEditSplits] = useState<Record<number, string>>({});
   const [form, setForm] = useState({ name: "", bio: "", city: "", priceInCents: "" });
+  const [linkListingId, setLinkListingId] = useState("");
 
   const ensembles = data?.ensembles ?? [];
 
@@ -633,10 +666,10 @@ function MyEnsemblesCard() {
                         type="number"
                         min="0"
                         max="100"
-                        placeholder="%"
+                        placeholder="% (auto)"
                         value={inviteSplit}
                         onChange={(e) => setInviteSplit(e.target.value)}
-                        className="h-7 text-xs w-14 text-center"
+                        className="h-7 text-xs w-20 text-center"
                       />
                       <Button
                         size="sm"
@@ -647,6 +680,66 @@ function MyEnsemblesCard() {
                         Invite
                       </Button>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Leave % blank to split equally among all members automatically.
+                    </p>
+                  </div>
+
+                  {/* Link event listing */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Ticket className="h-3 w-3" /> Link Event Listing
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Listing ID"
+                        value={linkListingId}
+                        onChange={(e) => setLinkListingId(e.target.value)}
+                        className="h-7 text-xs w-28"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs px-2"
+                        disabled={!linkListingId}
+                        onClick={async () => {
+                          const lid = parseInt(linkListingId, 10);
+                          if (isNaN(lid)) { toast.error("Enter a valid listing ID"); return; }
+                          try {
+                            const apiBase = import.meta.env.VITE_API_URL ?? "";
+                            const r = await fetch(`${apiBase}/api/ensembles/${ens.id}/listings/${lid}`, {
+                              method: "PUT",
+                              credentials: "include",
+                            });
+                            if (!r.ok) {
+                              const d = await r.json().catch(() => ({}));
+                              toast.error((d as { error?: string }).error ?? "Failed to link listing");
+                            } else {
+                              toast.success("Listing linked to ensemble!");
+                              setLinkListingId("");
+                              qc.invalidateQueries({ queryKey: ["listMyEnsembles"] });
+                            }
+                          } catch {
+                            toast.error("Failed to link listing");
+                          }
+                        }}
+                      >
+                        Link
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Find your listing ID in{" "}
+                      <Link href="/listings" className="underline text-primary">Manage Listings</Link>.
+                    </p>
+                  </div>
+
+                  {/* Payout history */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" /> Payout History
+                    </p>
+                    <EnsemblePayoutHistory ensembleId={ens.id} />
                   </div>
                 </div>
               )}

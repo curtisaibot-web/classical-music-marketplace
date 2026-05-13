@@ -2052,6 +2052,28 @@ export const UpdateEnsembleResponse = zod
   );
 
 /**
+ * @summary Associate an event listing with this ensemble (leader only)
+ */
+export const LinkEnsembleListingParams = zod.object({
+  id: zod.coerce.number(),
+  listingId: zod.coerce.number(),
+});
+
+export const LinkEnsembleListingResponse = zod.object({
+  ok: zod.boolean(),
+  listingId: zod.number(),
+  ensembleId: zod.number(),
+});
+
+/**
+ * @summary Detach an event listing from this ensemble (leader only)
+ */
+export const UnlinkEnsembleListingParams = zod.object({
+  id: zod.coerce.number(),
+  listingId: zod.coerce.number(),
+});
+
+/**
  * @summary Invite a teacher to join an ensemble by email
  */
 export const InviteEnsembleMemberParams = zod.object({

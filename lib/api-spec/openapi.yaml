@@ -928,6 +928,68 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /ensembles/{id}/listings/{listingId}:
+    put:
+      operationId: linkEnsembleListing
+      tags: [ensembles]
+      summary: Associate an event listing with this ensemble (leader only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Listing linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  listingId:
+                    type: integer
+                  ensembleId:
+                    type: integer
+                required: [ok, listingId, ensembleId]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: unlinkEnsembleListing
+      tags: [ensembles]
+      summary: Detach an event listing from this ensemble (leader only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Listing detached
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /ensembles/{id}/invite:
     post:
       operationId: inviteEnsembleMember
