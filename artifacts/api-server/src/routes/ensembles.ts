@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, or, inArray } from "drizzle-orm";
+import { eq, and, or, inArray, count } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   db,
@@ -204,6 +204,12 @@ router.get("/ensembles", async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   const offset = Number(req.query.offset) || 0;
 
+  // Separate count query so total reflects all matching rows, not just the page
+  const [{ totalCount }] = await db
+    .select({ totalCount: count() })
+    .from(ensemblesTable)
+    .where(eq(ensemblesTable.status, "active"));
+
   const rows = await db
     .select()
     .from(ensemblesTable)
@@ -214,7 +220,7 @@ router.get("/ensembles", async (req, res): Promise<void> => {
   // Return enriched public data so the client type (EnsembleWithMembers[]) is satisfied
   const enriched = await Promise.all(rows.map((r) => formatPublicEnsemble(r.id)));
   const valid = enriched.filter((e) => e !== null);
-  res.json({ ensembles: valid, total: valid.length });
+  res.json({ ensembles: valid, total: totalCount });
 });
 
 // ─── Authenticated: my ensembles ──────────────────────────────────────────────
@@ -261,10 +267,37 @@ router.get("/ensembles/mine", requireAuth, async (req, res): Promise<void> => {
 
 // ─── Public: ensemble detail by slug ─────────────────────────────────────────
 
-// GET /ensembles/by-id/:id — numeric ID route for authenticated access by id
+// GET /ensembles/by-id/:id — numeric ID route; only accessible by leader or active/invited member
 router.get("/ensembles/by-id/:id", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
   const id = parseInt(req.params["id"] as string, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ensemble id" }); return; }
+
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
+  if (!ensemble) { res.status(404).json({ error: "Ensemble not found" }); return; }
+
+  const isLeader = ensemble.leaderId === userId;
+  if (!isLeader) {
+    const [memberRow] = await db
+      .select({ id: ensembleMembersTable.id })
+      .from(ensembleMembersTable)
+      .where(
+        and(
+          eq(ensembleMembersTable.ensembleId, id),
+          eq(ensembleMembersTable.userId, userId),
+          or(
+            eq(ensembleMembersTable.status, "active"),
+            eq(ensembleMembersTable.status, "invited"),
+          ),
+        ),
+      );
+    if (!memberRow) {
+      res.status(403).json({ error: "Only ensemble members can access this resource" });
+      return;
+    }
+  }
+
   const enriched = await formatEnsemble(id);
   if (!enriched) { res.status(404).json({ error: "Ensemble not found" }); return; }
   res.json(enriched);

@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListEnsembleBookings, getListEnsembleBookingsQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListEnsembleBookings, getListEnsembleBookingsQueryKey, useRemoveEnsembleMember, getListMyEnsemblesQueryKey } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -400,6 +400,26 @@ function PracticePartnersCard() {
   );
 }
 
+function RemoveMemberButton({ ensembleId, userId }: { ensembleId: number; userId: string }) {
+  const qc = useQueryClient();
+  const mutation = useRemoveEnsembleMember({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: getListMyEnsemblesQueryKey() }),
+    },
+  });
+  return (
+    <button
+      type="button"
+      title="Remove member"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate({ id: ensembleId, userId })}
+      className="ml-1 text-destructive hover:text-destructive/80 disabled:opacity-50 flex items-center"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
+
 function EnsembleBookingHistory({ ensembleId }: { ensembleId: number }) {
   const { data, isLoading } = useListEnsembleBookings(ensembleId, {
     query: { queryKey: getListEnsembleBookingsQueryKey(ensembleId) },
@@ -645,16 +665,17 @@ function MyEnsemblesCard() {
                     </Button>
                   </div>
 
-                  {/* Members + splits */}
+                  {/* Members + splits + removal (leader only) */}
                   {(ens.members ?? []).filter((m) => m.status !== "removed").length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                        <Sliders className="h-3 w-3" /> Revenue Splits
+                        <Sliders className="h-3 w-3" /> Members & Revenue Splits
                       </div>
                       {(ens.members ?? [])
                         .filter((m) => m.status !== "removed")
                         .map((m) => {
                           const name = m.user ? [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || m.inviteEmail : m.inviteEmail;
+                          const isLeaderRow = m.userId === ens.leaderId;
                           return (
                             <div key={m.id} className="flex items-center gap-2 text-xs">
                               <span className="flex-1 truncate">{name}</span>
@@ -668,6 +689,9 @@ function MyEnsemblesCard() {
                                 className="w-16 h-6 text-xs text-center"
                               />
                               <span className="text-muted-foreground">%</span>
+                              {!isLeaderRow && m.userId && (
+                                <RemoveMemberButton ensembleId={ens.id} userId={m.userId} />
+                              )}
                             </div>
                           );
                         })}
