@@ -159,27 +159,40 @@ async function handleCheckoutSessionCompleted(
       })
       .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
       .returning({ id: bookingsTable.id, ensembleId: bookingsTable.ensembleId });
+
+    // Determine ensembleId: prefer newly-confirmed row; fall back to re-fetch
+    // so payout processing runs even when this webhook fires after the booking
+    // was already confirmed (duplicate delivery, retry after crash, etc.)
+    let ensembleIdForPayout: number | null = null;
     if (updatedBookings.length > 0) {
       logger.info({ bookingId, sessionId: session.id, eventId }, "Booking confirmed via checkout.session.completed");
-      const confirmedBooking = updatedBookings[0];
-      if (confirmedBooking.ensembleId) {
-        const stripe = await getUncachableStripeClient();
-        await processEnsembleRevenueSplit(
-          bookingId,
-          confirmedBooking.ensembleId,
-          async (accountId: string, amountCents: number, bId: number) => {
-            const transfer = await stripe.transfers.create({
-              amount: amountCents,
-              currency: "usd",
-              destination: accountId,
-              description: `Ensemble booking payout — booking #${bId}`,
-            });
-            return transfer.id;
-          },
-        );
-      }
+      ensembleIdForPayout = updatedBookings[0].ensembleId ?? null;
     } else {
-      logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
+      logger.info({ bookingId, eventId }, "Booking already confirmed — checking for unpaid ensemble payouts");
+      const [confirmedRow] = await db
+        .select({ ensembleId: bookingsTable.ensembleId, status: bookingsTable.status })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.id, bookingId));
+      if (confirmedRow?.status === "confirmed") {
+        ensembleIdForPayout = confirmedRow.ensembleId ?? null;
+      }
+    }
+
+    if (ensembleIdForPayout) {
+      const stripe = await getUncachableStripeClient();
+      await processEnsembleRevenueSplit(
+        bookingId,
+        ensembleIdForPayout,
+        async (accountId: string, amountCents: number, bId: number) => {
+          const transfer = await stripe.transfers.create({
+            amount: amountCents,
+            currency: "usd",
+            destination: accountId,
+            description: `Ensemble booking payout — booking #${bId}`,
+          });
+          return transfer.id;
+        },
+      );
     }
   }
 
@@ -491,27 +504,39 @@ async function handlePaymentIntentSucceeded(
       })
       .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
       .returning({ id: bookingsTable.id, ensembleId: bookingsTable.ensembleId });
+
+    // Same idempotent-retry logic: run payout processing even when booking was
+    // already confirmed (retry after crash, duplicate webhook delivery, etc.)
+    let ensembleIdForPayout: number | null = null;
     if (updatedBookings.length > 0) {
       logger.info({ bookingId, paymentIntentId: paymentIntent.id, eventId }, "Booking confirmed via payment_intent.succeeded");
-      const confirmedBooking = updatedBookings[0];
-      if (confirmedBooking.ensembleId) {
-        const stripe = await getUncachableStripeClient();
-        await processEnsembleRevenueSplit(
-          bookingId,
-          confirmedBooking.ensembleId,
-          async (accountId: string, amountCents: number, bId: number) => {
-            const transfer = await stripe.transfers.create({
-              amount: amountCents,
-              currency: "usd",
-              destination: accountId,
-              description: `Ensemble booking payout — booking #${bId}`,
-            });
-            return transfer.id;
-          },
-        );
-      }
+      ensembleIdForPayout = updatedBookings[0].ensembleId ?? null;
     } else {
-      logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
+      logger.info({ bookingId, eventId }, "Booking already confirmed — checking for unpaid ensemble payouts");
+      const [confirmedRow] = await db
+        .select({ ensembleId: bookingsTable.ensembleId, status: bookingsTable.status })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.id, bookingId));
+      if (confirmedRow?.status === "confirmed") {
+        ensembleIdForPayout = confirmedRow.ensembleId ?? null;
+      }
+    }
+
+    if (ensembleIdForPayout) {
+      const stripe = await getUncachableStripeClient();
+      await processEnsembleRevenueSplit(
+        bookingId,
+        ensembleIdForPayout,
+        async (accountId: string, amountCents: number, bId: number) => {
+          const transfer = await stripe.transfers.create({
+            amount: amountCents,
+            currency: "usd",
+            destination: accountId,
+            description: `Ensemble booking payout — booking #${bId}`,
+          });
+          return transfer.id;
+        },
+      );
     }
   }
 

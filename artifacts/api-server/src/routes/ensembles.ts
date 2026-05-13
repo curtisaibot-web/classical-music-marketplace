@@ -575,7 +575,20 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
   let rebalancedMembers: Array<{ id: number; newSplit: number }> = [];
 
   if (typeof splitPercent === "number" && splitPercent > 0) {
-    splitPct = Math.round(splitPercent);
+    const rounded = Math.round(splitPercent);
+    if (rounded < 1 || rounded > 100) {
+      res.status(400).json({ error: "splitPercent must be between 1 and 100" });
+      return;
+    }
+    // Verify adding this share wouldn't push total over 100
+    const currentTotal = currentMembers.reduce((sum, m) => sum + m.splitPercent, 0);
+    if (currentTotal + rounded > 100) {
+      res.status(400).json({
+        error: `Cannot add ${rounded}% — current active members already hold ${currentTotal}%. Total would exceed 100%.`,
+      });
+      return;
+    }
+    splitPct = rounded;
   } else {
     // Equal split across all members: floor per member, leader absorbs remainder
     const perMember = Math.floor(100 / totalMembersAfterInvite);
@@ -890,7 +903,7 @@ router.get("/ensembles/:id/bookings", requireAuth, async (req, res): Promise<voi
     .where(eq(bookingsTable.ensembleId, id))
     .orderBy(bookingsTable.createdAt);
 
-  res.json({ bookings });
+  res.json({ bookings, total: bookings.length });
 });
 
 // ─── List payouts ─────────────────────────────────────────────────────────────
