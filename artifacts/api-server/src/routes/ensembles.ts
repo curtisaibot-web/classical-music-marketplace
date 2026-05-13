@@ -940,7 +940,13 @@ router.get("/ensembles/:id/payouts", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  const payouts = await db.select().from(payoutsTable).where(eq(payoutsTable.ensembleId, id));
+  // Leader sees all member payouts; non-leader members see only their own rows
+  const payouts = isLeader
+    ? await db.select().from(payoutsTable).where(eq(payoutsTable.ensembleId, id))
+    : await db
+        .select()
+        .from(payoutsTable)
+        .where(and(eq(payoutsTable.ensembleId, id), eq(payoutsTable.memberId, userId)));
   res.json({ payouts });
 });
 
@@ -983,29 +989,36 @@ export async function processEnsembleRevenueSplit(
     return;
   }
 
-  // Load existing payouts keyed by memberId for per-member idempotency.
-  // A partial run (e.g. crash mid-loop) leaves some members unpaid; on retry
-  // we skip already-processed members and complete the rest.
+  // Load existing payouts for this booking to drive per-member idempotency.
+  // Policy: skip members with status="completed" (transfer already sent).
+  //         retry members with status="failed" or "pending" (transfer not sent or failed).
+  // The unique constraint on (booking_id, member_id) prevents double-insert races;
+  // we use onConflictDoNothing as a safety net for concurrent webhook deliveries.
   const existingPayouts = await db
-    .select({ id: payoutsTable.id, memberId: payoutsTable.memberId })
+    .select({ id: payoutsTable.id, memberId: payoutsTable.memberId, status: payoutsTable.status })
     .from(payoutsTable)
     .where(eq(payoutsTable.bookingId, bookingId));
 
-  const alreadyPaidMemberIds = new Set(existingPayouts.map((p) => p.memberId));
+  const successfulMemberIds = new Set(
+    existingPayouts.filter((p) => p.status === "completed").map((p) => p.memberId),
+  );
+  const retryableMemberIds = new Set(
+    existingPayouts.filter((p) => p.status !== "completed").map((p) => p.memberId),
+  );
 
-  if (alreadyPaidMemberIds.size > 0) {
+  if (successfulMemberIds.size > 0 || retryableMemberIds.size > 0) {
     logger.info(
-      { bookingId, ensembleId, alreadyPaid: alreadyPaidMemberIds.size, total: activeMembers.length },
-      "processEnsembleRevenueSplit: resuming partial payout run",
+      { bookingId, ensembleId, completed: successfulMemberIds.size, retrying: retryableMemberIds.size, total: activeMembers.length },
+      "processEnsembleRevenueSplit: resuming — skipping completed, retrying failed/pending",
     );
   }
 
   for (const member of activeMembers) {
     if (!member.userId) continue;
 
-    // Skip members whose payout row already exists (idempotent retry)
-    if (alreadyPaidMemberIds.has(member.userId)) {
-      logger.info({ bookingId, memberId: member.userId }, "processEnsembleRevenueSplit: payout already exists — skipping member");
+    // Skip members whose payout already completed successfully
+    if (successfulMemberIds.has(member.userId)) {
+      logger.info({ bookingId, memberId: member.userId }, "processEnsembleRevenueSplit: payout completed — skipping");
       continue;
     }
 
@@ -1033,26 +1046,37 @@ export async function processEnsembleRevenueSplit(
         } catch (err) {
           logger.error({ err, bookingId, memberId: member.userId }, "Stripe transfer failed for ensemble member");
           payoutStatus = "failed";
-          // Continue loop — record the failure row so retry can detect and re-attempt this member
         }
       }
     }
 
-    await db.insert(payoutsTable).values({
-      bookingId,
-      ensembleId,
-      memberId: member.userId,
-      splitPercent: member.splitPercent,
-      grossAmountCents,
-      platformFeePortionCents,
-      netAmountCents,
-      stripeTransferId,
-      status: payoutStatus,
-    });
+    if (retryableMemberIds.has(member.userId)) {
+      // Update the existing failed/pending row rather than inserting a duplicate
+      await db
+        .update(payoutsTable)
+        .set({ stripeTransferId, status: payoutStatus })
+        .where(and(eq(payoutsTable.bookingId, bookingId), eq(payoutsTable.memberId, member.userId)));
+    } else {
+      // First-time insert; onConflictDoNothing guards against concurrent webhook deliveries
+      await db
+        .insert(payoutsTable)
+        .values({
+          bookingId,
+          ensembleId,
+          memberId: member.userId,
+          splitPercent: member.splitPercent,
+          grossAmountCents,
+          platformFeePortionCents,
+          netAmountCents,
+          stripeTransferId,
+          status: payoutStatus,
+        })
+        .onConflictDoNothing();
+    }
 
     logger.info(
       { bookingId, ensembleId, memberId: member.userId, netAmountCents, splitPercent: member.splitPercent, payoutStatus },
-      "Ensemble payout record created",
+      "Ensemble payout record upserted",
     );
   }
 }
