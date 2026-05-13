@@ -9,6 +9,7 @@ import { requireRole } from "../middlewares/requireRole";
 import { getAuth } from "@clerk/express";
 import { objectStorageClient, ObjectStorageService, signObjectURL } from "../lib/objectStorage";
 import { logger } from "../lib/logger";
+import { sendEmail } from "../lib/email";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -331,12 +332,81 @@ router.post("/reels/callback", async (req: Request, res: Response) => {
       .set(updateFields as { status: "processing" | "ready" | "failed"; processedFileUrl?: string | null; errorMessage?: string | null })
       .where(eq(videoReelsTable.id, reelId));
 
+    // Fire-and-forget email notification for terminal states (ready / failed).
+    if (status === "ready" || status === "failed") {
+      sendReelStatusEmail({ teacherId: reel.teacherId, status, errorMessage: errMsg }).catch(
+        (err) => logger.error({ err, reelId, teacherId: reel.teacherId }, "Unhandled error in reel email notification"),
+      );
+    }
+
     res.status(200).json({ ok: true });
   } catch (err) {
     logger.error({ err }, "Failed to process reel callback");
     res.status(200).json({ ok: true, message: "Callback received with error" });
   }
 });
+
+async function sendReelStatusEmail(opts: {
+  teacherId: string;
+  status: "ready" | "failed";
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const [user] = await db
+      .select({ email: usersTable.email, firstName: usersTable.firstName })
+      .from(usersTable)
+      .where(eq(usersTable.id, opts.teacherId))
+      .limit(1);
+
+    if (!user?.email) {
+      logger.warn({ teacherId: opts.teacherId }, "No email found for teacher — skipping reel status notification");
+      return;
+    }
+
+    const appBase = process.env.APP_URL ?? `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    const dashboardUrl = `${appBase}/teacher/dashboard`;
+    const firstName = user.firstName ?? "there";
+
+    if (opts.status === "ready") {
+      await sendEmail({
+        to: user.email,
+        subject: "Your booking reel is ready on Harmonia",
+        html: `
+          <p>Hi ${firstName},</p>
+          <p>Great news — your booking reel has been processed and is now live on your profile.</p>
+          <p>
+            <a href="${dashboardUrl}" style="display:inline-block;padding:10px 20px;background:#b5922a;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">
+              View your dashboard
+            </a>
+          </p>
+          <p style="color:#666;font-size:13px;">You can manage your reel from the Booking Reel section of your teacher dashboard.</p>
+          <p style="color:#666;font-size:13px;">— The Harmonia team</p>
+        `,
+      });
+    } else {
+      const reason = opts.errorMessage ?? "An unexpected error occurred during processing.";
+      await sendEmail({
+        to: user.email,
+        subject: "There was a problem with your Harmonia booking reel",
+        html: `
+          <p>Hi ${firstName},</p>
+          <p>Unfortunately we weren't able to process your booking reel.</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p>Please try uploading again from your dashboard:</p>
+          <p>
+            <a href="${dashboardUrl}" style="display:inline-block;padding:10px 20px;background:#b5922a;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">
+              Go to your dashboard
+            </a>
+          </p>
+          <p style="color:#666;font-size:13px;">If the problem persists, please contact our support team.</p>
+          <p style="color:#666;font-size:13px;">— The Harmonia team</p>
+        `,
+      });
+    }
+  } catch (err) {
+    logger.error({ err, teacherId: opts.teacherId }, "Failed to send reel status email");
+  }
+}
 
 /**
  * GET /reels/mine
