@@ -12,6 +12,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const PLATFORM_FEE_RATE = 0.15;
+const LIVE_CONCERT_FEE_RATE = 0.20;
 
 const router: IRouter = Router();
 
@@ -111,7 +112,8 @@ router.post("/orders", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const platformFeeInCents = Math.round(priceInCents * PLATFORM_FEE_RATE);
+  const feeRate = parsed.data.type === "live_concert" ? LIVE_CONCERT_FEE_RATE : PLATFORM_FEE_RATE;
+  const platformFeeInCents = Math.round(priceInCents * feeRate);
 
   const type = parsed.data.type;
   const insertValues: Parameters<typeof db.insert>[0] extends never ? never : Record<string, unknown> = {

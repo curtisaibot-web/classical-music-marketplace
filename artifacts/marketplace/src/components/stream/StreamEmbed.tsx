@@ -1,5 +1,6 @@
-import { Video, ExternalLink, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import MuxPlayer from "@mux/mux-player-react";
 
 export function YoutubeEmbed({ url }: { url: string }) {
   let videoId = "";
@@ -27,16 +28,28 @@ export function YoutubeEmbed({ url }: { url: string }) {
   );
 }
 
+function extractMuxPlaybackId(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("mux.com")) {
+      return u.pathname.replace(/^\//, "").replace(/\.m3u8$/, "");
+    }
+  } catch {
+    // not a URL — treat as raw playback ID
+  }
+  return url.replace(/\.m3u8$/, "");
+}
+
 export function MuxEmbed({ url }: { url: string }) {
+  const playbackId = extractMuxPlaybackId(url);
   return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
-      <div className="text-center space-y-2 text-white">
-        <Video className="h-12 w-12 mx-auto opacity-50" />
-        <p className="text-sm opacity-70">Mux stream</p>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline flex items-center gap-1 justify-center">
-          Open stream <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
+    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+      <MuxPlayer
+        playbackId={playbackId}
+        streamType="live:dvr"
+        autoPlay={false}
+        style={{ width: "100%", height: "100%" }}
+      />
     </div>
   );
 }

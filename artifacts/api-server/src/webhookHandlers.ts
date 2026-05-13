@@ -194,11 +194,21 @@ async function handleCheckoutSessionCompleted(
       logger.info({ orderId, sessionId: session.id, eventId }, "Order paid via checkout.session.completed");
       const paidOrder = updatedOrders[0];
       if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
-        await db
+        const updated = await db
           .update(liveConcertsTable)
           .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
-          .where(eq(liveConcertsTable.id, paidOrder.liveConcertId));
-        logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented");
+          .where(
+            and(
+              eq(liveConcertsTable.id, paidOrder.liveConcertId),
+              sql`${liveConcertsTable.soldTickets} < ${liveConcertsTable.maxTickets}`,
+            ),
+          )
+          .returning({ id: liveConcertsTable.id });
+        if (updated.length === 0) {
+          logger.warn({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert already at capacity — sold_tickets NOT incremented (over-capacity payment)");
+        } else {
+          logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented");
+        }
       }
       await unlockDigitalDownload(orderId);
     } else {
@@ -466,11 +476,21 @@ async function handlePaymentIntentSucceeded(
       logger.info({ orderId, paymentIntentId: paymentIntent.id, eventId }, "Order paid via payment_intent.succeeded");
       const paidOrder = updatedOrders[0];
       if (paidOrder.type === "live_concert" && paidOrder.liveConcertId != null) {
-        await db
+        const updated = await db
           .update(liveConcertsTable)
           .set({ soldTickets: sql`${liveConcertsTable.soldTickets} + 1` })
-          .where(eq(liveConcertsTable.id, paidOrder.liveConcertId));
-        logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented via payment_intent.succeeded");
+          .where(
+            and(
+              eq(liveConcertsTable.id, paidOrder.liveConcertId),
+              sql`${liveConcertsTable.soldTickets} < ${liveConcertsTable.maxTickets}`,
+            ),
+          )
+          .returning({ id: liveConcertsTable.id });
+        if (updated.length === 0) {
+          logger.warn({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert already at capacity — sold_tickets NOT incremented via payment_intent.succeeded");
+        } else {
+          logger.info({ orderId, liveConcertId: paidOrder.liveConcertId, eventId }, "Live concert sold_tickets incremented via payment_intent.succeeded");
+        }
       }
       await unlockDigitalDownload(orderId);
     } else {
