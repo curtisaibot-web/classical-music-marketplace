@@ -85,7 +85,9 @@ router.post("/stripe/checkout/booking", requireAuth, async (req, res): Promise<v
     // For all bookings: transfer net to the coach/teacher's Stripe Connect account.
     // Coaches who are also teachers use their teacher profile Stripe account.
     // Coaches without a Stripe Connect account: platform retains funds for manual disbursement.
-    if (teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
+    // For ensemble bookings, platform keeps all funds and issues individual transfers
+    // via processEnsembleRevenueSplit after payment — skip transfer_data here.
+    if (!booking.ensembleId && teacherProfile?.stripeAccountId && teacherProfile?.stripeOnboarded) {
       sessionParams.payment_intent_data = {
         ...sessionParams.payment_intent_data,
         application_fee_amount: Math.round(booking.priceInCents * feeRate),

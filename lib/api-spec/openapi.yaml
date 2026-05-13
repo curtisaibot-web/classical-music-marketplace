@@ -52,6 +52,7 @@ tags:
   - name: practice
     description: Practice partner matching — profiles, requests, sessions
   - name: live-concerts
+  - name: ensembles
     description: Pay-per-view live concert streaming
 
 paths:
@@ -810,6 +811,267 @@ paths:
                 $ref: "#/components/schemas/MyLiveConcertTicketResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  # ── Ensembles ──────────────────────────────────────────────────────────────
+  /ensembles:
+    get:
+      operationId: listEnsembles
+      tags: [ensembles]
+      summary: Browse public ensembles
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of ensembles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleListResponse"
+    post:
+      operationId: createEnsemble
+      tags: [ensembles]
+      summary: Create a new ensemble
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEnsembleBody"
+      responses:
+        "201":
+          description: Created ensemble
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleWithMembers"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /ensembles/mine:
+    get:
+      operationId: listMyEnsembles
+      tags: [ensembles]
+      summary: List ensembles the authenticated teacher leads or is a member of
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: My ensembles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /ensembles/{slug}:
+    get:
+      operationId: getEnsemble
+      tags: [ensembles]
+      summary: Get a public ensemble profile by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ensemble profile with members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleWithMembers"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ensembles/{id}/update:
+    put:
+      operationId: updateEnsemble
+      tags: [ensembles]
+      summary: Update an ensemble (leader only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEnsembleBody"
+      responses:
+        "200":
+          description: Updated ensemble
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleWithMembers"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ensembles/{id}/invite:
+    post:
+      operationId: inviteEnsembleMember
+      tags: [ensembles]
+      summary: Invite a teacher to join an ensemble by email
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteEnsembleMemberBody"
+      responses:
+        "201":
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /ensembles/{id}/accept:
+    post:
+      operationId: acceptEnsembleInvite
+      tags: [ensembles]
+      summary: Accept an ensemble invitation via token
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptEnsembleInviteBody"
+      responses:
+        "200":
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleMember"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /ensembles/{id}/members/{userId}:
+    delete:
+      operationId: removeEnsembleMember
+      tags: [ensembles]
+      summary: Remove a member from an ensemble (leader only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Member removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ensembles/{id}/splits:
+    put:
+      operationId: updateEnsembleSplits
+      tags: [ensembles]
+      summary: Update revenue split percentages for all members (leader only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEnsembleSplitsBody"
+      responses:
+        "200":
+          description: Updated ensemble with members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsembleWithMembers"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /ensembles/{id}/payouts:
+    get:
+      operationId: listEnsemblePayouts
+      tags: [ensembles]
+      summary: List payout records for an ensemble (members only)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payout list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnsemblePayoutListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   # ── Digital Products ───────────────────────────────────────────────────────
   /digital-products:
@@ -6890,3 +7152,251 @@ components:
         joinLink:
           type: string
       required: [proposedAt]
+
+    Ensemble:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        bio:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        leaderId:
+          type: string
+        city:
+          type: ["string", "null"]
+        genres:
+          type: array
+          items:
+            type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        recordings:
+          type: array
+          items:
+            type: string
+        priceInCents:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [pending, active, archived]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, slug, name, leaderId, genres, instruments, recordings, status, createdAt, updatedAt]
+
+    EnsembleMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        ensembleId:
+          type: integer
+        userId:
+          type: ["string", "null"]
+        inviteEmail:
+          type: string
+        splitPercent:
+          type: integer
+        status:
+          type: string
+          enum: [invited, active, removed]
+        inviteToken:
+          type: ["string", "null"]
+        invitedAt:
+          type: string
+          format: date-time
+        joinedAt:
+          type: ["string", "null"]
+          format: date-time
+        user:
+          type: ["object", "null"]
+          properties:
+            id:
+              type: string
+            firstName:
+              type: ["string", "null"]
+            lastName:
+              type: ["string", "null"]
+            imageUrl:
+              type: ["string", "null"]
+        profile:
+          type: ["object", "null"]
+          properties:
+            userId:
+              type: string
+            profileImageUrl:
+              type: ["string", "null"]
+            instruments:
+              type: array
+              items:
+                type: string
+            city:
+              type: ["string", "null"]
+            profileSlug:
+              type: ["string", "null"]
+      required: [id, ensembleId, inviteEmail, splitPercent, status, invitedAt]
+
+    EnsembleWithMembers:
+      allOf:
+        - $ref: "#/components/schemas/Ensemble"
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/EnsembleMember"
+          required: [members]
+
+    EnsembleListResponse:
+      type: object
+      properties:
+        ensembles:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ensemble"
+        total:
+          type: integer
+      required: [ensembles, total]
+
+    CreateEnsembleBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        bio:
+          type: string
+        photoUrl:
+          type: string
+        city:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        recordings:
+          type: array
+          items:
+            type: string
+        priceInCents:
+          type: integer
+      required: [name]
+
+    UpdateEnsembleBody:
+      type: object
+      properties:
+        name:
+          type: string
+        bio:
+          type: string
+        photoUrl:
+          type: string
+        city:
+          type: string
+        genres:
+          type: array
+          items:
+            type: string
+        instruments:
+          type: array
+          items:
+            type: string
+        recordings:
+          type: array
+          items:
+            type: string
+        priceInCents:
+          type: integer
+        status:
+          type: string
+          enum: [pending, active, archived]
+
+    InviteEnsembleMemberBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        splitPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+      required: [email]
+
+    AcceptEnsembleInviteBody:
+      type: object
+      properties:
+        token:
+          type: string
+      required: [token]
+
+    UpdateEnsembleSplitsBody:
+      type: object
+      properties:
+        splits:
+          type: array
+          items:
+            type: object
+            properties:
+              memberId:
+                type: integer
+              splitPercent:
+                type: integer
+                minimum: 0
+                maximum: 100
+            required: [memberId, splitPercent]
+      required: [splits]
+
+    EnsemblePayout:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookingId:
+          type: integer
+        ensembleId:
+          type: integer
+        memberId:
+          type: string
+        splitPercent:
+          type: integer
+        grossAmountCents:
+          type: integer
+        platformFeePortionCents:
+          type: integer
+        netAmountCents:
+          type: integer
+        stripeTransferId:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, bookingId, ensembleId, memberId, splitPercent, grossAmountCents, platformFeePortionCents, netAmountCents, status, createdAt]
+
+    EnsemblePayoutListResponse:
+      type: object
+      properties:
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnsemblePayout"
+      required: [payouts]

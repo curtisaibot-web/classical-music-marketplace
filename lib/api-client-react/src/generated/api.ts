@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AcceptEnsembleInviteBody,
   ActivateSubscription200,
   ActivateSubscriptionBody,
   AuditionProgram,
@@ -53,6 +54,7 @@ import type {
   CreateConnectOnboardingBody,
   CreateContractBody,
   CreateDigitalProductBody,
+  CreateEnsembleBody,
   CreateExpenseBody,
   CreateInvoiceBody,
   CreateListingBody,
@@ -75,6 +77,10 @@ import type {
   DownloadRedirectResponse,
   DownloadScoreLicense200,
   EnrollmentListResponse,
+  EnsembleListResponse,
+  EnsembleMember,
+  EnsemblePayoutListResponse,
+  EnsembleWithMembers,
   ErrorEnvelope,
   ExpenseCategoriesResponse,
   ExpenseListResponse,
@@ -85,6 +91,7 @@ import type {
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
+  InviteEnsembleMemberBody,
   InviteOrgMember201,
   InviteOrgMemberBody,
   InvoiceListResponse,
@@ -94,6 +101,7 @@ import type {
   ListCoaches200,
   ListCoachesParams,
   ListDigitalProductsParams,
+  ListEnsemblesParams,
   ListExpensesParams,
   ListListingsParams,
   ListLiveConcertsParams,
@@ -166,6 +174,8 @@ import type {
   UpdateCampaignResponse,
   UpdateContractBody,
   UpdateDigitalProductBody,
+  UpdateEnsembleBody,
+  UpdateEnsembleSplitsBody,
   UpdateExpenseBody,
   UpdateInvoiceBody,
   UpdateListingBody,
@@ -2787,6 +2797,904 @@ export function useGetMyLiveConcertTicket<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMyLiveConcertTicketQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Browse public ensembles
+ */
+export const getListEnsemblesUrl = (params?: ListEnsemblesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/ensembles?${stringifiedParams}`
+    : `/api/ensembles`;
+};
+
+export const listEnsembles = async (
+  params?: ListEnsemblesParams,
+  options?: RequestInit,
+): Promise<EnsembleListResponse> => {
+  return customFetch<EnsembleListResponse>(getListEnsemblesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEnsemblesQueryKey = (params?: ListEnsemblesParams) => {
+  return [`/api/ensembles`, ...(params ? [params] : [])] as const;
+};
+
+export const getListEnsemblesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEnsembles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEnsemblesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsembles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEnsemblesQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listEnsembles>>> = ({
+    signal,
+  }) => listEnsembles(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEnsembles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEnsemblesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEnsembles>>
+>;
+export type ListEnsemblesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Browse public ensembles
+ */
+
+export function useListEnsembles<
+  TData = Awaited<ReturnType<typeof listEnsembles>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEnsemblesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsembles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEnsemblesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new ensemble
+ */
+export const getCreateEnsembleUrl = () => {
+  return `/api/ensembles`;
+};
+
+export const createEnsemble = async (
+  createEnsembleBody: CreateEnsembleBody,
+  options?: RequestInit,
+): Promise<EnsembleWithMembers> => {
+  return customFetch<EnsembleWithMembers>(getCreateEnsembleUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createEnsembleBody),
+  });
+};
+
+export const getCreateEnsembleMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEnsemble>>,
+    TError,
+    { data: BodyType<CreateEnsembleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEnsemble>>,
+  TError,
+  { data: BodyType<CreateEnsembleBody> },
+  TContext
+> => {
+  const mutationKey = ["createEnsemble"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEnsemble>>,
+    { data: BodyType<CreateEnsembleBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEnsemble(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEnsembleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEnsemble>>
+>;
+export type CreateEnsembleMutationBody = BodyType<CreateEnsembleBody>;
+export type CreateEnsembleMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Create a new ensemble
+ */
+export const useCreateEnsemble = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEnsemble>>,
+    TError,
+    { data: BodyType<CreateEnsembleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEnsemble>>,
+  TError,
+  { data: BodyType<CreateEnsembleBody> },
+  TContext
+> => {
+  return useMutation(getCreateEnsembleMutationOptions(options));
+};
+
+/**
+ * @summary List ensembles the authenticated teacher leads or is a member of
+ */
+export const getListMyEnsemblesUrl = () => {
+  return `/api/ensembles/mine`;
+};
+
+export const listMyEnsembles = async (
+  options?: RequestInit,
+): Promise<EnsembleListResponse> => {
+  return customFetch<EnsembleListResponse>(getListMyEnsemblesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyEnsemblesQueryKey = () => {
+  return [`/api/ensembles/mine`] as const;
+};
+
+export const getListMyEnsemblesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyEnsembles>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnsembles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyEnsemblesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyEnsembles>>> = ({
+    signal,
+  }) => listMyEnsembles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnsembles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyEnsemblesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyEnsembles>>
+>;
+export type ListMyEnsemblesQueryError = ErrorType<UnauthorizedResponse>;
+
+/**
+ * @summary List ensembles the authenticated teacher leads or is a member of
+ */
+
+export function useListMyEnsembles<
+  TData = Awaited<ReturnType<typeof listMyEnsembles>>,
+  TError = ErrorType<UnauthorizedResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyEnsembles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyEnsemblesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a public ensemble profile by slug
+ */
+export const getGetEnsembleUrl = (slug: string) => {
+  return `/api/ensembles/${slug}`;
+};
+
+export const getEnsemble = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<EnsembleWithMembers> => {
+  return customFetch<EnsembleWithMembers>(getGetEnsembleUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEnsembleQueryKey = (slug: string) => {
+  return [`/api/ensembles/${slug}`] as const;
+};
+
+export const getGetEnsembleQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEnsemble>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEnsemble>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEnsembleQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getEnsemble>>> = ({
+    signal,
+  }) => getEnsemble(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEnsemble>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEnsembleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEnsemble>>
+>;
+export type GetEnsembleQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get a public ensemble profile by slug
+ */
+
+export function useGetEnsemble<
+  TData = Awaited<ReturnType<typeof getEnsemble>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEnsemble>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEnsembleQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an ensemble (leader only)
+ */
+export const getUpdateEnsembleUrl = (id: number) => {
+  return `/api/ensembles/${id}/update`;
+};
+
+export const updateEnsemble = async (
+  id: number,
+  updateEnsembleBody: UpdateEnsembleBody,
+  options?: RequestInit,
+): Promise<EnsembleWithMembers> => {
+  return customFetch<EnsembleWithMembers>(getUpdateEnsembleUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEnsembleBody),
+  });
+};
+
+export const getUpdateEnsembleMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEnsemble>>,
+    TError,
+    { id: number; data: BodyType<UpdateEnsembleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEnsemble>>,
+  TError,
+  { id: number; data: BodyType<UpdateEnsembleBody> },
+  TContext
+> => {
+  const mutationKey = ["updateEnsemble"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEnsemble>>,
+    { id: number; data: BodyType<UpdateEnsembleBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateEnsemble(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEnsembleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEnsemble>>
+>;
+export type UpdateEnsembleMutationBody = BodyType<UpdateEnsembleBody>;
+export type UpdateEnsembleMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Update an ensemble (leader only)
+ */
+export const useUpdateEnsemble = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEnsemble>>,
+    TError,
+    { id: number; data: BodyType<UpdateEnsembleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEnsemble>>,
+  TError,
+  { id: number; data: BodyType<UpdateEnsembleBody> },
+  TContext
+> => {
+  return useMutation(getUpdateEnsembleMutationOptions(options));
+};
+
+/**
+ * @summary Invite a teacher to join an ensemble by email
+ */
+export const getInviteEnsembleMemberUrl = (id: number) => {
+  return `/api/ensembles/${id}/invite`;
+};
+
+export const inviteEnsembleMember = async (
+  id: number,
+  inviteEnsembleMemberBody: InviteEnsembleMemberBody,
+  options?: RequestInit,
+): Promise<EnsembleMember> => {
+  return customFetch<EnsembleMember>(getInviteEnsembleMemberUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(inviteEnsembleMemberBody),
+  });
+};
+
+export const getInviteEnsembleMemberMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteEnsembleMember>>,
+    TError,
+    { id: number; data: BodyType<InviteEnsembleMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof inviteEnsembleMember>>,
+  TError,
+  { id: number; data: BodyType<InviteEnsembleMemberBody> },
+  TContext
+> => {
+  const mutationKey = ["inviteEnsembleMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof inviteEnsembleMember>>,
+    { id: number; data: BodyType<InviteEnsembleMemberBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return inviteEnsembleMember(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InviteEnsembleMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof inviteEnsembleMember>>
+>;
+export type InviteEnsembleMemberMutationBody =
+  BodyType<InviteEnsembleMemberBody>;
+export type InviteEnsembleMemberMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary Invite a teacher to join an ensemble by email
+ */
+export const useInviteEnsembleMember = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteEnsembleMember>>,
+    TError,
+    { id: number; data: BodyType<InviteEnsembleMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof inviteEnsembleMember>>,
+  TError,
+  { id: number; data: BodyType<InviteEnsembleMemberBody> },
+  TContext
+> => {
+  return useMutation(getInviteEnsembleMemberMutationOptions(options));
+};
+
+/**
+ * @summary Accept an ensemble invitation via token
+ */
+export const getAcceptEnsembleInviteUrl = (id: number) => {
+  return `/api/ensembles/${id}/accept`;
+};
+
+export const acceptEnsembleInvite = async (
+  id: number,
+  acceptEnsembleInviteBody: AcceptEnsembleInviteBody,
+  options?: RequestInit,
+): Promise<EnsembleMember> => {
+  return customFetch<EnsembleMember>(getAcceptEnsembleInviteUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(acceptEnsembleInviteBody),
+  });
+};
+
+export const getAcceptEnsembleInviteMutationOptions = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptEnsembleInvite>>,
+    TError,
+    { id: number; data: BodyType<AcceptEnsembleInviteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptEnsembleInvite>>,
+  TError,
+  { id: number; data: BodyType<AcceptEnsembleInviteBody> },
+  TContext
+> => {
+  const mutationKey = ["acceptEnsembleInvite"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptEnsembleInvite>>,
+    { id: number; data: BodyType<AcceptEnsembleInviteBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return acceptEnsembleInvite(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptEnsembleInviteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptEnsembleInvite>>
+>;
+export type AcceptEnsembleInviteMutationBody =
+  BodyType<AcceptEnsembleInviteBody>;
+export type AcceptEnsembleInviteMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse
+>;
+
+/**
+ * @summary Accept an ensemble invitation via token
+ */
+export const useAcceptEnsembleInvite = <
+  TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptEnsembleInvite>>,
+    TError,
+    { id: number; data: BodyType<AcceptEnsembleInviteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptEnsembleInvite>>,
+  TError,
+  { id: number; data: BodyType<AcceptEnsembleInviteBody> },
+  TContext
+> => {
+  return useMutation(getAcceptEnsembleInviteMutationOptions(options));
+};
+
+/**
+ * @summary Remove a member from an ensemble (leader only)
+ */
+export const getRemoveEnsembleMemberUrl = (id: number, userId: string) => {
+  return `/api/ensembles/${id}/members/${userId}`;
+};
+
+export const removeEnsembleMember = async (
+  id: number,
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRemoveEnsembleMemberUrl(id, userId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveEnsembleMemberMutationOptions = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeEnsembleMember>>,
+    TError,
+    { id: number; userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeEnsembleMember>>,
+  TError,
+  { id: number; userId: string },
+  TContext
+> => {
+  const mutationKey = ["removeEnsembleMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeEnsembleMember>>,
+    { id: number; userId: string }
+  > = (props) => {
+    const { id, userId } = props ?? {};
+
+    return removeEnsembleMember(id, userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveEnsembleMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeEnsembleMember>>
+>;
+
+export type RemoveEnsembleMemberMutationError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Remove a member from an ensemble (leader only)
+ */
+export const useRemoveEnsembleMember = <
+  TError = ErrorType<
+    UnauthorizedResponse | ForbiddenResponse | NotFoundResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeEnsembleMember>>,
+    TError,
+    { id: number; userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeEnsembleMember>>,
+  TError,
+  { id: number; userId: string },
+  TContext
+> => {
+  return useMutation(getRemoveEnsembleMemberMutationOptions(options));
+};
+
+/**
+ * @summary Update revenue split percentages for all members (leader only)
+ */
+export const getUpdateEnsembleSplitsUrl = (id: number) => {
+  return `/api/ensembles/${id}/splits`;
+};
+
+export const updateEnsembleSplits = async (
+  id: number,
+  updateEnsembleSplitsBody: UpdateEnsembleSplitsBody,
+  options?: RequestInit,
+): Promise<EnsembleWithMembers> => {
+  return customFetch<EnsembleWithMembers>(getUpdateEnsembleSplitsUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEnsembleSplitsBody),
+  });
+};
+
+export const getUpdateEnsembleSplitsMutationOptions = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEnsembleSplits>>,
+    TError,
+    { id: number; data: BodyType<UpdateEnsembleSplitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEnsembleSplits>>,
+  TError,
+  { id: number; data: BodyType<UpdateEnsembleSplitsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateEnsembleSplits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEnsembleSplits>>,
+    { id: number; data: BodyType<UpdateEnsembleSplitsBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateEnsembleSplits(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEnsembleSplitsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEnsembleSplits>>
+>;
+export type UpdateEnsembleSplitsMutationBody =
+  BodyType<UpdateEnsembleSplitsBody>;
+export type UpdateEnsembleSplitsMutationError = ErrorType<
+  BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary Update revenue split percentages for all members (leader only)
+ */
+export const useUpdateEnsembleSplits = <
+  TError = ErrorType<
+    BadRequestResponse | UnauthorizedResponse | ForbiddenResponse
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEnsembleSplits>>,
+    TError,
+    { id: number; data: BodyType<UpdateEnsembleSplitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEnsembleSplits>>,
+  TError,
+  { id: number; data: BodyType<UpdateEnsembleSplitsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateEnsembleSplitsMutationOptions(options));
+};
+
+/**
+ * @summary List payout records for an ensemble (members only)
+ */
+export const getListEnsemblePayoutsUrl = (id: number) => {
+  return `/api/ensembles/${id}/payouts`;
+};
+
+export const listEnsemblePayouts = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EnsemblePayoutListResponse> => {
+  return customFetch<EnsemblePayoutListResponse>(
+    getListEnsemblePayoutsUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEnsemblePayoutsQueryKey = (id: number) => {
+  return [`/api/ensembles/${id}/payouts`] as const;
+};
+
+export const getListEnsemblePayoutsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEnsemblePayouts>>,
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsemblePayouts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListEnsemblePayoutsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEnsemblePayouts>>
+  > = ({ signal }) => listEnsemblePayouts(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEnsemblePayouts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEnsemblePayoutsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEnsemblePayouts>>
+>;
+export type ListEnsemblePayoutsQueryError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary List payout records for an ensemble (members only)
+ */
+
+export function useListEnsemblePayouts<
+  TData = Awaited<ReturnType<typeof listEnsemblePayouts>>,
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsemblePayouts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEnsemblePayoutsQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

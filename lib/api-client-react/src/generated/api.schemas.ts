@@ -2180,6 +2180,187 @@ export interface ProposePracticeSessionBody {
   joinLink?: string;
 }
 
+export type EnsembleStatus =
+  (typeof EnsembleStatus)[keyof typeof EnsembleStatus];
+
+export const EnsembleStatus = {
+  pending: "pending",
+  active: "active",
+  archived: "archived",
+} as const;
+
+export interface Ensemble {
+  id: number;
+  slug: string;
+  name: string;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  photoUrl?: string | null;
+  leaderId: string;
+  /** @nullable */
+  city?: string | null;
+  genres: string[];
+  instruments: string[];
+  recordings: string[];
+  /** @nullable */
+  priceInCents?: number | null;
+  status: EnsembleStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EnsembleMemberStatus =
+  (typeof EnsembleMemberStatus)[keyof typeof EnsembleMemberStatus];
+
+export const EnsembleMemberStatus = {
+  invited: "invited",
+  active: "active",
+  removed: "removed",
+} as const;
+
+/**
+ * @nullable
+ */
+export type EnsembleMemberUser = {
+  id?: string;
+  /** @nullable */
+  firstName?: string | null;
+  /** @nullable */
+  lastName?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+} | null;
+
+/**
+ * @nullable
+ */
+export type EnsembleMemberProfile = {
+  userId?: string;
+  /** @nullable */
+  profileImageUrl?: string | null;
+  instruments?: string[];
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  profileSlug?: string | null;
+} | null;
+
+export interface EnsembleMember {
+  id: number;
+  ensembleId: number;
+  /** @nullable */
+  userId?: string | null;
+  inviteEmail: string;
+  splitPercent: number;
+  status: EnsembleMemberStatus;
+  /** @nullable */
+  inviteToken?: string | null;
+  invitedAt: string;
+  /** @nullable */
+  joinedAt?: string | null;
+  /** @nullable */
+  user?: EnsembleMemberUser;
+  /** @nullable */
+  profile?: EnsembleMemberProfile;
+}
+
+export type EnsembleWithMembers = Ensemble & {
+  members: EnsembleMember[];
+};
+
+export interface EnsembleListResponse {
+  ensembles: Ensemble[];
+  total: number;
+}
+
+export interface CreateEnsembleBody {
+  name: string;
+  slug?: string;
+  bio?: string;
+  photoUrl?: string;
+  city?: string;
+  genres?: string[];
+  instruments?: string[];
+  recordings?: string[];
+  priceInCents?: number;
+}
+
+export type UpdateEnsembleBodyStatus =
+  (typeof UpdateEnsembleBodyStatus)[keyof typeof UpdateEnsembleBodyStatus];
+
+export const UpdateEnsembleBodyStatus = {
+  pending: "pending",
+  active: "active",
+  archived: "archived",
+} as const;
+
+export interface UpdateEnsembleBody {
+  name?: string;
+  bio?: string;
+  photoUrl?: string;
+  city?: string;
+  genres?: string[];
+  instruments?: string[];
+  recordings?: string[];
+  priceInCents?: number;
+  status?: UpdateEnsembleBodyStatus;
+}
+
+export interface InviteEnsembleMemberBody {
+  email: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  splitPercent?: number;
+}
+
+export interface AcceptEnsembleInviteBody {
+  token: string;
+}
+
+export type UpdateEnsembleSplitsBodySplitsItem = {
+  memberId: number;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  splitPercent: number;
+};
+
+export interface UpdateEnsembleSplitsBody {
+  splits: UpdateEnsembleSplitsBodySplitsItem[];
+}
+
+export type EnsemblePayoutStatus =
+  (typeof EnsemblePayoutStatus)[keyof typeof EnsemblePayoutStatus];
+
+export const EnsemblePayoutStatus = {
+  pending: "pending",
+  completed: "completed",
+  failed: "failed",
+} as const;
+
+export interface EnsemblePayout {
+  id: number;
+  bookingId: number;
+  ensembleId: number;
+  memberId: string;
+  splitPercent: number;
+  grossAmountCents: number;
+  platformFeePortionCents: number;
+  netAmountCents: number;
+  /** @nullable */
+  stripeTransferId?: string | null;
+  status: EnsemblePayoutStatus;
+  createdAt: string;
+}
+
+export interface EnsemblePayoutListResponse {
+  payouts: EnsemblePayout[];
+}
+
 /**
  * Unauthorized
  */
@@ -2285,6 +2466,11 @@ export type ListMasterclassesParams = {
 };
 
 export type ListLiveConcertsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListEnsemblesParams = {
   limit?: number;
   offset?: number;
 };

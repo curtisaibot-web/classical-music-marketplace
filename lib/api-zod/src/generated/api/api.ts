@@ -1727,6 +1727,375 @@ export const GetMyLiveConcertTicketResponse = zod.object({
 });
 
 /**
+ * @summary Browse public ensembles
+ */
+export const listEnsemblesQueryLimitDefault = 20;
+export const listEnsemblesQueryOffsetDefault = 0;
+
+export const ListEnsemblesQueryParams = zod.object({
+  limit: zod.coerce.number().default(listEnsemblesQueryLimitDefault),
+  offset: zod.coerce.number().default(listEnsemblesQueryOffsetDefault),
+});
+
+export const ListEnsemblesResponse = zod.object({
+  ensembles: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      name: zod.string(),
+      bio: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      leaderId: zod.string(),
+      city: zod.string().nullish(),
+      genres: zod.array(zod.string()),
+      instruments: zod.array(zod.string()),
+      recordings: zod.array(zod.string()),
+      priceInCents: zod.number().nullish(),
+      status: zod.enum(["pending", "active", "archived"]),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a new ensemble
+ */
+export const CreateEnsembleBody = zod.object({
+  name: zod.string(),
+  slug: zod.string().optional(),
+  bio: zod.string().optional(),
+  photoUrl: zod.string().optional(),
+  city: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  instruments: zod.array(zod.string()).optional(),
+  recordings: zod.array(zod.string()).optional(),
+  priceInCents: zod.number().optional(),
+});
+
+/**
+ * @summary List ensembles the authenticated teacher leads or is a member of
+ */
+export const ListMyEnsemblesResponse = zod.object({
+  ensembles: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      name: zod.string(),
+      bio: zod.string().nullish(),
+      photoUrl: zod.string().nullish(),
+      leaderId: zod.string(),
+      city: zod.string().nullish(),
+      genres: zod.array(zod.string()),
+      instruments: zod.array(zod.string()),
+      recordings: zod.array(zod.string()),
+      priceInCents: zod.number().nullish(),
+      status: zod.enum(["pending", "active", "archived"]),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get a public ensemble profile by slug
+ */
+export const GetEnsembleParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetEnsembleResponse = zod
+  .object({
+    id: zod.number(),
+    slug: zod.string(),
+    name: zod.string(),
+    bio: zod.string().nullish(),
+    photoUrl: zod.string().nullish(),
+    leaderId: zod.string(),
+    city: zod.string().nullish(),
+    genres: zod.array(zod.string()),
+    instruments: zod.array(zod.string()),
+    recordings: zod.array(zod.string()),
+    priceInCents: zod.number().nullish(),
+    status: zod.enum(["pending", "active", "archived"]),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      members: zod.array(
+        zod.object({
+          id: zod.number(),
+          ensembleId: zod.number(),
+          userId: zod.string().nullish(),
+          inviteEmail: zod.string(),
+          splitPercent: zod.number(),
+          status: zod.enum(["invited", "active", "removed"]),
+          inviteToken: zod.string().nullish(),
+          invitedAt: zod.coerce.date(),
+          joinedAt: zod.coerce.date().nullish(),
+          user: zod
+            .object({
+              id: zod.string().optional(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+          profile: zod
+            .object({
+              userId: zod.string().optional(),
+              profileImageUrl: zod.string().nullish(),
+              instruments: zod.array(zod.string()).optional(),
+              city: zod.string().nullish(),
+              profileSlug: zod.string().nullish(),
+            })
+            .nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update an ensemble (leader only)
+ */
+export const UpdateEnsembleParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateEnsembleBody = zod.object({
+  name: zod.string().optional(),
+  bio: zod.string().optional(),
+  photoUrl: zod.string().optional(),
+  city: zod.string().optional(),
+  genres: zod.array(zod.string()).optional(),
+  instruments: zod.array(zod.string()).optional(),
+  recordings: zod.array(zod.string()).optional(),
+  priceInCents: zod.number().optional(),
+  status: zod.enum(["pending", "active", "archived"]).optional(),
+});
+
+export const UpdateEnsembleResponse = zod
+  .object({
+    id: zod.number(),
+    slug: zod.string(),
+    name: zod.string(),
+    bio: zod.string().nullish(),
+    photoUrl: zod.string().nullish(),
+    leaderId: zod.string(),
+    city: zod.string().nullish(),
+    genres: zod.array(zod.string()),
+    instruments: zod.array(zod.string()),
+    recordings: zod.array(zod.string()),
+    priceInCents: zod.number().nullish(),
+    status: zod.enum(["pending", "active", "archived"]),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      members: zod.array(
+        zod.object({
+          id: zod.number(),
+          ensembleId: zod.number(),
+          userId: zod.string().nullish(),
+          inviteEmail: zod.string(),
+          splitPercent: zod.number(),
+          status: zod.enum(["invited", "active", "removed"]),
+          inviteToken: zod.string().nullish(),
+          invitedAt: zod.coerce.date(),
+          joinedAt: zod.coerce.date().nullish(),
+          user: zod
+            .object({
+              id: zod.string().optional(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+          profile: zod
+            .object({
+              userId: zod.string().optional(),
+              profileImageUrl: zod.string().nullish(),
+              instruments: zod.array(zod.string()).optional(),
+              city: zod.string().nullish(),
+              profileSlug: zod.string().nullish(),
+            })
+            .nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Invite a teacher to join an ensemble by email
+ */
+export const InviteEnsembleMemberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const inviteEnsembleMemberBodySplitPercentMin = 0;
+export const inviteEnsembleMemberBodySplitPercentMax = 100;
+
+export const InviteEnsembleMemberBody = zod.object({
+  email: zod.string().email(),
+  splitPercent: zod
+    .number()
+    .min(inviteEnsembleMemberBodySplitPercentMin)
+    .max(inviteEnsembleMemberBodySplitPercentMax)
+    .optional(),
+});
+
+/**
+ * @summary Accept an ensemble invitation via token
+ */
+export const AcceptEnsembleInviteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AcceptEnsembleInviteBody = zod.object({
+  token: zod.string(),
+});
+
+export const AcceptEnsembleInviteResponse = zod.object({
+  id: zod.number(),
+  ensembleId: zod.number(),
+  userId: zod.string().nullish(),
+  inviteEmail: zod.string(),
+  splitPercent: zod.number(),
+  status: zod.enum(["invited", "active", "removed"]),
+  inviteToken: zod.string().nullish(),
+  invitedAt: zod.coerce.date(),
+  joinedAt: zod.coerce.date().nullish(),
+  user: zod
+    .object({
+      id: zod.string().optional(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+    })
+    .nullish(),
+  profile: zod
+    .object({
+      userId: zod.string().optional(),
+      profileImageUrl: zod.string().nullish(),
+      instruments: zod.array(zod.string()).optional(),
+      city: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Remove a member from an ensemble (leader only)
+ */
+export const RemoveEnsembleMemberParams = zod.object({
+  id: zod.coerce.number(),
+  userId: zod.coerce.string(),
+});
+
+/**
+ * @summary Update revenue split percentages for all members (leader only)
+ */
+export const UpdateEnsembleSplitsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateEnsembleSplitsBodySplitsItemSplitPercentMin = 0;
+export const updateEnsembleSplitsBodySplitsItemSplitPercentMax = 100;
+
+export const UpdateEnsembleSplitsBody = zod.object({
+  splits: zod.array(
+    zod.object({
+      memberId: zod.number(),
+      splitPercent: zod
+        .number()
+        .min(updateEnsembleSplitsBodySplitsItemSplitPercentMin)
+        .max(updateEnsembleSplitsBodySplitsItemSplitPercentMax),
+    }),
+  ),
+});
+
+export const UpdateEnsembleSplitsResponse = zod
+  .object({
+    id: zod.number(),
+    slug: zod.string(),
+    name: zod.string(),
+    bio: zod.string().nullish(),
+    photoUrl: zod.string().nullish(),
+    leaderId: zod.string(),
+    city: zod.string().nullish(),
+    genres: zod.array(zod.string()),
+    instruments: zod.array(zod.string()),
+    recordings: zod.array(zod.string()),
+    priceInCents: zod.number().nullish(),
+    status: zod.enum(["pending", "active", "archived"]),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      members: zod.array(
+        zod.object({
+          id: zod.number(),
+          ensembleId: zod.number(),
+          userId: zod.string().nullish(),
+          inviteEmail: zod.string(),
+          splitPercent: zod.number(),
+          status: zod.enum(["invited", "active", "removed"]),
+          inviteToken: zod.string().nullish(),
+          invitedAt: zod.coerce.date(),
+          joinedAt: zod.coerce.date().nullish(),
+          user: zod
+            .object({
+              id: zod.string().optional(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+            })
+            .nullish(),
+          profile: zod
+            .object({
+              userId: zod.string().optional(),
+              profileImageUrl: zod.string().nullish(),
+              instruments: zod.array(zod.string()).optional(),
+              city: zod.string().nullish(),
+              profileSlug: zod.string().nullish(),
+            })
+            .nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List payout records for an ensemble (members only)
+ */
+export const ListEnsemblePayoutsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListEnsemblePayoutsResponse = zod.object({
+  payouts: zod.array(
+    zod.object({
+      id: zod.number(),
+      bookingId: zod.number(),
+      ensembleId: zod.number(),
+      memberId: zod.string(),
+      splitPercent: zod.number(),
+      grossAmountCents: zod.number(),
+      platformFeePortionCents: zod.number(),
+      netAmountCents: zod.number(),
+      stripeTransferId: zod.string().nullish(),
+      status: zod.enum(["pending", "completed", "failed"]),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Browse digital products
  */
 export const listDigitalProductsQueryLimitDefault = 20;

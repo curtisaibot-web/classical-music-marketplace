@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { listingsTable } from "./listings";
+import { ensemblesTable } from "./ensembles";
 
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending",
@@ -47,6 +48,7 @@ export const bookingsTable = pgTable("bookings", {
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   cancelReason: text("cancel_reason"),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  ensembleId: integer("ensemble_id").references(() => ensemblesTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

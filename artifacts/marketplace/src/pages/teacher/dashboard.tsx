@@ -1,13 +1,13 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download, Video, Ticket, Plus, X } from "lucide-react";
+import { Calendar, DollarSign, Users, Star, Music, ExternalLink, CreditCard, AlertCircle, CheckCircle2, Film, Upload, RefreshCw, ChevronDown, ChevronUp, Share2, Briefcase, Link2, Clock, MessageSquare, ShoppingBag, Download, Video, Ticket, Plus, X, Sliders } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -395,6 +395,268 @@ function PracticePartnersCard() {
         <Button size="sm" variant={active.length > 0 || profileData ? "outline" : "default"} className="w-full" asChild>
           <Link href="/practice-partners">{profileData ? "Find Partners" : "Get Started"}</Link>
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MyEnsemblesCard() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useListMyEnsembles();
+  const createMutation = useCreateEnsemble();
+  const updateMutation = useUpdateEnsemble();
+  const inviteMutation = useInviteEnsembleMember();
+  const splitsMutation = useUpdateEnsembleSplits();
+
+  const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSplit, setInviteSplit] = useState("0");
+  const [editSplits, setEditSplits] = useState<Record<number, string>>({});
+  const [form, setForm] = useState({ name: "", bio: "", city: "", priceInCents: "" });
+
+  const ensembles = data?.ensembles ?? [];
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error("Ensemble name is required"); return; }
+    try {
+      await createMutation.mutateAsync({
+        data: {
+          name: form.name.trim(),
+          bio: form.bio || undefined,
+          city: form.city || undefined,
+          priceInCents: form.priceInCents ? Math.round(parseFloat(form.priceInCents) * 100) : undefined,
+        },
+      });
+      toast.success("Ensemble created!");
+      setShowForm(false);
+      setForm({ name: "", bio: "", city: "", priceInCents: "" });
+      qc.invalidateQueries({ queryKey: ["listMyEnsembles"] });
+    } catch {
+      toast.error("Failed to create ensemble");
+    }
+  }
+
+  async function handleStatusToggle(id: number, status: string) {
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        data: { status: status === "active" ? "archived" : "active" } as { status: "active" | "archived" | "pending" },
+      });
+      qc.invalidateQueries({ queryKey: ["listMyEnsembles"] });
+    } catch {
+      toast.error("Failed to update ensemble");
+    }
+  }
+
+  async function handleInvite(ensembleId: number) {
+    if (!inviteEmail.trim()) { toast.error("Email is required"); return; }
+    try {
+      await inviteMutation.mutateAsync({
+        id: ensembleId,
+        data: { email: inviteEmail.trim(), splitPercent: parseInt(inviteSplit, 10) || 0 },
+      });
+      toast.success("Invitation sent!");
+      setInviteEmail("");
+      setInviteSplit("0");
+      qc.invalidateQueries({ queryKey: ["listMyEnsembles"] });
+    } catch {
+      toast.error("Failed to send invitation");
+    }
+  }
+
+  async function handleSaveSplits(ensembleId: number, members: Array<{ id: number }>) {
+    const splits = members.map((m) => ({
+      memberId: m.id,
+      splitPercent: parseInt(editSplits[m.id] ?? "0", 10) || 0,
+    }));
+    try {
+      await splitsMutation.mutateAsync({ id: ensembleId, data: { splits } });
+      toast.success("Revenue splits updated!");
+      qc.invalidateQueries({ queryKey: ["listMyEnsembles"] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update splits";
+      toast.error(msg);
+    }
+  }
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="font-serif text-lg">My Ensembles</CardTitle>
+          {ensembles.length > 0 && (
+            <Badge variant="secondary" className="text-xs">{ensembles.length}</Badge>
+          )}
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => setShowForm((v) => !v)} className="h-auto p-0 text-primary flex items-center gap-1">
+          <Plus className="h-4 w-4" />
+          New
+        </Button>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {showForm && (
+          <form onSubmit={handleCreate} className="space-y-3 p-3 rounded-lg border border-border bg-muted/20">
+            <div>
+              <Label className="text-xs">Ensemble Name *</Label>
+              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. The Harmonia Quartet" className="h-8 text-sm mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Bio</Label>
+              <Textarea value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} placeholder="Tell clients about your ensemble…" rows={2} className="text-sm mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">City</Label>
+                <Input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="e.g. Vienna" className="h-8 text-sm mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Price / event ($)</Label>
+                <Input type="number" min="0" step="0.01" value={form.priceInCents} onChange={(e) => setForm((f) => ({ ...f, priceInCents: e.target.value }))} placeholder="500" className="h-8 text-sm mt-1" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" className="flex-1" disabled={createMutation.isPending}>Create Ensemble</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+            </div>
+          </form>
+        )}
+
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+        {!isLoading && ensembles.length === 0 && !showForm && (
+          <p className="text-sm text-muted-foreground">
+            Create an ensemble to manage group bookings and automatically split revenue with your fellow musicians.
+          </p>
+        )}
+
+        {ensembles.map((ens) => {
+          const isExpanded = expandedId === ens.id;
+          const statusColor = ens.status === "active" ? "bg-green-100 text-green-700" : ens.status === "archived" ? "bg-muted text-muted-foreground" : "bg-amber-100 text-amber-700";
+
+          return (
+            <div key={ens.id} className="rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => {
+                  setExpandedId(isExpanded ? null : ens.id);
+                  if (!isExpanded) {
+                    const membersWithId = (ens as { members?: Array<{ id: number; splitPercent: number }> }).members ?? [];
+                    const initial: Record<number, string> = {};
+                    membersWithId.forEach((m) => { initial[m.id] = String(m.splitPercent); });
+                    setEditSplits(initial);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Music className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium text-sm truncate">{ens.name}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColor}`}>{ens.status}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
+                  {/* Public link */}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Link2 className="h-3.5 w-3.5" />
+                    <Link href={`/ensembles/${ens.slug}`} className="underline text-primary truncate">
+                      /ensembles/{ens.slug}
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 ml-auto"
+                      onClick={() => handleStatusToggle(ens.id, ens.status)}
+                    >
+                      {ens.status === "active" ? "Archive" : "Activate"}
+                    </Button>
+                  </div>
+
+                  {/* Members + splits */}
+                  {((ens as { members?: Array<{ id: number; inviteEmail: string; splitPercent: number; status: string; user?: { firstName?: string | null; lastName?: string | null } | null }> }).members ?? []).length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                        <Sliders className="h-3 w-3" /> Revenue Splits
+                      </div>
+                      {((ens as { members?: Array<{ id: number; inviteEmail: string; splitPercent: number; status: string; user?: { firstName?: string | null; lastName?: string | null } | null }> }).members ?? [])
+                        .filter((m) => m.status !== "removed")
+                        .map((m) => {
+                          const name = m.user ? [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || m.inviteEmail : m.inviteEmail;
+                          return (
+                            <div key={m.id} className="flex items-center gap-2 text-xs">
+                              <span className="flex-1 truncate">{name}</span>
+                              <Badge variant={m.status === "active" ? "default" : "outline"} className="text-xs py-0 h-5">{m.status}</Badge>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={editSplits[m.id] ?? String(m.splitPercent)}
+                                onChange={(e) => setEditSplits((s) => ({ ...s, [m.id]: e.target.value }))}
+                                className="w-16 h-6 text-xs text-center"
+                              />
+                              <span className="text-muted-foreground">%</span>
+                            </div>
+                          );
+                        })}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-7 text-xs"
+                        disabled={splitsMutation.isPending}
+                        onClick={() => {
+                          const members = ((ens as { members?: Array<{ id: number }> }).members ?? []);
+                          handleSaveSplits(ens.id, members);
+                        }}
+                      >
+                        Save Splits
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Invite form */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                      <Users className="h-3 w-3" /> Invite Member
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="teacher@example.com"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        className="h-7 text-xs flex-1"
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="%"
+                        value={inviteSplit}
+                        onChange={(e) => setInviteSplit(e.target.value)}
+                        className="h-7 text-xs w-14 text-center"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        disabled={inviteMutation.isPending}
+                        onClick={() => handleInvite(ens.id)}
+                      >
+                        Invite
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -1600,6 +1862,8 @@ export default function TeacherDashboard() {
             <LiveConcertsCard />
 
             <PracticePartnersCard />
+
+            <MyEnsemblesCard />
 
             <Card className="border-border shadow-sm">
               <CardHeader>

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db, bookingsTable, ordersTable, digitalProductsTable, subscriptionsTable, campaignTicketsTable, concertCampaignsTable, programEnrollmentsTable, auditionProgramsTable, organisationsTable, purchasedLicensesTable, scoreLicensesTable, scoresTable, liveConcertsTable } from "@workspace/db";
+import { processEnsembleRevenueSplit } from "./routes/ensembles";
 import { sql } from "drizzle-orm";
 import { processCampaignSuccess } from "./routes/campaigns";
 import { getStripeSync, getUncachableStripeClient, getStripeCredentials } from "./stripeClient";
@@ -157,9 +158,26 @@ async function handleCheckoutSessionCompleted(
         stripePaymentIntentId: paymentIntentId,
       })
       .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
-      .returning({ id: bookingsTable.id });
+      .returning({ id: bookingsTable.id, ensembleId: bookingsTable.ensembleId });
     if (updatedBookings.length > 0) {
       logger.info({ bookingId, sessionId: session.id, eventId }, "Booking confirmed via checkout.session.completed");
+      const confirmedBooking = updatedBookings[0];
+      if (confirmedBooking.ensembleId) {
+        const stripe = await getUncachableStripeClient();
+        await processEnsembleRevenueSplit(
+          bookingId,
+          confirmedBooking.ensembleId,
+          async (accountId: string, amountCents: number, bId: number) => {
+            const transfer = await stripe.transfers.create({
+              amount: amountCents,
+              currency: "usd",
+              destination: accountId,
+              description: `Ensemble booking payout — booking #${bId}`,
+            });
+            return transfer.id;
+          },
+        );
+      }
     } else {
       logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }
@@ -472,9 +490,26 @@ async function handlePaymentIntentSucceeded(
         stripePaymentIntentId: paymentIntent.id,
       })
       .where(and(eq(bookingsTable.id, bookingId), eq(bookingsTable.status, "pending")))
-      .returning({ id: bookingsTable.id });
+      .returning({ id: bookingsTable.id, ensembleId: bookingsTable.ensembleId });
     if (updatedBookings.length > 0) {
       logger.info({ bookingId, paymentIntentId: paymentIntent.id, eventId }, "Booking confirmed via payment_intent.succeeded");
+      const confirmedBooking = updatedBookings[0];
+      if (confirmedBooking.ensembleId) {
+        const stripe = await getUncachableStripeClient();
+        await processEnsembleRevenueSplit(
+          bookingId,
+          confirmedBooking.ensembleId,
+          async (accountId: string, amountCents: number, bId: number) => {
+            const transfer = await stripe.transfers.create({
+              amount: amountCents,
+              currency: "usd",
+              destination: accountId,
+              description: `Ensemble booking payout — booking #${bId}`,
+            });
+            return transfer.id;
+          },
+        );
+      }
     } else {
       logger.info({ bookingId, eventId }, "Booking already in non-pending state — skipping idempotent update");
     }

@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, integer, serial, boolean, pgEnum } from "driz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { ensemblesTable } from "./ensembles";
 
 export const listingTypeEnum = pgEnum("listing_type", ["lesson", "event", "masterclass", "digital_product", "coaching"]);
 export const listingStatusEnum = pgEnum("listing_status", ["active", "inactive", "draft"]);
@@ -24,6 +25,7 @@ export const listingsTable = pgTable("listings", {
   isOnline: boolean("is_online").notNull().default(true),
   city: text("city"),
   country: text("country"),
+  ensembleId: integer("ensemble_id").references(() => ensemblesTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
