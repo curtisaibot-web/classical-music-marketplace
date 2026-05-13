@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Music2, Users, ExternalLink } from "lucide-react";
+import { MapPin, Music2, Users, ExternalLink, Calendar, Ticket } from "lucide-react";
 
 function youtubeEmbedUrl(url: string): string | null {
   try {
@@ -24,6 +24,10 @@ function youtubeEmbedUrl(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+function formatPrice(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
 }
 
 export default function EnsembleDetail() {
@@ -54,6 +58,7 @@ export default function EnsembleDetail() {
   }
 
   const activeMembers = ensemble.members?.filter((m) => m.status === "active") ?? [];
+  const activeListings = ensemble.listings ?? [];
   const embedUrls = (ensemble.recordings ?? [])
     .map((r) => youtubeEmbedUrl(r))
     .filter((u): u is string => u !== null);
@@ -93,7 +98,7 @@ export default function EnsembleDetail() {
               <div className="text-right shrink-0">
                 <p className="text-white/60 text-xs mb-0.5">From</p>
                 <p className="text-2xl font-bold text-white">
-                  ${(ensemble.priceInCents / 100).toFixed(0)}
+                  {formatPrice(ensemble.priceInCents)}
                 </p>
               </div>
             )}
@@ -125,6 +130,53 @@ export default function EnsembleDetail() {
                   <Badge key={inst} variant="outline">
                     {inst}
                   </Badge>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Available event listings */}
+          {activeListings.length > 0 && (
+            <section>
+              <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                <Calendar className="h-5 w-5" /> Book This Ensemble
+              </h2>
+              <div className="space-y-3">
+                {activeListings.map((listing) => (
+                  <Card key={listing.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 flex items-center gap-4">
+                      {listing.imageUrl && (
+                        <img
+                          src={listing.imageUrl}
+                          alt={listing.title}
+                          className="h-16 w-16 rounded-lg object-cover shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm leading-tight truncate">{listing.title}</p>
+                        {listing.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {listing.description}
+                          </p>
+                        )}
+                        {listing.city && (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {listing.city}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-bold text-base">{formatPrice(listing.priceInCents)}</p>
+                        <Link href={`/events/${listing.id}`}>
+                          <Button size="sm" className="mt-2 h-8 text-xs gap-1">
+                            <Ticket className="h-3.5 w-3.5" />
+                            Book Now
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </section>
@@ -229,10 +281,12 @@ export default function EnsembleDetail() {
           <Card className="sticky top-6">
             <CardContent className="p-6 space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Booking enquiry</p>
+                <p className="text-sm text-muted-foreground">
+                  {activeListings.length > 0 ? "Available to book" : "Booking enquiry"}
+                </p>
                 {ensemble.priceInCents ? (
                   <p className="text-3xl font-bold mt-1">
-                    ${(ensemble.priceInCents / 100).toFixed(0)}
+                    {formatPrice(ensemble.priceInCents)}
                     <span className="text-base font-normal text-muted-foreground"> / event</span>
                   </p>
                 ) : (
@@ -255,18 +309,44 @@ export default function EnsembleDetail() {
                     <span>{ensemble.city}</span>
                   </div>
                 )}
+                {activeListings.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>{activeListings.length} event listing{activeListings.length !== 1 ? "s" : ""} available</span>
+                  </div>
+                )}
               </div>
 
               <Separator />
 
-              <Button className="w-full" size="lg" asChild>
-                <a href={`mailto:contact@harmonia.music?subject=Booking enquiry — ${encodeURIComponent(ensemble.name)}`}>
-                  Enquire about booking
-                </a>
-              </Button>
+              {activeListings.length > 0 ? (
+                <div className="space-y-2">
+                  {activeListings.slice(0, 3).map((listing) => (
+                    <Link key={listing.id} href={`/events/${listing.id}`}>
+                      <Button variant="outline" className="w-full justify-between text-sm h-9" size="sm">
+                        <span className="truncate">{listing.title}</span>
+                        <span className="shrink-0 ml-2 font-semibold">{formatPrice(listing.priceInCents)}</span>
+                      </Button>
+                    </Link>
+                  ))}
+                  {activeListings.length > 3 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      +{activeListings.length - 3} more above
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Button className="w-full" size="lg" asChild>
+                  <a href={`mailto:contact@harmonia.music?subject=Booking enquiry — ${encodeURIComponent(ensemble.name)}`}>
+                    Enquire about booking
+                  </a>
+                </Button>
+              )}
 
               <p className="text-xs text-muted-foreground text-center">
-                We typically respond within 24 hours
+                {activeListings.length > 0
+                  ? "Revenue is automatically split among all members"
+                  : "We typically respond within 24 hours"}
               </p>
             </CardContent>
           </Card>

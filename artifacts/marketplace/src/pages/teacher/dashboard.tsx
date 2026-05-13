@@ -544,9 +544,8 @@ function MyEnsemblesCard() {
                 onClick={() => {
                   setExpandedId(isExpanded ? null : ens.id);
                   if (!isExpanded) {
-                    const membersWithId = (ens as { members?: Array<{ id: number; splitPercent: number }> }).members ?? [];
                     const initial: Record<number, string> = {};
-                    membersWithId.forEach((m) => { initial[m.id] = String(m.splitPercent); });
+                    (ens.members ?? []).forEach((m) => { initial[m.id] = String(m.splitPercent); });
                     setEditSplits(initial);
                   }
                 }}
@@ -580,12 +579,12 @@ function MyEnsemblesCard() {
                   </div>
 
                   {/* Members + splits */}
-                  {((ens as { members?: Array<{ id: number; inviteEmail: string; splitPercent: number; status: string; user?: { firstName?: string | null; lastName?: string | null } | null }> }).members ?? []).length > 0 && (
+                  {(ens.members ?? []).filter((m) => m.status !== "removed").length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                         <Sliders className="h-3 w-3" /> Revenue Splits
                       </div>
-                      {((ens as { members?: Array<{ id: number; inviteEmail: string; splitPercent: number; status: string; user?: { firstName?: string | null; lastName?: string | null } | null }> }).members ?? [])
+                      {(ens.members ?? [])
                         .filter((m) => m.status !== "removed")
                         .map((m) => {
                           const name = m.user ? [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || m.inviteEmail : m.inviteEmail;
@@ -610,10 +609,7 @@ function MyEnsemblesCard() {
                         variant="outline"
                         className="w-full h-7 text-xs"
                         disabled={splitsMutation.isPending}
-                        onClick={() => {
-                          const members = ((ens as { members?: Array<{ id: number }> }).members ?? []);
-                          handleSaveSplits(ens.id, members);
-                        }}
+                        onClick={() => handleSaveSplits(ens.id, ens.members ?? [])}
                       >
                         Save Splits
                       </Button>

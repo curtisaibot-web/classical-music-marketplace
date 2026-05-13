@@ -293,6 +293,7 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
     : undefined;
 
   let basePriceInCents = 0;
+  let bookingEnsembleId: number | null = null;
   if (listingId && !isNaN(listingId)) {
     const [listing] = await db
       .select()
@@ -307,6 +308,8 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
       return;
     }
     basePriceInCents = listing.priceInCents;
+    // Propagate ensembleId so revenue split fires on payment
+    bookingEnsembleId = listing.ensembleId ?? null;
   }
 
   // Determine if this is a last-minute booking (event within 72 hours)
@@ -352,6 +355,7 @@ router.post("/event-booking-requests", requireAuth, async (req, res): Promise<vo
       durationMinutes: durationMinutes ?? null,
       notes: typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
       instrument: typeof body.instrument === "string" && body.instrument.trim() ? body.instrument.trim() : null,
+      ensembleId: bookingEnsembleId,
     })
     .returning();
 

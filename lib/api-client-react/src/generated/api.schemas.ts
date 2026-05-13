@@ -2265,12 +2265,29 @@ export interface EnsembleMember {
   profile?: EnsembleMemberProfile;
 }
 
+export interface EnsembleEventListing {
+  id: number;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  priceInCents: number;
+  currency: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  teacherId: string;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  country?: string | null;
+}
+
 export type EnsembleWithMembers = Ensemble & {
   members: EnsembleMember[];
+  listings: EnsembleEventListing[];
 };
 
 export interface EnsembleListResponse {
-  ensembles: Ensemble[];
+  ensembles: EnsembleWithMembers[];
   total: number;
 }
 

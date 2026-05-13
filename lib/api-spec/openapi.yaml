@@ -7247,6 +7247,29 @@ components:
               type: ["string", "null"]
       required: [id, ensembleId, inviteEmail, splitPercent, status, invitedAt]
 
+    EnsembleEventListing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        priceInCents:
+          type: integer
+        currency:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        teacherId:
+          type: string
+        city:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+      required: [id, title, priceInCents, currency, teacherId]
+
     EnsembleWithMembers:
       allOf:
         - $ref: "#/components/schemas/Ensemble"
@@ -7256,7 +7279,11 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/EnsembleMember"
-          required: [members]
+            listings:
+              type: array
+              items:
+                $ref: "#/components/schemas/EnsembleEventListing"
+          required: [members, listings]
 
     EnsembleListResponse:
       type: object
@@ -7264,7 +7291,7 @@ components:
         ensembles:
           type: array
           items:
-            $ref: "#/components/schemas/Ensemble"
+            $ref: "#/components/schemas/EnsembleWithMembers"
         total:
           type: integer
       required: [ensembles, total]
