@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@clerk/react";
 import { useGetLiveConcert, useGetMyLiveConcertTicket, useCreateOrder, useGetMe } from "@workspace/api-client-react";
-import { Calendar, Clock, Music, Ticket, Users, Video, ArrowLeft, ExternalLink, Lock } from "lucide-react";
+import { Calendar, Clock, Music, Ticket, Users, ArrowLeft, Video } from "lucide-react";
 import { format, isPast, isFuture, isWithinInterval, subMinutes, addMinutes, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { StreamEmbed } from "@/components/stream/StreamEmbed";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -23,57 +24,6 @@ function concertStatus(scheduledAt: string, replayUntil: string | null | undefin
   return "ended";
 }
 
-function YoutubeEmbed({ url }: { url: string }) {
-  let videoId = "";
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      videoId = u.pathname.slice(1);
-    } else {
-      videoId = u.searchParams.get("v") ?? u.pathname.split("/").pop() ?? "";
-    }
-  } catch {
-    videoId = url;
-  }
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-  return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-      <iframe
-        src={embedUrl}
-        title="Live Concert Stream"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-        className="w-full h-full"
-      />
-    </div>
-  );
-}
-
-function MuxEmbed({ url }: { url: string }) {
-  return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
-      <div className="text-center space-y-2 text-white">
-        <Video className="h-12 w-12 mx-auto opacity-50" />
-        <p className="text-sm opacity-70">Mux stream</p>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline flex items-center gap-1 justify-center">
-          Open stream <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function LockedStream() {
-  return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <Lock className="h-16 w-16 text-muted-foreground mx-auto" />
-        <p className="font-semibold text-foreground">Purchase a ticket to watch</p>
-        <p className="text-sm text-muted-foreground max-w-xs">This stream is exclusively for ticket holders.</p>
-      </div>
-    </div>
-  );
-}
 
 export default function LiveConcertDetail({ params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
@@ -177,26 +127,22 @@ export default function LiveConcertDetail({ params }: { params: { id: string } }
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            {canWatch ? (
-              concert.streamType === "youtube" ? (
-                <YoutubeEmbed url={concert.streamUrl} />
-              ) : (
-                <MuxEmbed url={concert.streamUrl} />
-              )
+            {status === "live" || canWatch ? (
+              <StreamEmbed
+                streamType={concert.streamType}
+                streamUrl={concert.streamUrl}
+                hasAccess={canWatch}
+                onPurchase={handleBuyTicket}
+                purchasing={purchasing}
+              />
+            ) : concert.imageUrl ? (
+              <div className="aspect-video w-full rounded-xl overflow-hidden">
+                <img src={concert.imageUrl} alt={concert.title} className="w-full h-full object-cover" />
+              </div>
             ) : (
-              status === "live" ? (
-                <div className="relative">
-                  <LockedStream />
-                </div>
-              ) : concert.imageUrl ? (
-                <div className="aspect-video w-full rounded-xl overflow-hidden">
-                  <img src={concert.imageUrl} alt={concert.title} className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="aspect-video w-full rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <Music className="h-20 w-20 text-primary/30" />
-                </div>
-              )
+              <div className="aspect-video w-full rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                <Music className="h-20 w-20 text-primary/30" />
+              </div>
             )}
 
             <div className="space-y-4">

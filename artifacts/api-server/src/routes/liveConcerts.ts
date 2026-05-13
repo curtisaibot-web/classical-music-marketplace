@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, desc, gte, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import {
   db,
   liveConcertsTable,
@@ -57,14 +57,10 @@ router.get("/live-concerts", async (req, res): Promise<void> => {
 
   const teacherIds = [...new Set(concerts.map(c => c.teacherId))];
   const teachers = teacherIds.length > 0
-    ? await db.select().from(teacherProfilesTable).where(
-        sql`${teacherProfilesTable.userId} = ANY(${sql.raw(`ARRAY[${teacherIds.map(id => `'${id}'`).join(",")}]`)})`,
-      )
+    ? await db.select().from(teacherProfilesTable).where(inArray(teacherProfilesTable.userId, teacherIds))
     : [];
   const users = teacherIds.length > 0
-    ? await db.select().from(usersTable).where(
-        sql`${usersTable.id} = ANY(${sql.raw(`ARRAY[${teacherIds.map(id => `'${id}'`).join(",")}]`)})`,
-      )
+    ? await db.select().from(usersTable).where(inArray(usersTable.id, teacherIds))
     : [];
 
   const teacherMap = new Map(teachers.map(t => [t.userId, t]));
@@ -111,7 +107,7 @@ router.get("/live-concerts/mine", requireAuth, async (req, res): Promise<void> =
         and(
           eq(ordersTable.type, "live_concert"),
           eq(ordersTable.status, "paid"),
-          sql`${ordersTable.liveConcertId} = ANY(ARRAY[${sql.raw(concertIds.join(","))}]::int[])`,
+          inArray(ordersTable.liveConcertId, concertIds),
         ),
       )
       .groupBy(ordersTable.liveConcertId);

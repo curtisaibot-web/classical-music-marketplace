@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -72,22 +72,34 @@ function TeacherActivePartnerRow({ partnership }: { partnership: TeacherDashPart
   );
 }
 
+const EMPTY_CONCERT_FORM = { title: "", scheduledAt: "", streamUrl: "", streamType: "youtube", ticketPriceCents: "", maxTickets: "500", description: "" };
+
 function LiveConcertsCard() {
   const qc = useQueryClient();
   const { data, isLoading } = useListMyLiveConcerts();
   const createMutation = useCreateLiveConcert();
+  const updateMutation = useUpdateLiveConcert();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    scheduledAt: "",
-    streamUrl: "",
-    streamType: "youtube",
-    ticketPriceCents: "",
-    maxTickets: "500",
-    description: "",
-  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState(EMPTY_CONCERT_FORM);
+  const [editForm, setEditForm] = useState(EMPTY_CONCERT_FORM);
 
   const concerts = data?.concerts ?? [];
+
+  function startEdit(concert: { id: number; title: string; scheduledAt: string; streamUrl: string; streamType: string; ticketPriceCents: number; maxTickets: number; description?: string | null }) {
+    setEditingId(concert.id);
+    const dt = new Date(concert.scheduledAt);
+    const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setEditForm({
+      title: concert.title,
+      scheduledAt: local,
+      streamUrl: concert.streamUrl,
+      streamType: concert.streamType,
+      ticketPriceCents: (concert.ticketPriceCents / 100).toFixed(2),
+      maxTickets: String(concert.maxTickets),
+      description: concert.description ?? "",
+    });
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -109,10 +121,34 @@ function LiveConcertsCard() {
       });
       toast.success("Concert created!");
       setShowForm(false);
-      setForm({ title: "", scheduledAt: "", streamUrl: "", streamType: "youtube", ticketPriceCents: "", maxTickets: "500", description: "" });
+      setForm(EMPTY_CONCERT_FORM);
       qc.invalidateQueries({ queryKey: ["listMyLiveConcerts"] });
     } catch {
       toast.error("Failed to create concert");
+    }
+  }
+
+  async function handleUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingId) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: editingId,
+        data: {
+          title: editForm.title || undefined,
+          scheduledAt: editForm.scheduledAt ? new Date(editForm.scheduledAt).toISOString() : undefined,
+          streamUrl: editForm.streamUrl || undefined,
+          streamType: (editForm.streamType as "youtube" | "mux") || undefined,
+          ticketPriceCents: editForm.ticketPriceCents ? Math.round(parseFloat(editForm.ticketPriceCents) * 100) : undefined,
+          maxTickets: editForm.maxTickets ? parseInt(editForm.maxTickets, 10) : undefined,
+          description: editForm.description || undefined,
+        },
+      });
+      toast.success("Concert updated!");
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["listMyLiveConcerts"] });
+    } catch {
+      toast.error("Failed to update concert");
     }
   }
 
@@ -129,7 +165,7 @@ function LiveConcertsCard() {
           <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-primary">
             <Link href="/live">Browse</Link>
           </Button>
-          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => setShowForm(!showForm)}>
+          <Button size="sm" variant="outline" className="h-7 gap-1" onClick={() => { setShowForm(!showForm); setEditingId(null); }}>
             {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {showForm ? "Cancel" : "New"}
           </Button>
@@ -171,6 +207,46 @@ function LiveConcertsCard() {
           </form>
         )}
 
+        {editingId !== null && (
+          <form onSubmit={handleUpdate} className="space-y-3 border border-primary/30 rounded-lg p-4 bg-primary/5">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">Edit Concert</p>
+              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingId(null)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Title</Label>
+              <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date & Time</Label>
+              <Input type="datetime-local" value={editForm.scheduledAt} onChange={e => setEditForm(f => ({ ...f, scheduledAt: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Stream URL</Label>
+              <Input value={editForm.streamUrl} onChange={e => setEditForm(f => ({ ...f, streamUrl: e.target.value }))} className="h-8 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Ticket Price ($)</Label>
+                <Input type="number" min="0" step="0.01" value={editForm.ticketPriceCents} onChange={e => setEditForm(f => ({ ...f, ticketPriceCents: e.target.value }))} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Max Tickets</Label>
+                <Input type="number" min="1" value={editForm.maxTickets} onChange={e => setEditForm(f => ({ ...f, maxTickets: e.target.value }))} className="h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description</Label>
+              <Textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="text-sm min-h-[60px]" />
+            </div>
+            <Button type="submit" size="sm" className="w-full" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        )}
+
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2].map(i => <div key={i} className="h-14 bg-muted rounded animate-pulse" />)}
@@ -182,11 +258,12 @@ function LiveConcertsCard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {concerts.slice(0, 4).map(({ concert, soldTickets, grossRevenueCents, netRevenueCents }) => {
+            {concerts.slice(0, 5).map(({ concert, soldTickets, grossRevenueCents, netRevenueCents }) => {
               const scheduled = new Date(concert.scheduledAt);
               const isUpcoming = scheduled > new Date();
+              const isEditing = editingId === concert.id;
               return (
-                <div key={concert.id} className="flex items-start gap-3 p-2.5 rounded-lg border border-border bg-card hover:bg-muted/10 transition-colors">
+                <div key={concert.id} className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${isEditing ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:bg-muted/10"}`}>
                   <div className="shrink-0 h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Video className="h-4 w-4 text-primary" />
                   </div>
@@ -201,17 +278,27 @@ function LiveConcertsCard() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0 text-right space-y-0.5">
-                    <p className="text-xs font-medium text-foreground">${(grossRevenueCents / 100).toFixed(0)} gross</p>
-                    <p className="text-xs text-muted-foreground">
-                      <Ticket className="h-2.5 w-2.5 inline mr-0.5" />{soldTickets} sold
-                    </p>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <div className="text-right space-y-0.5">
+                      <p className="text-xs font-medium text-foreground">${(grossRevenueCents / 100).toFixed(0)} gross</p>
+                      <p className="text-xs text-muted-foreground">
+                        <Ticket className="h-2.5 w-2.5 inline mr-0.5" />{soldTickets} sold
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => isEditing ? setEditingId(null) : startEdit(concert)}
+                    >
+                      {isEditing ? "Cancel" : "Edit"}
+                    </Button>
                   </div>
                 </div>
               );
             })}
-            {concerts.length > 4 && (
-              <p className="text-xs text-muted-foreground text-center">+{concerts.length - 4} more concerts</p>
+            {concerts.length > 5 && (
+              <p className="text-xs text-muted-foreground text-center">+{concerts.length - 5} more concerts</p>
             )}
             <div className="pt-1 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
               <span>Total net revenue</span>

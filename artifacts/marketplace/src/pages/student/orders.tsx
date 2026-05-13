@@ -6,7 +6,7 @@ import { Footer } from "@/components/layout/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock, RefreshCw } from "lucide-react";
+import { CreditCard, Download, Receipt, BookOpen, Star, Loader2, AlertCircle, Music, CheckCircle2, Clock, RefreshCw, Video, Ticket } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -305,6 +305,58 @@ export default function StudentOrders() {
               </div>
             )}
           </section>
+
+          {/* ── Live Concert Tickets ───────────────────────────────────────── */}
+          {(() => {
+            const liveTickets = (ordersData?.orders ?? []).filter(o => o.type === "live_concert" && o.status === "paid");
+            if (liveTickets.length === 0) return null;
+            return (
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-serif font-semibold flex items-center gap-2">
+                    <Video className="h-5 w-5 text-primary" />
+                    Live Concert Tickets
+                  </h2>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/live">Browse Live</Link>
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {liveTickets.map(order => (
+                    <Card key={order.id} className="border-border hover:shadow-sm transition-all">
+                      <CardContent className="p-5">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <Video className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                              <h3 className="font-semibold text-foreground">Live Concert Ticket</h3>
+                              <Badge variant="default" className="uppercase text-[10px] tracking-wider px-2 py-0 h-5">Paid</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Order #{order.id.toString().padStart(6, "0")} · {format(new Date(order.createdAt), "MMM d, yyyy")}
+                            </p>
+                          </div>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3">
+                            <p className="font-bold text-foreground">${(order.priceInCents / 100).toFixed(2)}</p>
+                            {order.liveConcertId && (
+                              <Button size="sm" asChild className="gap-1.5">
+                                <Link href={`/live/${order.liveConcertId}`}>
+                                  <Ticket className="h-3.5 w-3.5" />
+                                  Watch Concert
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            );
+          })()}
 
           {/* ── Digital Product Orders ─────────────────────────────────────── */}
           <section>

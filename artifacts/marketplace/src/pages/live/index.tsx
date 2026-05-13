@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useListLiveConcerts } from "@workspace/api-client-react";
 import type { LiveConcert } from "@workspace/api-client-react";
 import { Calendar, Search, Music, Ticket, Users, Video } from "lucide-react";
-import { format, isPast, isFuture, isWithinInterval, subMinutes, addMinutes } from "date-fns";
+import { format, isFuture, isWithinInterval, subMinutes, addMinutes, formatDistanceToNow } from "date-fns";
 
 function concertStatus(concert: LiveConcert) {
   const scheduled = new Date(concert.scheduledAt);
@@ -74,6 +74,11 @@ function ConcertCard({ concert }: { concert: LiveConcert }) {
               {format(scheduledAt, "MMM d, yyyy · h:mm a")}
             </span>
           </div>
+          {status === "upcoming" && (
+            <p className="text-xs font-medium text-primary">
+              Starts {formatDistanceToNow(scheduledAt, { addSuffix: true })}
+            </p>
+          )}
           <div className="flex items-center justify-between pt-1 border-t border-border">
             <span className="font-bold text-lg text-foreground">
               ${(concert.ticketPriceCents / 100).toFixed(2)}
