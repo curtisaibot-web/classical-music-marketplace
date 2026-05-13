@@ -1111,6 +1111,30 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /ensembles/{id}/bookings:
+    get:
+      operationId: listEnsembleBookings
+      tags: [ensembles]
+      summary: List bookings for an ensemble (accessible to all active members)
+      security: [{ clerkAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking list for this ensemble
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /ensembles/{id}/payouts:
     get:
       operationId: listEnsemblePayouts
@@ -5068,6 +5092,9 @@ components:
         hasReview:
           type: boolean
           description: "Whether the student has already submitted a review for this booking"
+        ensembleId:
+          type: ["integer", "null"]
+          description: "Ensemble associated with this booking (if the listing belongs to an ensemble)"
         teacher:
           $ref: "#/components/schemas/TeacherProfile"
         createdAt:

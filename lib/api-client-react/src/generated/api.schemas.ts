@@ -673,6 +673,11 @@ export interface Booking {
   expiresAt?: string | null;
   /** Whether the student has already submitted a review for this booking */
   hasReview?: boolean;
+  /**
+   * Ensemble associated with this booking (if the listing belongs to an ensemble)
+   * @nullable
+   */
+  ensembleId?: number | null;
   teacher?: TeacherProfile;
   createdAt: string;
 }

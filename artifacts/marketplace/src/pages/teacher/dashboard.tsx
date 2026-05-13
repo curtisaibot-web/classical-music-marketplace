@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useRef, useState, useCallback, useEffect } from "react";
-import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListBookings, getListBookingsQueryKey } from "@workspace/api-client-react";
+import { useGetTeacherDashboard, useGetConnectStatus, useCreateConnectOnboarding, useGetMyReel, useGetMyTeacherProfile, useUploadReel, getGetMyReelQueryKey, useListMyAuditionPrograms, useListTeacherEnrollments, useListMyLiveConcerts, useCreateLiveConcert, useUpdateLiveConcert, useListMyEnsembles, useCreateEnsemble, useUpdateEnsemble, useInviteEnsembleMember, useUpdateEnsembleSplits, useListEnsemblePayouts, getListEnsemblePayoutsQueryKey, useListEnsembleBookings, getListEnsembleBookingsQueryKey } from "@workspace/api-client-react";
 import type { AuditionProgram } from "@workspace/api-client-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -401,13 +401,10 @@ function PracticePartnersCard() {
 }
 
 function EnsembleBookingHistory({ ensembleId }: { ensembleId: number }) {
-  const { data, isLoading } = useListBookings(
-    { type: "event", limit: 50 },
-    { query: { queryKey: getListBookingsQueryKey({ type: "event", limit: 50 }) } },
-  );
-  const bookings = (data?.bookings ?? []).filter(
-    (b) => (b as typeof b & { ensembleId?: number | null }).ensembleId === ensembleId,
-  );
+  const { data, isLoading } = useListEnsembleBookings(ensembleId, {
+    query: { queryKey: getListEnsembleBookingsQueryKey(ensembleId) },
+  });
+  const bookings = data?.bookings ?? [];
 
   if (isLoading) return <p className="text-xs text-muted-foreground">Loading bookings…</p>;
   if (bookings.length === 0) return <p className="text-xs text-muted-foreground">No ensemble bookings yet.</p>;

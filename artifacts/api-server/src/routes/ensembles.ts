@@ -535,38 +535,7 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  // Load current active members with their userId to distinguish leader
-  const currentMembers = await db
-    .select({
-      id: ensembleMembersTable.id,
-      userId: ensembleMembersTable.userId,
-      splitPercent: ensembleMembersTable.splitPercent,
-    })
-    .from(ensembleMembersTable)
-    .where(and(eq(ensembleMembersTable.ensembleId, id), eq(ensembleMembersTable.status, "active")));
-
-  const totalMembersAfterInvite = currentMembers.length + 1;
-  let splitPct: number;
-
-  if (typeof splitPercent === "number" && splitPercent > 0) {
-    splitPct = Math.round(splitPercent);
-  } else {
-    // Equal split across all members: floor per member, leader absorbs remainder
-    const perMember = Math.floor(100 / totalMembersAfterInvite);
-    const leaderShare = 100 - perMember * (totalMembersAfterInvite - 1);
-
-    // Update ALL existing active members to the new equal shares
-    for (const m of currentMembers) {
-      const isLeader = m.userId === ensemble.leaderId;
-      await db
-        .update(ensembleMembersTable)
-        .set({ splitPercent: isLeader ? leaderShare : perMember })
-        .where(eq(ensembleMembersTable.id, m.id));
-    }
-    splitPct = perMember; // new invitee's share
-  }
-
-  // Invitee must already be a Harmonia teacher (registered account with teacher profile)
+  // ── Validate invitee BEFORE touching any splits ────────────────────────────
   const [inviteeUser] = await db
     .select({ id: usersTable.id, email: usersTable.email })
     .from(usersTable)
@@ -591,21 +560,61 @@ router.post("/ensembles/:id/invite", requireAuth, async (req, res): Promise<void
     return;
   }
 
+  // ── Load current active members and calculate splits ──────────────────────
+  const currentMembers = await db
+    .select({
+      id: ensembleMembersTable.id,
+      userId: ensembleMembersTable.userId,
+      splitPercent: ensembleMembersTable.splitPercent,
+    })
+    .from(ensembleMembersTable)
+    .where(and(eq(ensembleMembersTable.ensembleId, id), eq(ensembleMembersTable.status, "active")));
+
+  const totalMembersAfterInvite = currentMembers.length + 1;
+  let splitPct: number;
+  let rebalancedMembers: Array<{ id: number; newSplit: number }> = [];
+
+  if (typeof splitPercent === "number" && splitPercent > 0) {
+    splitPct = Math.round(splitPercent);
+  } else {
+    // Equal split across all members: floor per member, leader absorbs remainder
+    const perMember = Math.floor(100 / totalMembersAfterInvite);
+    const leaderShare = 100 - perMember * (totalMembersAfterInvite - 1);
+    rebalancedMembers = currentMembers.map((m) => ({
+      id: m.id,
+      newSplit: m.userId === ensemble.leaderId ? leaderShare : perMember,
+    }));
+    splitPct = perMember; // new invitee's share
+  }
+
   // 256-bit random invite token — secure, single-use, bound by email + expiry on accept
   const inviteToken = randomBytes(32).toString("hex");
 
-  const [member] = await db
-    .insert(ensembleMembersTable)
-    .values({
-      ensembleId: id,
-      userId: inviteeUser.id,
-      inviteEmail: normalizedEmail,
-      splitPercent: splitPct,
-      status: "invited",
-      inviteToken,
-      invitedAt: new Date(),
-    })
-    .returning();
+  // ── Insert member and rebalance splits atomically ─────────────────────────
+  const [member] = await db.transaction(async (tx) => {
+    const inserted = await tx
+      .insert(ensembleMembersTable)
+      .values({
+        ensembleId: id,
+        userId: inviteeUser.id,
+        inviteEmail: normalizedEmail,
+        splitPercent: splitPct,
+        status: "invited",
+        inviteToken,
+        invitedAt: new Date(),
+      })
+      .returning();
+
+    // Only rebalance existing members if insert succeeded
+    for (const m of rebalancedMembers) {
+      await tx
+        .update(ensembleMembersTable)
+        .set({ splitPercent: m.newSplit })
+        .where(eq(ensembleMembersTable.id, m.id));
+    }
+
+    return inserted;
+  });
 
   const BASE = process.env.APP_URL ?? "https://app.harmonia.music";
   const acceptLink = `${BASE}/ensembles/${ensemble.slug}/accept?token=${inviteToken}`;
@@ -839,6 +848,51 @@ router.put("/ensembles/:id/splits", requireAuth, async (req, res): Promise<void>
   res.json(enriched);
 });
 
+// ─── List ensemble bookings (accessible to all active members) ────────────────
+
+router.get("/ensembles/:id/bookings", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const id = parseInt(req.params["id"] as string, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ensemble id" });
+    return;
+  }
+
+  const [ensemble] = await db.select().from(ensemblesTable).where(eq(ensemblesTable.id, id));
+  if (!ensemble) {
+    res.status(404).json({ error: "Ensemble not found" });
+    return;
+  }
+
+  // Allow leader or any active member
+  const isLeader = ensemble.leaderId === userId;
+  if (!isLeader) {
+    const [memberRow] = await db
+      .select({ id: ensembleMembersTable.id })
+      .from(ensembleMembersTable)
+      .where(
+        and(
+          eq(ensembleMembersTable.ensembleId, id),
+          eq(ensembleMembersTable.userId, userId),
+          eq(ensembleMembersTable.status, "active"),
+        ),
+      );
+    if (!memberRow) {
+      res.status(403).json({ error: "Only active ensemble members can view ensemble bookings" });
+      return;
+    }
+  }
+
+  const bookings = await db
+    .select()
+    .from(bookingsTable)
+    .where(eq(bookingsTable.ensembleId, id))
+    .orderBy(bookingsTable.createdAt);
+
+  res.json({ bookings });
+});
+
 // ─── List payouts ─────────────────────────────────────────────────────────────
 
 router.get("/ensembles/:id/payouts", requireAuth, async (req, res): Promise<void> => {
@@ -909,29 +963,39 @@ export async function processEnsembleRevenueSplit(
     return;
   }
 
-  const existingPayouts = await db
-    .select({ id: payoutsTable.id })
-    .from(payoutsTable)
-    .where(eq(payoutsTable.bookingId, bookingId));
-
-  if (existingPayouts.length > 0) {
-    logger.info({ bookingId, ensembleId }, "processEnsembleRevenueSplit: payouts already created — skipping");
-    return;
-  }
-
-  // Enforce splits sum to 100 — if diverged due to removals, normalize denominator
+  // Enforce splits sum to 100 — normalize if diverged due to member removal
   const totalConfiguredSplit = activeMembers.reduce((sum, m) => sum + m.splitPercent, 0);
   if (totalConfiguredSplit === 0) {
     logger.warn({ bookingId, ensembleId }, "processEnsembleRevenueSplit: total split is 0");
     return;
   }
 
-  // Compute per-member amounts. Uses configuredSplit/totalConfiguredSplit so rounding
-  // errors don't accumulate; the payout is proportional to configured splits.
+  // Load existing payouts keyed by memberId for per-member idempotency.
+  // A partial run (e.g. crash mid-loop) leaves some members unpaid; on retry
+  // we skip already-processed members and complete the rest.
+  const existingPayouts = await db
+    .select({ id: payoutsTable.id, memberId: payoutsTable.memberId })
+    .from(payoutsTable)
+    .where(eq(payoutsTable.bookingId, bookingId));
+
+  const alreadyPaidMemberIds = new Set(existingPayouts.map((p) => p.memberId));
+
+  if (alreadyPaidMemberIds.size > 0) {
+    logger.info(
+      { bookingId, ensembleId, alreadyPaid: alreadyPaidMemberIds.size, total: activeMembers.length },
+      "processEnsembleRevenueSplit: resuming partial payout run",
+    );
+  }
+
   for (const member of activeMembers) {
     if (!member.userId) continue;
 
-    // Each member's effective share of the configured splits
+    // Skip members whose payout row already exists (idempotent retry)
+    if (alreadyPaidMemberIds.has(member.userId)) {
+      logger.info({ bookingId, memberId: member.userId }, "processEnsembleRevenueSplit: payout already exists — skipping member");
+      continue;
+    }
+
     const effectiveFraction = member.splitPercent / totalConfiguredSplit;
     const grossAmountCents = Math.round(booking.priceInCents * effectiveFraction);
     const platformFeePortionCents = Math.round(booking.platformFeeInCents * effectiveFraction);
@@ -956,6 +1020,7 @@ export async function processEnsembleRevenueSplit(
         } catch (err) {
           logger.error({ err, bookingId, memberId: member.userId }, "Stripe transfer failed for ensemble member");
           payoutStatus = "failed";
+          // Continue loop — record the failure row so retry can detect and re-attempt this member
         }
       }
     }

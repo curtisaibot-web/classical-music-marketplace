@@ -2228,6 +2228,133 @@ export const UpdateEnsembleSplitsResponse = zod
   );
 
 /**
+ * @summary List bookings for an ensemble (accessible to all active members)
+ */
+export const ListEnsembleBookingsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListEnsembleBookingsResponse = zod.object({
+  bookings: zod.array(
+    zod.object({
+      id: zod.number(),
+      studentId: zod.string(),
+      teacherId: zod.string(),
+      listingId: zod.number().nullish(),
+      type: zod.enum(["lesson", "event", "coaching"]),
+      status: zod.enum([
+        "pending",
+        "confirmed",
+        "cancelled",
+        "completed",
+        "refunded",
+        "expired",
+      ]),
+      scheduledAt: zod.coerce.date().nullish(),
+      durationMinutes: zod.number().nullish(),
+      priceInCents: zod.number(),
+      currency: zod.string(),
+      notes: zod.string().nullish(),
+      meetingUrl: zod.string().nullish(),
+      instrument: zod.string().nullish(),
+      eventType: zod.string().nullish(),
+      eventDate: zod.coerce.date().nullish(),
+      eventLocation: zod.string().nullish(),
+      cancelReason: zod.string().nullish(),
+      platformFeeInCents: zod
+        .number()
+        .describe("Platform fee charged on this booking (in cents)"),
+      surgePercent: zod
+        .number()
+        .nullish()
+        .describe(
+          "Surge percentage applied for last-minute bookings (e.g. 25 = 25%)",
+        ),
+      surgeAmountInCents: zod
+        .number()
+        .nullish()
+        .describe(
+          "Absolute surge premium in cents (surgePercent % of base price)",
+        ),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe(
+          "Acceptance deadline for last-minute booking requests (null for standard bookings)",
+        ),
+      hasReview: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Whether the student has already submitted a review for this booking",
+        ),
+      ensembleId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Ensemble associated with this booking (if the listing belongs to an ensemble)",
+        ),
+      teacher: zod
+        .object({
+          id: zod.number(),
+          userId: zod.string(),
+          bio: zod.string().nullish(),
+          instruments: zod.array(zod.string()),
+          genres: zod.array(zod.string()),
+          city: zod.string().nullish(),
+          country: zod.string().nullish(),
+          timezone: zod.string().nullish(),
+          hourlyRate: zod.number().nullish(),
+          currency: zod.string(),
+          yearsExperience: zod.number().nullish(),
+          education: zod.string().nullish(),
+          averageRating: zod.number(),
+          reviewCount: zod.number(),
+          isVerified: zod.boolean(),
+          profileImageUrl: zod.string().nullish(),
+          websiteUrl: zod.string().nullish(),
+          videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
+          stripeOnboarded: zod.boolean(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
+          user: zod
+            .object({
+              id: zod.string(),
+              email: zod.string(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+              role: zod
+                .union([
+                  zod.literal("teacher"),
+                  zod.literal("student"),
+                  zod.literal(null),
+                ])
+                .nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .optional(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
  * @summary List payout records for an ensemble (members only)
  */
 export const ListEnsemblePayoutsParams = zod.object({
@@ -2628,6 +2755,12 @@ export const ListBookingsResponse = zod.object({
         .describe(
           "Whether the student has already submitted a review for this booking",
         ),
+      ensembleId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Ensemble associated with this booking (if the listing belongs to an ensemble)",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -2761,6 +2894,12 @@ export const GetBookingResponse = zod.object({
     .describe(
       "Whether the student has already submitted a review for this booking",
     ),
+  ensembleId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Ensemble associated with this booking (if the listing belongs to an ensemble)",
+    ),
   teacher: zod
     .object({
       id: zod.number(),
@@ -2883,6 +3022,12 @@ export const UpdateBookingResponse = zod.object({
     .optional()
     .describe(
       "Whether the student has already submitted a review for this booking",
+    ),
+  ensembleId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Ensemble associated with this booking (if the listing belongs to an ensemble)",
     ),
   teacher: zod
     .object({
@@ -3212,6 +3357,12 @@ export const GetTeacherDashboardResponse = zod.object({
         .describe(
           "Whether the student has already submitted a review for this booking",
         ),
+      ensembleId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Ensemble associated with this booking (if the listing belongs to an ensemble)",
+        ),
       teacher: zod
         .object({
           id: zod.number(),
@@ -3441,6 +3592,12 @@ export const GetStudentDashboardResponse = zod.object({
         .optional()
         .describe(
           "Whether the student has already submitted a review for this booking",
+        ),
+      ensembleId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Ensemble associated with this booking (if the listing belongs to an ensemble)",
         ),
       teacher: zod
         .object({
@@ -5659,6 +5816,12 @@ export const GetMyCoachBookingsResponse = zod.object({
         .optional()
         .describe(
           "Whether the student has already submitted a review for this booking",
+        ),
+      ensembleId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Ensemble associated with this booking (if the listing belongs to an ensemble)",
         ),
       teacher: zod
         .object({

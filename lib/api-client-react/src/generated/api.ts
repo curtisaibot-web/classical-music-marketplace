@@ -3794,6 +3794,96 @@ export const useUpdateEnsembleSplits = <
 };
 
 /**
+ * @summary List bookings for an ensemble (accessible to all active members)
+ */
+export const getListEnsembleBookingsUrl = (id: number) => {
+  return `/api/ensembles/${id}/bookings`;
+};
+
+export const listEnsembleBookings = async (
+  id: number,
+  options?: RequestInit,
+): Promise<BookingListResponse> => {
+  return customFetch<BookingListResponse>(getListEnsembleBookingsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEnsembleBookingsQueryKey = (id: number) => {
+  return [`/api/ensembles/${id}/bookings`] as const;
+};
+
+export const getListEnsembleBookingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEnsembleBookings>>,
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsembleBookings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEnsembleBookingsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEnsembleBookings>>
+  > = ({ signal }) => listEnsembleBookings(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEnsembleBookings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEnsembleBookingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEnsembleBookings>>
+>;
+export type ListEnsembleBookingsQueryError = ErrorType<
+  UnauthorizedResponse | ForbiddenResponse
+>;
+
+/**
+ * @summary List bookings for an ensemble (accessible to all active members)
+ */
+
+export function useListEnsembleBookings<
+  TData = Awaited<ReturnType<typeof listEnsembleBookings>>,
+  TError = ErrorType<UnauthorizedResponse | ForbiddenResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEnsembleBookings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEnsembleBookingsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List payout records for an ensemble (members only)
  */
 export const getListEnsemblePayoutsUrl = (id: number) => {
