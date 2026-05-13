@@ -401,7 +401,17 @@ export default function MusicianPublicProfile() {
                           </div>
                         )}
                         <CardContent className="p-4 pt-3">
-                          <h4 className="font-semibold text-foreground text-sm">{rec.title}</h4>
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-semibold text-foreground text-sm">{rec.title}</h4>
+                            {rec.isEnhanced && (
+                              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                ✦ AI Enhanced
+                              </span>
+                            )}
+                          </div>
+                          {rec.instrument && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{rec.instrument}</p>
+                          )}
                           {rec.description && (
                             <p className="text-xs text-muted-foreground mt-0.5">{rec.description}</p>
                           )}

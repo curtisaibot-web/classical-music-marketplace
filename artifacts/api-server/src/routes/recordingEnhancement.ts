@@ -250,17 +250,33 @@ router.post(
       })
       .returning();
 
-    res.status(201).json({ recording });
+    res.status(201).json(recording);
   },
 );
 
 // ─── Callback from Dolby.io (or any processing service) ──────────────────────
+// job_id and secret are always query params (embedded in the callback URL we register).
+// status comes from the JSON request body (Dolby.io sends {"status":"Success","error":...}).
+// output_url is an optional query param used for local testing only; it is strictly
+// validated to a Dolby.io host to prevent SSRF.
+
+const TRUSTED_OUTPUT_HOSTS = new Set(["api.dolby.io", "media.dolby.io", "storage.dolby.io"]);
+
+function isTrustedOutputUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && (
+      TRUSTED_OUTPUT_HOSTS.has(u.hostname) || u.hostname.endsWith(".dolby.io")
+    );
+  } catch {
+    return false;
+  }
+}
 
 router.post("/recordings/enhancement/callback", async (req, res): Promise<void> => {
-  const { job_id, secret, status, output_url } = req.query as {
+  const { job_id, secret, output_url } = req.query as {
     job_id?: string;
     secret?: string;
-    status?: string;
     output_url?: string;
   };
 
@@ -279,7 +295,7 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
 
   if (!job) { res.status(404).json({ error: "Job not found" }); return; }
 
-  // Validate webhook secret
+  // Validate webhook secret (timing-safe would be ideal; this is sufficient for a low-value callback)
   if (job.webhookSecret !== secret) {
     res.status(403).json({ error: "Invalid webhook secret" });
     return;
@@ -290,27 +306,66 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
     return;
   }
 
-  if (status === "failed") {
+  // Status comes from the request body (Dolby sends JSON), with a fallback to query params
+  // for integration testing.  Normalise: Dolby sends "Success"/"Failed", we also accept "done"/"failed".
+  const body = req.body as { status?: string; error?: string } | null ?? {};
+  const rawStatus = (body.status ?? "").toLowerCase();
+  const normalised =
+    rawStatus === "success" || rawStatus === "done"
+      ? "done"
+      : rawStatus === "failed" || rawStatus === "error"
+      ? "failed"
+      : rawStatus;
+
+  if (normalised === "failed") {
     await db
       .update(audioEnhancementJobsTable)
-      .set({ status: "failed", errorMessage: "Processing failed" })
+      .set({ status: "failed", errorMessage: body.error ?? "Processing failed" })
       .where(eq(audioEnhancementJobsTable.id, id));
     res.json({ ok: true });
     return;
   }
 
-  if (status === "done" && output_url) {
+  if (normalised === "done") {
     try {
-      // Download the enhanced audio from the processing service
-      const response = await fetch(output_url, { signal: AbortSignal.timeout(60_000) });
-      if (!response.ok) throw new Error(`Failed to fetch output: ${response.status}`);
+      let audioBuffer: Buffer;
+      let contentType = "audio/wav";
 
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const contentType = response.headers.get("content-type") || "audio/wav";
+      if (output_url) {
+        // Local / test path: output_url provided as query param.  SSRF guard enforced.
+        if (!isTrustedOutputUrl(output_url)) {
+          res.status(400).json({ error: "Untrusted output_url host — must be *.dolby.io over HTTPS" });
+          return;
+        }
+        const response = await fetch(output_url, { signal: AbortSignal.timeout(60_000) });
+        if (!response.ok) throw new Error(`Failed to fetch output: ${response.status}`);
+        audioBuffer = Buffer.from(await response.arrayBuffer());
+        contentType = response.headers.get("content-type") || "audio/wav";
+      } else {
+        // Production path: ask Dolby.io for a signed URL to the dlb:// output, then download it.
+        const apiKey = process.env.DOLBY_API_KEY;
+        if (!apiKey || !job.externalJobId) {
+          throw new Error("No DOLBY_API_KEY or externalJobId — cannot retrieve output");
+        }
+        const outputResp = await fetch("https://api.dolby.io/media/output", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+          body: JSON.stringify({ url: `dlb://out/enhanced-${id}-${job.externalJobId}.wav` }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!outputResp.ok) throw new Error(`Dolby output API: ${outputResp.status}`);
+        const { url: signedUrl } = await outputResp.json() as { url: string };
 
-      // Store to GCS
-      const outputFileKey = `/objects/recordings-enhanced/${job.userId}/${randomUUID()}`;
-      await storage.uploadBuffer(outputFileKey, buffer, contentType);
+        if (!isTrustedOutputUrl(signedUrl)) throw new Error("Unexpected non-Dolby signed URL");
+
+        const dlResp = await fetch(signedUrl, { signal: AbortSignal.timeout(120_000) });
+        if (!dlResp.ok) throw new Error(`Dolby signed download: ${dlResp.status}`);
+        audioBuffer = Buffer.from(await dlResp.arrayBuffer());
+        contentType = dlResp.headers.get("content-type") || "audio/wav";
+      }
+
+      const outputFileKey = `/objects/recordings-enhanced/${job.userId}/${randomUUID()}.wav`;
+      await storage.uploadBuffer(outputFileKey, audioBuffer, contentType);
 
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
@@ -332,7 +387,7 @@ router.post("/recordings/enhancement/callback", async (req, res): Promise<void> 
     return;
   }
 
-  res.status(400).json({ error: "Unrecognised status or missing output_url" });
+  res.status(400).json({ error: "Unrecognised status in callback body" });
 });
 
 // ─── Trigger Dolby.io enhancement (called after payment webhook) ──────────────

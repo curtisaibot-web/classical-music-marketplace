@@ -242,6 +242,9 @@ export interface TeacherRecording {
   title: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  instrument?: string | null;
+  isEnhanced: boolean;
   sortOrder: number;
   createdAt: string;
 }

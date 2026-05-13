@@ -359,6 +359,8 @@ export const GetTeacherRecordingsResponse = zod.object({
       url: zod.string(),
       title: zod.string(),
       description: zod.string().nullish(),
+      instrument: zod.string().nullish(),
+      isEnhanced: zod.boolean(),
       sortOrder: zod.number(),
       createdAt: zod.coerce.date(),
     }),

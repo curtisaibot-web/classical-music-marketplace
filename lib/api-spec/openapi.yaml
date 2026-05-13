@@ -4531,12 +4531,16 @@ components:
           type: string
         description:
           type: ["string", "null"]
+        instrument:
+          type: ["string", "null"]
+        isEnhanced:
+          type: boolean
         sortOrder:
           type: integer
         createdAt:
           type: string
           format: date-time
-      required: [id, teacherId, url, title, sortOrder, createdAt]
+      required: [id, teacherId, url, title, sortOrder, createdAt, isEnhanced]
 
     TeacherRecordingListResponse:
       type: object
