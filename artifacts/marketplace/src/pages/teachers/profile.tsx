@@ -215,9 +215,15 @@ export default function TeacherProfile() {
   });
 
   const eligibleBooking = bookingsData?.bookings.find(
-    (b) => b.teacherId === userId && b.status === "completed" && !b.hasReview,
+    (b) =>
+      b.teacherId === userId &&
+      b.studentId === user?.id &&
+      b.status === "completed" &&
+      !b.hasReview,
   );
-  const canLeaveReview = !!eligibleBooking && !reviewSubmittedForTeacher;
+  // Only show the prompt when the visitor is a student (not the teacher themselves)
+  const canLeaveReview =
+    isLoaded && !!user && user.id !== userId && !!eligibleBooking && !reviewSubmittedForTeacher;
 
   const openReviewDialog = () => {
     setReviewRating(0);
@@ -251,6 +257,7 @@ export default function TeacherProfile() {
           setReviewSubmittedForTeacher(true);
           queryClient.invalidateQueries({ queryKey: getGetTeacherReviewsQueryKey(userId) });
           queryClient.invalidateQueries({ queryKey: getGetTeacherQueryKey(userId) });
+          queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
         },
         onError: (err: Error) => {
           const msg = err?.message ?? "";
