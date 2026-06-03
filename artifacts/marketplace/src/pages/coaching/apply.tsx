@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Briefcase, CheckCircle2 } from "lucide-react";
+import { ImageCropModal } from "@/components/ui/image-crop-modal";
+import { Briefcase, CheckCircle2, Camera, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import { toast } from "sonner";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -26,6 +27,18 @@ const ALL_SPECIALTIES = [
   "Entrepreneurship",
 ];
 
+type ExistingCoach = {
+  profileImageUrl?: string | null;
+  bio?: string | null;
+  credentials?: string | null;
+  specialties?: string[];
+  linkedInUrl?: string | null;
+  sessionRateCents?: number | null;
+  city?: string | null;
+  country?: string | null;
+  approvalStatus?: string;
+};
+
 export default function CoachApply() {
   const { user, isLoaded } = useUser();
   const [, setLocation] = useLocation();
@@ -40,6 +53,14 @@ export default function CoachApply() {
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
 
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isApproved, setIsApproved] = useState(false);
+
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const apiBase = basePath.replace(/\/[^/]*$/, "");
 
@@ -48,8 +69,100 @@ export default function CoachApply() {
     description: "Share your industry expertise and help classical musicians build their careers.",
   });
 
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    fetch(`${apiBase}/api/coaches/me`, { credentials: "include" })
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json() as ExistingCoach;
+        setBio(data.bio ?? "");
+        setCredentials(data.credentials ?? "");
+        setSpecialties(data.specialties ?? []);
+        setLinkedInUrl(data.linkedInUrl ?? "");
+        setSessionRateCents(data.sessionRateCents ? String(data.sessionRateCents / 100) : "");
+        setCity(data.city ?? "");
+        setCountry(data.country ?? "");
+        setPhotoUrl(data.profileImageUrl ?? "");
+        setIsApproved(data.approvalStatus === "approved");
+      })
+      .catch(() => {});
+  }, [isLoaded, user, apiBase]);
+
   const toggleSpecialty = (s: string) => {
     setSpecialties((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
+  };
+
+  const handlePhotoFileSelected = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5 MB.");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setCropSrc(objectUrl);
+  };
+
+  const handlePhotoCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  };
+
+  const handlePhotoCropComplete = async (croppedBlob: Blob) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+
+    const croppedFile = new File([croppedBlob], "profile-photo.jpg", { type: "image/jpeg" });
+    const objectUrl = URL.createObjectURL(croppedBlob);
+    setPreviewUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return objectUrl;
+    });
+    setIsUploadingPhoto(true);
+
+    try {
+      const urlResp = await fetch(`${apiBase}/api/storage/images/request-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: croppedFile.name,
+          size: croppedFile.size,
+          contentType: croppedFile.type,
+        }),
+      });
+
+      if (!urlResp.ok) {
+        const data = await urlResp.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "Failed to request upload URL");
+      }
+
+      const { uploadURL, objectPath } = await urlResp.json() as { uploadURL: string; objectPath: string };
+
+      const putResp = await fetch(uploadURL, {
+        method: "PUT",
+        body: croppedFile,
+        headers: { "Content-Type": croppedFile.type },
+      });
+
+      if (!putResp.ok) throw new Error("Failed to upload image to storage");
+
+      URL.revokeObjectURL(objectUrl);
+      const servingUrl = `${apiBase}/api/storage${objectPath}`;
+      setPhotoUrl(servingUrl);
+      setPreviewUrl(null);
+      toast.success("Photo uploaded — save your profile to apply changes.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setIsUploadingPhoto(false);
+      URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
+      toast.error(msg);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,8 +174,10 @@ export default function CoachApply() {
     }
     setLoading(true);
     try {
-      const resp = await fetch(`${apiBase}/api/coaches/apply`, {
-        method: "POST",
+      const endpoint = isApproved ? `${apiBase}/api/coaches/me` : `${apiBase}/api/coaches/apply`;
+      const method = isApproved ? "PUT" : "POST";
+      const resp = await fetch(endpoint, {
+        method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,19 +188,26 @@ export default function CoachApply() {
           sessionRateCents: sessionRateCents ? Math.round(Number(sessionRateCents) * 100) : undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
+          profileImageUrl: photoUrl || undefined,
         }),
       });
       if (!resp.ok) {
         const err = await resp.json() as { error?: string };
         throw new Error(err.error ?? "Application failed");
       }
-      setSubmitted(true);
+      if (isApproved) {
+        toast.success("Profile updated successfully");
+      } else {
+        setSubmitted(true);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit application");
     } finally {
       setLoading(false);
     }
   };
+
+  const displayPhoto = previewUrl || photoUrl || null;
 
   if (submitted) {
     return (
@@ -111,15 +233,26 @@ export default function CoachApply() {
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
 
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          onCropComplete={handlePhotoCropComplete}
+          onCancel={handlePhotoCropCancel}
+        />
+      )}
+
       <div className="bg-muted border-b border-border py-10">
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="flex items-center gap-3 mb-2">
             <Briefcase className="h-6 w-6 text-primary" />
-            <h1 className="text-3xl font-serif font-bold">Apply to Coach</h1>
+            <h1 className="text-3xl font-serif font-bold">
+              {isApproved ? "My Coach Profile" : "Apply to Coach"}
+            </h1>
           </div>
           <p className="text-muted-foreground">
-            Share your industry expertise with classical musicians seeking career guidance.
-            Applications are reviewed by the Harmonia team.
+            {isApproved
+              ? "Update your coaching profile visible to musicians on Harmonia."
+              : "Share your industry expertise with classical musicians seeking career guidance. Applications are reviewed by the Harmonia team."}
           </p>
         </div>
       </div>
@@ -134,6 +267,50 @@ export default function CoachApply() {
           </Card>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Photo */}
+            <Card className="border-border">
+              <CardContent className="p-6 space-y-4">
+                <h2 className="font-serif font-semibold text-lg">Profile Photo</h2>
+                <p className="text-sm text-muted-foreground -mt-2">
+                  A professional headshot helps musicians recognise and trust you.
+                </p>
+                <div className="flex items-center gap-5">
+                  <div className="relative h-24 w-24 rounded-full bg-primary/10 overflow-hidden shrink-0 flex items-center justify-center border border-border">
+                    {isUploadingPhoto ? (
+                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    ) : displayPhoto ? (
+                      <img src={displayPhoto} alt="Profile photo" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera className="h-8 w-8 text-muted-foreground opacity-50" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isUploadingPhoto}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {isUploadingPhoto ? "Uploading…" : displayPhoto ? "Change Photo" : "Upload Photo"}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">JPG or PNG · Max 5 MB · Cropped to portrait</p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handlePhotoFileSelected(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-border">
               <CardContent className="p-6 space-y-5">
                 <h2 className="font-serif font-semibold text-lg">About You</h2>
@@ -239,7 +416,7 @@ export default function CoachApply() {
             </Card>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Submitting…" : "Submit Application"}
+              {loading ? "Saving…" : isApproved ? "Save Profile" : "Submit Application"}
             </Button>
           </form>
         )}
