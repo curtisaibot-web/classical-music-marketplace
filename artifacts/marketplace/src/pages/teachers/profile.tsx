@@ -324,7 +324,7 @@ export default function TeacherProfile() {
   const portraitUrl = resolveImageUrl(teacher.profileImageUrl, basePath);
   const firstName = teacher.user?.firstName ?? "";
   const lastName = teacher.user?.lastName ?? "";
-  const fullName = `${firstName} ${lastName}`.trim();
+  const fullName = `${firstName} ${lastName}`.trim() || "Teacher";
   const avgRating = teacher.averageRating / 100;
 
   return (

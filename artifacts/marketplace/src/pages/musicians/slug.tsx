@@ -104,9 +104,17 @@ export default function MusicianPublicProfile() {
   const [reelMuted, setReelMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const metaName = teacher
+    ? (`${teacher.user?.firstName ?? ""} ${teacher.user?.lastName ?? ""}`).trim() || "Musician"
+    : "Musician";
+
   usePageMeta({
-    title: teacher ? `${teacher.user?.firstName} ${teacher.user?.lastName} — ${teacher.instruments.join(", ")} Musician` : "Musician Profile",
-    description: teacher?.bio ?? `Classical musician specializing in ${teacher?.instruments.join(", ")}. Based in ${teacher?.city || "Online"}.`,
+    title: teacher
+      ? teacher.instruments.length > 0
+        ? `${metaName} — ${teacher.instruments.join(", ")} Musician`
+        : `${metaName} — Musician Profile`
+      : "Musician Profile",
+    description: teacher?.bio ?? `Classical musician${teacher?.instruments.length ? ` specializing in ${teacher.instruments.join(", ")}` : ""}. Based in ${teacher?.city || "Online"}.`,
     imageUrl: teacher?.profileImageUrl ?? undefined,
     type: "profile",
     canonicalUrl: teacher?.profileSlug
@@ -234,7 +242,7 @@ export default function MusicianPublicProfile() {
   const portraitUrl = resolveImageUrl(teacher.profileImageUrl, basePath);
   const firstName = teacher.user?.firstName ?? "";
   const lastName = teacher.user?.lastName ?? "";
-  const fullName = `${firstName} ${lastName}`.trim();
+  const fullName = `${firstName} ${lastName}`.trim() || "Musician";
   const avgRating = teacher.averageRating / 100;
 
   return (
