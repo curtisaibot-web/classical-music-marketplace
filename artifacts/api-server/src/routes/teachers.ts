@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAuth } from "@clerk/express";
-import { eq, and, gte, lte, sql, count, ilike, inArray, or } from "drizzle-orm";
-import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable, subscriptionsTable, orgMembersTable, organisationsTable } from "@workspace/db";
+import { eq, and, gte, lte, sql, count, ilike, inArray, or, desc } from "drizzle-orm";
+import { db, teacherProfilesTable, usersTable, listingsTable, masterclassEventsTable, subscriptionsTable, orgMembersTable, organisationsTable, teacherVerificationDocumentsTable } from "@workspace/db";
 import {
   GetTeacherResponse,
   GetMyTeacherProfileResponse,
@@ -43,6 +43,11 @@ router.get("/teachers", async (req, res): Promise<void> => {
   const dayOfWeek = params.success ? params.data.dayOfWeek : undefined;
   const onlineOnly = req.query.onlineOnly === "true";
   const orgSlug = typeof req.query.orgSlug === "string" ? req.query.orgSlug : undefined;
+  const country = typeof req.query.country === "string" ? req.query.country.trim() : undefined;
+  const skillLevel = typeof req.query.skillLevel === "string" ? req.query.skillLevel.trim() : undefined;
+  const minRating = req.query.minRating !== undefined ? Number(req.query.minRating) : undefined;
+  const verifiedOnly = req.query.verifiedOnly === "true";
+  const searchQ = typeof req.query.q === "string" ? req.query.q.trim() : "";
 
   const resolvedInstruments = instrumentsRaw
     ? instrumentsRaw.split(",").map((s) => s.trim()).filter(Boolean)
@@ -87,6 +92,43 @@ router.get("/teachers", async (req, res): Promise<void> => {
       .from(listingsTable)
       .where(and(eq(listingsTable.type, listingType as "lesson" | "event" | "masterclass" | "digital_product"), eq(listingsTable.status, "active")));
     const ids = teacherIdsWithType.map((r) => r.teacherId);
+    if (ids.length === 0) {
+      res.json(ListTeachersResponse.parse({ teachers: [], total: 0 }));
+      return;
+    }
+    conditions.push(inArray(teacherProfilesTable.userId, ids));
+  }
+
+  if (country) {
+    conditions.push(ilike(teacherProfilesTable.country, `%${country}%`));
+  }
+  if (verifiedOnly) {
+    conditions.push(eq(teacherProfilesTable.verificationStatus, "verified"));
+  }
+  if (minRating !== undefined && !isNaN(minRating)) {
+    conditions.push(gte(teacherProfilesTable.averageRating, Math.round(minRating * 100)));
+  }
+  if (searchQ) {
+    conditions.push(sql`(
+      ${teacherProfilesTable.bio} ILIKE ${`%${searchQ}%`} OR
+      ${teacherProfilesTable.city} ILIKE ${`%${searchQ}%`} OR
+      ${teacherProfilesTable.country} ILIKE ${`%${searchQ}%`} OR
+      ${teacherProfilesTable.credentialSummary} ILIKE ${`%${searchQ}%`} OR
+      EXISTS (SELECT 1 FROM UNNEST(${teacherProfilesTable.instruments}) AS instr WHERE instr ILIKE ${`%${searchQ}%`}) OR
+      EXISTS (SELECT 1 FROM UNNEST(${teacherProfilesTable.genres}) AS genre WHERE genre ILIKE ${`%${searchQ}%`})
+    )`);
+  }
+  if (skillLevel) {
+    const teacherIdsWithSkill = await db
+      .selectDistinct({ teacherId: listingsTable.teacherId })
+      .from(listingsTable)
+      .where(
+        and(
+          eq(listingsTable.skillLevel, skillLevel as "beginner" | "intermediate" | "advanced" | "all"),
+          eq(listingsTable.status, "active"),
+        ),
+      );
+    const ids = teacherIdsWithSkill.map((r) => r.teacherId);
     if (ids.length === 0) {
       res.json(ListTeachersResponse.parse({ teachers: [], total: 0 }));
       return;
@@ -479,6 +521,109 @@ router.put("/teachers/me/last-minute", requireAuth, async (req, res): Promise<vo
     lastMinuteToDate: updated.lastMinuteToDate?.toISOString() ?? null,
     minNoticeHours: updated.minNoticeHours,
   });
+});
+
+router.get("/teachers/:userId/verification", async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+
+  const [profile] = await db
+    .select({
+      userId: teacherProfilesTable.userId,
+      verificationStatus: teacherProfilesTable.verificationStatus,
+      isVerified: teacherProfilesTable.isVerified,
+      verifiedAt: teacherProfilesTable.verifiedAt,
+      credentialSummary: teacherProfilesTable.credentialSummary,
+      institutionAffiliations: teacherProfilesTable.institutionAffiliations,
+      professionalHighlights: teacherProfilesTable.professionalHighlights,
+    })
+    .from(teacherProfilesTable)
+    .where(eq(teacherProfilesTable.userId, rawId));
+
+  if (!profile) {
+    res.status(404).json({ error: "Teacher not found" });
+    return;
+  }
+
+  res.json(profile);
+});
+
+router.post("/teachers/me/verification", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const body = req.body as {
+    credentialSummary?: string;
+    institutionAffiliations?: string[];
+    professionalHighlights?: string;
+    documents?: Array<{ documentType: string; fileKey?: string; publicNote?: string }>;
+  };
+
+  const [profile] = await db
+    .update(teacherProfilesTable)
+    .set({
+      credentialSummary: body.credentialSummary,
+      institutionAffiliations: Array.isArray(body.institutionAffiliations) ? body.institutionAffiliations : [],
+      professionalHighlights: body.professionalHighlights,
+      verificationStatus: "pending",
+      verificationSubmittedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(teacherProfilesTable.userId, userId))
+    .returning();
+
+  if (!profile) {
+    res.status(404).json({ error: "Teacher profile not found" });
+    return;
+  }
+
+  if (Array.isArray(body.documents) && body.documents.length > 0) {
+    await db.insert(teacherVerificationDocumentsTable).values(
+      body.documents.map((doc) => ({
+        teacherId: userId,
+        documentType: doc.documentType,
+        fileKey: doc.fileKey,
+        publicNote: doc.publicNote,
+        status: "pending" as const,
+      })),
+    );
+  }
+
+  res.json({ ok: true, profile });
+});
+
+router.put("/teachers/me/policies", requireAuth, async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const userId = auth.userId!;
+  const body = req.body as {
+    acceptsTrialLessons?: boolean;
+    trialLessonPriceInCents?: number | null;
+    trialLessonDurationMinutes?: number;
+    cancellationPolicy?: string | null;
+    reschedulingPolicy?: string | null;
+    noticeRequiredHours?: number;
+    seoSlug?: string | null;
+  };
+
+  const [profile] = await db
+    .update(teacherProfilesTable)
+    .set({
+      acceptsTrialLessons: Boolean(body.acceptsTrialLessons),
+      trialLessonPriceInCents: body.trialLessonPriceInCents ?? null,
+      trialLessonDurationMinutes: body.trialLessonDurationMinutes ?? 30,
+      cancellationPolicy: body.cancellationPolicy ?? null,
+      reschedulingPolicy: body.reschedulingPolicy ?? null,
+      noticeRequiredHours: body.noticeRequiredHours ?? 24,
+      seoSlug: body.seoSlug ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(teacherProfilesTable.userId, userId))
+    .returning();
+
+  if (!profile) {
+    res.status(404).json({ error: "Teacher profile not found" });
+    return;
+  }
+
+  res.json(profile);
 });
 
 router.get("/teachers/:userId", async (req, res): Promise<void> => {

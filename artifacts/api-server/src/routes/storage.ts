@@ -119,11 +119,13 @@ router.post(
 router.get(
   "/storage/objects/images/:teacherId/:fileId",
   async (req: Request, res: Response) => {
-    const teacherId = String(req.params.teacherId);
-    const fileId = String(req.params.fileId);
+    const rawTeacherId = req.params.teacherId;
+    const rawFileId = req.params.fileId;
+    const teacherId = Array.isArray(rawTeacherId) ? rawTeacherId[0] : rawTeacherId;
+    const fileId = Array.isArray(rawFileId) ? rawFileId[0] : rawFileId;
 
     const SAFE_ID = /^[\w-]+$/;
-    if (!SAFE_ID.test(teacherId) || !SAFE_ID.test(fileId)) {
+    if (!teacherId || !fileId || !SAFE_ID.test(teacherId) || !SAFE_ID.test(fileId)) {
       res.status(400).json({ error: "Invalid object path" });
       return;
     }

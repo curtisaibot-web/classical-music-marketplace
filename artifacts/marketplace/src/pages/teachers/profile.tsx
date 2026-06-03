@@ -469,6 +469,34 @@ export default function TeacherProfile() {
               </section>
             )}
 
+            {/* Credentials & Highlights (Stage 1) */}
+            {((teacher as { credentialSummary?: string | null }).credentialSummary ||
+              (teacher as { professionalHighlights?: string | null }).professionalHighlights ||
+              ((teacher as { institutionAffiliations?: string[] }).institutionAffiliations?.length ?? 0) > 0) && (
+              <section>
+                <h2 className="text-xl font-serif font-semibold mb-3 text-foreground flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" /> Credentials &amp; Highlights
+                </h2>
+                {(teacher as { credentialSummary?: string | null }).credentialSummary && (
+                  <p className="text-muted-foreground leading-relaxed mb-3">
+                    {(teacher as { credentialSummary?: string | null }).credentialSummary}
+                  </p>
+                )}
+                {((teacher as { institutionAffiliations?: string[] }).institutionAffiliations?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(teacher as { institutionAffiliations?: string[] }).institutionAffiliations?.map((item) => (
+                      <Badge key={item} variant="secondary">{item}</Badge>
+                    ))}
+                  </div>
+                )}
+                {(teacher as { professionalHighlights?: string | null }).professionalHighlights && (
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {(teacher as { professionalHighlights?: string | null }).professionalHighlights}
+                  </p>
+                )}
+              </section>
+            )}
+
             {/* Offerings Tabs — listings + audition prep */}
             {(listingsData && listingsData.listings.length > 0) || auditionPrograms.length > 0 ? (
               <section>
@@ -742,6 +770,26 @@ export default function TeacherProfile() {
                   Request a Lesson
                 </Button>
 
+                {(teacher as { acceptsTrialLessons?: boolean }).acceptsTrialLessons && (
+                  <Button
+                    variant="outline"
+                    className="w-full mb-3"
+                    size="lg"
+                    onClick={() => {
+                      if (!isLoaded || !user) {
+                        toast.error("Please sign in to book a trial lesson");
+                        return;
+                      }
+                      setBookingModalOpen(true);
+                    }}
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Trial Lesson ·{" "}
+                    {(teacher as { trialLessonPriceInCents?: number | null }).trialLessonPriceInCents
+                      ? `$${((teacher as { trialLessonPriceInCents?: number }).trialLessonPriceInCents! / 100).toFixed(0)}`
+                      : "Free"}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="w-full mb-5"
@@ -790,6 +838,34 @@ export default function TeacherProfile() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Booking Policies (Stage 1) */}
+            {((teacher as { cancellationPolicy?: string | null }).cancellationPolicy ||
+              (teacher as { reschedulingPolicy?: string | null }).reschedulingPolicy) && (
+              <Card className="border-border">
+                <CardContent className="p-5 space-y-3">
+                  <h3 className="font-serif font-semibold text-foreground">Booking Policies</h3>
+                  {(teacher as { noticeRequiredHours?: number }).noticeRequiredHours != null && (
+                    <p className="text-sm text-muted-foreground">
+                      Notice required:{" "}
+                      <strong>{(teacher as { noticeRequiredHours?: number }).noticeRequiredHours}h</strong>
+                    </p>
+                  )}
+                  {(teacher as { cancellationPolicy?: string | null }).cancellationPolicy && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Cancellation:</strong>{" "}
+                      {(teacher as { cancellationPolicy?: string | null }).cancellationPolicy}
+                    </p>
+                  )}
+                  {(teacher as { reschedulingPolicy?: string | null }).reschedulingPolicy && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Rescheduling:</strong>{" "}
+                      {(teacher as { reschedulingPolicy?: string | null }).reschedulingPolicy}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Location / details card */}
             {(teacher.city || teacher.instruments.length > 0) && (

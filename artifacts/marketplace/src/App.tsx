@@ -55,6 +55,8 @@ import LiveConcerts from "@/pages/live/index";
 import LiveConcertDetail from "@/pages/live/detail";
 import EnsembleDetail from "@/pages/ensembles/detail";
 import EnsembleAccept from "@/pages/ensembles/accept";
+import SearchPage from "@/pages/search";
+import SeoLandingPage from "@/pages/seo/landing-page";
 
 const queryClient = new QueryClient();
 
@@ -255,6 +257,8 @@ function ClerkProviderWithRoutes() {
 
           <Route path="/ensembles/:slug/accept" component={EnsembleAccept} />
           <Route path="/ensembles/:slug" component={EnsembleDetail} />
+          <Route path="/search" component={SearchPage} />
+          <Route path="/find/:slug" component={SeoLandingPage} />
           
           <Route path="/dashboard" component={StudentDashboard} />
           <Route path="/bookings" component={StudentBookings} />

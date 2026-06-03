@@ -57,6 +57,7 @@ import type {
   CreateEnhancementCheckoutBody,
   CreateEnsembleBody,
   CreateExpenseBody,
+  CreateInquiryBody,
   CreateInvoiceBody,
   CreateListingBody,
   CreateLiveConcertBody,
@@ -95,6 +96,8 @@ import type {
   GetSessionFeedbackUploadUrl200,
   GetTeacherReviewsParams,
   HealthStatus,
+  Inquiry,
+  InquiryListResponse,
   InviteEnsembleMemberBody,
   InviteOrgMember201,
   InviteOrgMemberBody,
@@ -160,11 +163,17 @@ import type {
   ScoreLicenseCheckoutBody,
   ScoreListResponse,
   ScoreWithLicenses,
+  SearchMarketplaceParams,
+  SearchMarketplaceResponse,
   SendContractResponse,
   SendInvoiceResponse,
+  SeoLandingPageListResponse,
+  SeoLandingPageResponse,
   SetCoachMeetingUrlBody,
   StudentDashboard,
   StudentProfile,
+  SubmitTeacherVerification200,
+  SubmitTeacherVerificationBody,
   SubscriptionMeResponse,
   SubscriptionPortalBody,
   SubscriptionPortalUrlResponse,
@@ -175,6 +184,7 @@ import type {
   TeacherProgramListResponse,
   TeacherRecording,
   TeacherRecordingListResponse,
+  TeacherVerificationSummary,
   UnauthorizedResponse,
   UpdateAuditionProgramBody,
   UpdateBookingBody,
@@ -193,6 +203,7 @@ import type {
   UpdateScoreBody,
   UpdateSessionJoinLinkBody,
   UpdateStudentProfileBody,
+  UpdateTeacherPoliciesBody,
   UpdateTeacherProfileBody,
   UpdateTeacherSlugBody,
   UploadReelBody,
@@ -535,6 +546,429 @@ export function useListTeachers<
 }
 
 /**
+ * @summary Search across marketplace objects
+ */
+export const getSearchMarketplaceUrl = (params?: SearchMarketplaceParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/search?${stringifiedParams}`
+    : `/api/search`;
+};
+
+export const searchMarketplace = async (
+  params?: SearchMarketplaceParams,
+  options?: RequestInit,
+): Promise<SearchMarketplaceResponse> => {
+  return customFetch<SearchMarketplaceResponse>(
+    getSearchMarketplaceUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getSearchMarketplaceQueryKey = (
+  params?: SearchMarketplaceParams,
+) => {
+  return [`/api/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchMarketplaceQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchMarketplace>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchMarketplaceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchMarketplace>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchMarketplaceQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchMarketplace>>
+  > = ({ signal }) => searchMarketplace(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchMarketplace>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchMarketplaceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchMarketplace>>
+>;
+export type SearchMarketplaceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Search across marketplace objects
+ */
+
+export function useSearchMarketplace<
+  TData = Awaited<ReturnType<typeof searchMarketplace>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchMarketplaceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchMarketplace>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchMarketplaceQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a lightweight teacher inquiry
+ */
+export const getCreateInquiryUrl = () => {
+  return `/api/inquiries`;
+};
+
+export const createInquiry = async (
+  createInquiryBody: CreateInquiryBody,
+  options?: RequestInit,
+): Promise<Inquiry> => {
+  return customFetch<Inquiry>(getCreateInquiryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createInquiryBody),
+  });
+};
+
+export const getCreateInquiryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInquiry>>,
+    TError,
+    { data: BodyType<CreateInquiryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createInquiry>>,
+  TError,
+  { data: BodyType<CreateInquiryBody> },
+  TContext
+> => {
+  const mutationKey = ["createInquiry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createInquiry>>,
+    { data: BodyType<CreateInquiryBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createInquiry(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateInquiryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createInquiry>>
+>;
+export type CreateInquiryMutationBody = BodyType<CreateInquiryBody>;
+export type CreateInquiryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a lightweight teacher inquiry
+ */
+export const useCreateInquiry = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInquiry>>,
+    TError,
+    { data: BodyType<CreateInquiryBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createInquiry>>,
+  TError,
+  { data: BodyType<CreateInquiryBody> },
+  TContext
+> => {
+  return useMutation(getCreateInquiryMutationOptions(options));
+};
+
+/**
+ * @summary List sent and received inquiries for current user
+ */
+export const getListMyInquiriesUrl = () => {
+  return `/api/inquiries/mine`;
+};
+
+export const listMyInquiries = async (
+  options?: RequestInit,
+): Promise<InquiryListResponse> => {
+  return customFetch<InquiryListResponse>(getListMyInquiriesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyInquiriesQueryKey = () => {
+  return [`/api/inquiries/mine`] as const;
+};
+
+export const getListMyInquiriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyInquiries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyInquiries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyInquiriesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyInquiries>>> = ({
+    signal,
+  }) => listMyInquiries({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyInquiries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyInquiriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyInquiries>>
+>;
+export type ListMyInquiriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List sent and received inquiries for current user
+ */
+
+export function useListMyInquiries<
+  TData = Awaited<ReturnType<typeof listMyInquiries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyInquiries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyInquiriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List enabled SEO landing pages
+ */
+export const getListSeoLandingPagesUrl = () => {
+  return `/api/seo/landing-pages`;
+};
+
+export const listSeoLandingPages = async (
+  options?: RequestInit,
+): Promise<SeoLandingPageListResponse> => {
+  return customFetch<SeoLandingPageListResponse>(getListSeoLandingPagesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSeoLandingPagesQueryKey = () => {
+  return [`/api/seo/landing-pages`] as const;
+};
+
+export const getListSeoLandingPagesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSeoLandingPages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSeoLandingPages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSeoLandingPagesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSeoLandingPages>>
+  > = ({ signal }) => listSeoLandingPages({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSeoLandingPages>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSeoLandingPagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSeoLandingPages>>
+>;
+export type ListSeoLandingPagesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List enabled SEO landing pages
+ */
+
+export function useListSeoLandingPages<
+  TData = Awaited<ReturnType<typeof listSeoLandingPages>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSeoLandingPages>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSeoLandingPagesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get SEO landing page with matching teachers
+ */
+export const getGetSeoLandingPageUrl = (slug: string) => {
+  return `/api/seo/landing-pages/${slug}`;
+};
+
+export const getSeoLandingPage = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<SeoLandingPageResponse> => {
+  return customFetch<SeoLandingPageResponse>(getGetSeoLandingPageUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSeoLandingPageQueryKey = (slug: string) => {
+  return [`/api/seo/landing-pages/${slug}`] as const;
+};
+
+export const getGetSeoLandingPageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSeoLandingPage>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeoLandingPage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSeoLandingPageQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSeoLandingPage>>
+  > = ({ signal }) => getSeoLandingPage(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSeoLandingPage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSeoLandingPageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSeoLandingPage>>
+>;
+export type GetSeoLandingPageQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get SEO landing page with matching teachers
+ */
+
+export function useGetSeoLandingPage<
+  TData = Awaited<ReturnType<typeof getSeoLandingPage>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSeoLandingPage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSeoLandingPageQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get a teacher profile
  */
 export const getGetTeacherUrl = (userId: string) => {
@@ -620,6 +1054,275 @@ export function useGetTeacher<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get public teacher verification summary
+ */
+export const getGetTeacherVerificationUrl = (userId: string) => {
+  return `/api/teachers/${userId}/verification`;
+};
+
+export const getTeacherVerification = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<TeacherVerificationSummary> => {
+  return customFetch<TeacherVerificationSummary>(
+    getGetTeacherVerificationUrl(userId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTeacherVerificationQueryKey = (userId: string) => {
+  return [`/api/teachers/${userId}/verification`] as const;
+};
+
+export const getGetTeacherVerificationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeacherVerification>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherVerification>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeacherVerificationQueryKey(userId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTeacherVerification>>
+  > = ({ signal }) =>
+    getTeacherVerification(userId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!userId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeacherVerification>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeacherVerificationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeacherVerification>>
+>;
+export type GetTeacherVerificationQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Get public teacher verification summary
+ */
+
+export function useGetTeacherVerification<
+  TData = Awaited<ReturnType<typeof getTeacherVerification>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  userId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherVerification>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeacherVerificationQueryOptions(userId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit teacher verification details
+ */
+export const getSubmitTeacherVerificationUrl = () => {
+  return `/api/teachers/me/verification`;
+};
+
+export const submitTeacherVerification = async (
+  submitTeacherVerificationBody: SubmitTeacherVerificationBody,
+  options?: RequestInit,
+): Promise<SubmitTeacherVerification200> => {
+  return customFetch<SubmitTeacherVerification200>(
+    getSubmitTeacherVerificationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(submitTeacherVerificationBody),
+    },
+  );
+};
+
+export const getSubmitTeacherVerificationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTeacherVerification>>,
+    TError,
+    { data: BodyType<SubmitTeacherVerificationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitTeacherVerification>>,
+  TError,
+  { data: BodyType<SubmitTeacherVerificationBody> },
+  TContext
+> => {
+  const mutationKey = ["submitTeacherVerification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitTeacherVerification>>,
+    { data: BodyType<SubmitTeacherVerificationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitTeacherVerification(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitTeacherVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitTeacherVerification>>
+>;
+export type SubmitTeacherVerificationMutationBody =
+  BodyType<SubmitTeacherVerificationBody>;
+export type SubmitTeacherVerificationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit teacher verification details
+ */
+export const useSubmitTeacherVerification = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitTeacherVerification>>,
+    TError,
+    { data: BodyType<SubmitTeacherVerificationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitTeacherVerification>>,
+  TError,
+  { data: BodyType<SubmitTeacherVerificationBody> },
+  TContext
+> => {
+  return useMutation(getSubmitTeacherVerificationMutationOptions(options));
+};
+
+/**
+ * @summary Update teacher trial lesson and policy settings
+ */
+export const getUpdateTeacherPoliciesUrl = () => {
+  return `/api/teachers/me/policies`;
+};
+
+export const updateTeacherPolicies = async (
+  updateTeacherPoliciesBody: UpdateTeacherPoliciesBody,
+  options?: RequestInit,
+): Promise<TeacherProfile> => {
+  return customFetch<TeacherProfile>(getUpdateTeacherPoliciesUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateTeacherPoliciesBody),
+  });
+};
+
+export const getUpdateTeacherPoliciesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTeacherPolicies>>,
+    TError,
+    { data: BodyType<UpdateTeacherPoliciesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateTeacherPolicies>>,
+  TError,
+  { data: BodyType<UpdateTeacherPoliciesBody> },
+  TContext
+> => {
+  const mutationKey = ["updateTeacherPolicies"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateTeacherPolicies>>,
+    { data: BodyType<UpdateTeacherPoliciesBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateTeacherPolicies(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateTeacherPoliciesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateTeacherPolicies>>
+>;
+export type UpdateTeacherPoliciesMutationBody =
+  BodyType<UpdateTeacherPoliciesBody>;
+export type UpdateTeacherPoliciesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update teacher trial lesson and policy settings
+ */
+export const useUpdateTeacherPolicies = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTeacherPolicies>>,
+    TError,
+    { data: BodyType<UpdateTeacherPoliciesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateTeacherPolicies>>,
+  TError,
+  { data: BodyType<UpdateTeacherPoliciesBody> },
+  TContext
+> => {
+  return useMutation(getUpdateTeacherPoliciesMutationOptions(options));
+};
 
 /**
  * @summary Get a teacher profile by vanity slug

@@ -47,6 +47,19 @@ export default function TeacherProfileEdit() {
     profileImageUrl: "",
   });
 
+  const [policiesForm, setPoliciesForm] = useState({
+    acceptsTrialLessons: false,
+    trialLessonPriceInCents: 0,
+    trialLessonDurationMinutes: 30,
+    cancellationPolicy: "",
+    reschedulingPolicy: "",
+    noticeRequiredHours: 24,
+    seoSlug: "",
+    credentialSummary: "",
+    institutionAffiliations: "",
+    professionalHighlights: "",
+  });
+
   const [slugInput, setSlugInput] = useState("");
 
   const [lastMinuteForm, setLastMinuteForm] = useState({
@@ -81,6 +94,19 @@ export default function TeacherProfileEdit() {
       });
       setSlugInput(profile.profileSlug || "");
       setIsPubliclyVisible(profile.isPubliclyVisible ?? true);
+      setPoliciesForm((prev) => ({
+        ...prev,
+        acceptsTrialLessons: (profile as { acceptsTrialLessons?: boolean }).acceptsTrialLessons ?? false,
+        trialLessonPriceInCents: (profile as { trialLessonPriceInCents?: number | null }).trialLessonPriceInCents ?? 0,
+        trialLessonDurationMinutes: (profile as { trialLessonDurationMinutes?: number }).trialLessonDurationMinutes ?? 30,
+        cancellationPolicy: (profile as { cancellationPolicy?: string | null }).cancellationPolicy ?? "",
+        reschedulingPolicy: (profile as { reschedulingPolicy?: string | null }).reschedulingPolicy ?? "",
+        noticeRequiredHours: (profile as { noticeRequiredHours?: number }).noticeRequiredHours ?? 24,
+        seoSlug: (profile as { seoSlug?: string | null }).seoSlug ?? "",
+        credentialSummary: (profile as { credentialSummary?: string | null }).credentialSummary ?? "",
+        institutionAffiliations: ((profile as { institutionAffiliations?: string[] }).institutionAffiliations ?? []).join(", "),
+        professionalHighlights: (profile as { professionalHighlights?: string | null }).professionalHighlights ?? "",
+      }));
     }
   }, [profile]);
 
@@ -744,6 +770,125 @@ export default function TeacherProfileEdit() {
                 {recordings.length >= 5 && (
                   <p className="text-xs text-muted-foreground">You've reached the maximum of 5 recordings. Remove one to add another.</p>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* ── Stage 1: Trust & Policies ───────────────────── */}
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="font-serif">Credentials &amp; Highlights</CardTitle>
+                <CardDescription>Help students trust you. Describe your qualifications and professional affiliations.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Credential Summary</Label>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="e.g. Juilliard MM, Royal Academy LRAM, 15 years teaching"
+                    value={policiesForm.credentialSummary}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, credentialSummary: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Institution Affiliations (comma-separated)</Label>
+                  <Input
+                    placeholder="e.g. Juilliard School, Royal Academy of Music"
+                    value={policiesForm.institutionAffiliations}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, institutionAffiliations: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Professional Highlights</Label>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Awards, orchestras, notable performances…"
+                    value={policiesForm.professionalHighlights}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, professionalHighlights: e.target.value }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="font-serif">Trial Lessons &amp; Booking Policies</CardTitle>
+                <CardDescription>Set your trial lesson offering, notice requirements, and cancellation terms.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="acceptsTrial"
+                    type="checkbox"
+                    checked={policiesForm.acceptsTrialLessons}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, acceptsTrialLessons: e.target.checked }))}
+                    className="h-4 w-4 rounded border border-input"
+                  />
+                  <Label htmlFor="acceptsTrial">Offer trial lessons</Label>
+                </div>
+                {policiesForm.acceptsTrialLessons && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Trial price (USD, 0 = free)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={policiesForm.trialLessonPriceInCents / 100}
+                        onChange={(e) => setPoliciesForm((p) => ({ ...p, trialLessonPriceInCents: Math.round(Number(e.target.value) * 100) }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Duration (minutes)</Label>
+                      <Input
+                        type="number"
+                        min={15}
+                        max={120}
+                        value={policiesForm.trialLessonDurationMinutes}
+                        onChange={(e) => setPoliciesForm((p) => ({ ...p, trialLessonDurationMinutes: Number(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Notice required (hours)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={168}
+                    value={policiesForm.noticeRequiredHours}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, noticeRequiredHours: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cancellation Policy</Label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="e.g. Free cancellation up to 24 hours before the lesson."
+                    value={policiesForm.cancellationPolicy}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, cancellationPolicy: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rescheduling Policy</Label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="e.g. Lessons may be rescheduled with 48 hours notice."
+                    value={policiesForm.reschedulingPolicy}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, reschedulingPolicy: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>SEO Slug (optional)</Label>
+                  <Input
+                    placeholder="e.g. piano-teacher-new-york"
+                    value={policiesForm.seoSlug}
+                    onChange={(e) => setPoliciesForm((p) => ({ ...p, seoSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Used for SEO landing page links. Lowercase, hyphens only.</p>
+                </div>
               </CardContent>
             </Card>
 

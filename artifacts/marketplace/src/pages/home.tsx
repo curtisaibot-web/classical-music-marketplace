@@ -1,5 +1,7 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Star, ArrowRight, Music, Calendar, BookOpen, Download } from "lucide-react";
@@ -17,8 +19,19 @@ export default function Home() {
   const { data: teachersData, isLoading: isLoadingTeachers } = useListTeachers({ limit: 4 });
   const { data: masterclassesData, isLoading: isLoadingMasterclasses } = useListMasterclasses({ limit: 3 });
   const { data: productsData, isLoading: isLoadingProducts } = useListDigitalProducts({ limit: 4 });
+  const [, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchCity, setSearchCity] = useState("");
 
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = new URLSearchParams();
+    if (searchQuery.trim()) p.set("q", searchQuery.trim());
+    if (searchCity.trim()) p.set("city", searchCity.trim());
+    setLocation(`/search?${p.toString()}`);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,6 +60,21 @@ export default function Home() {
               <p className="text-xl text-muted-foreground mb-10">
                 Private lessons, exclusive masterclasses, weddings &amp; events, and premium sheet music — all in one place.
               </p>
+              <form onSubmit={handleSearch} className="flex flex-wrap gap-3 mb-6 max-w-2xl">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search violin teachers, piano lessons…"
+                  className="flex-1 min-w-[200px] bg-background/80 backdrop-blur-sm"
+                />
+                <Input
+                  value={searchCity}
+                  onChange={(e) => setSearchCity(e.target.value)}
+                  placeholder="City or online"
+                  className="w-40 bg-background/80 backdrop-blur-sm"
+                />
+                <Button type="submit" className="font-medium">Search</Button>
+              </form>
               <div className="flex flex-wrap gap-4">
                 <Button asChild size="lg" className="font-medium px-8">
                   <Link href="/teachers">Find a Teacher</Link>

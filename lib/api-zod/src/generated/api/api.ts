@@ -95,6 +95,13 @@ export const ListTeachersQueryParams = zod.object({
     .describe(
       "When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers.",
     ),
+  q: zod.coerce.string().optional(),
+  country: zod.coerce.string().optional(),
+  skillLevel: zod
+    .enum(["beginner", "intermediate", "advanced", "all"])
+    .optional(),
+  minRating: zod.coerce.number().optional(),
+  verifiedOnly: zod.coerce.boolean().optional(),
 });
 
 export const ListTeachersResponse = zod.object({
@@ -132,6 +139,21 @@ export const ListTeachersResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -153,6 +175,544 @@ export const ListTeachersResponse = zod.object({
     }),
   ),
   total: zod.number(),
+});
+
+/**
+ * @summary Search across marketplace objects
+ */
+export const searchMarketplaceQueryLimitDefault = 8;
+
+export const SearchMarketplaceQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  instrument: zod.coerce.string().optional(),
+  city: zod.coerce.string().optional(),
+  limit: zod.coerce.number().default(searchMarketplaceQueryLimitDefault),
+});
+
+export const SearchMarketplaceResponse = zod.object({
+  query: zod.string(),
+  teachers: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      bio: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      genres: zod.array(zod.string()),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      timezone: zod.string().nullish(),
+      hourlyRate: zod.number().nullish(),
+      currency: zod.string(),
+      yearsExperience: zod.number().nullish(),
+      education: zod.string().nullish(),
+      averageRating: zod.number(),
+      reviewCount: zod.number(),
+      isVerified: zod.boolean(),
+      profileImageUrl: zod.string().nullish(),
+      websiteUrl: zod.string().nullish(),
+      videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+      stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
+      user: zod
+        .object({
+          id: zod.string(),
+          email: zod.string(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
+          role: zod
+            .union([
+              zod.literal("teacher"),
+              zod.literal("student"),
+              zod.literal(null),
+            ])
+            .nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  listings: zod.array(
+    zod.object({
+      id: zod.number(),
+      teacherId: zod.string(),
+      type: zod.enum([
+        "lesson",
+        "event",
+        "masterclass",
+        "digital_product",
+        "coaching",
+      ]),
+      status: zod.enum(["active", "inactive", "draft"]),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      instrument: zod.string().nullish(),
+      skillLevel: zod.enum(["beginner", "intermediate", "advanced", "all"]),
+      priceInCents: zod.number(),
+      currency: zod.string(),
+      durationMinutes: zod.number().nullish(),
+      imageUrl: zod.string().nullish(),
+      tags: zod.array(zod.string()),
+      isOnline: zod.boolean(),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      digitalProductId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the associated digital product (only set when type=digital_product)",
+        ),
+      masterclassEventId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID of the first upcoming masterclass event (only set when type=masterclass)",
+        ),
+      teacher: zod
+        .object({
+          id: zod.number(),
+          userId: zod.string(),
+          bio: zod.string().nullish(),
+          instruments: zod.array(zod.string()),
+          genres: zod.array(zod.string()),
+          city: zod.string().nullish(),
+          country: zod.string().nullish(),
+          timezone: zod.string().nullish(),
+          hourlyRate: zod.number().nullish(),
+          currency: zod.string(),
+          yearsExperience: zod.number().nullish(),
+          education: zod.string().nullish(),
+          averageRating: zod.number(),
+          reviewCount: zod.number(),
+          isVerified: zod.boolean(),
+          profileImageUrl: zod.string().nullish(),
+          websiteUrl: zod.string().nullish(),
+          videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
+          stripeOnboarded: zod.boolean(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
+          user: zod
+            .object({
+              id: zod.string(),
+              email: zod.string(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+              role: zod
+                .union([
+                  zod.literal("teacher"),
+                  zod.literal("student"),
+                  zod.literal(null),
+                ])
+                .nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .optional(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  masterclasses: zod.array(
+    zod.object({
+      id: zod.number(),
+      listingId: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      scheduledAt: zod.coerce.date(),
+      durationMinutes: zod.number(),
+      maxPerformers: zod.number(),
+      maxObservers: zod.number(),
+      performerPriceInCents: zod.number(),
+      observerPriceInCents: zod.number(),
+      currency: zod.string(),
+      registeredPerformers: zod.number(),
+      registeredObservers: zod.number(),
+      meetingUrl: zod.string().nullish(),
+      recordingUrl: zod.string().nullish(),
+      isLive: zod.boolean(),
+      isCancelled: zod.boolean(),
+      instrument: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+      teacher: zod
+        .object({
+          id: zod.number(),
+          userId: zod.string(),
+          bio: zod.string().nullish(),
+          instruments: zod.array(zod.string()),
+          genres: zod.array(zod.string()),
+          city: zod.string().nullish(),
+          country: zod.string().nullish(),
+          timezone: zod.string().nullish(),
+          hourlyRate: zod.number().nullish(),
+          currency: zod.string(),
+          yearsExperience: zod.number().nullish(),
+          education: zod.string().nullish(),
+          averageRating: zod.number(),
+          reviewCount: zod.number(),
+          isVerified: zod.boolean(),
+          profileImageUrl: zod.string().nullish(),
+          websiteUrl: zod.string().nullish(),
+          videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
+          stripeOnboarded: zod.boolean(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
+          user: zod
+            .object({
+              id: zod.string(),
+              email: zod.string(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+              role: zod
+                .union([
+                  zod.literal("teacher"),
+                  zod.literal("student"),
+                  zod.literal(null),
+                ])
+                .nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .optional(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  digitalProducts: zod.array(
+    zod.object({
+      id: zod.number(),
+      listingId: zod.number(),
+      teacherId: zod.string(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      category: zod.string(),
+      instrument: zod.string().nullish(),
+      difficulty: zod.string().nullish(),
+      fileKey: zod.string().nullish(),
+      fileSize: zod.number().nullish(),
+      fileType: zod.string().nullish(),
+      previewUrl: zod.string().nullish(),
+      downloadCount: zod.number(),
+      isPublished: zod.boolean(),
+      priceInCents: zod.number(),
+      currency: zod.string(),
+      teacher: zod
+        .object({
+          id: zod.number(),
+          userId: zod.string(),
+          bio: zod.string().nullish(),
+          instruments: zod.array(zod.string()),
+          genres: zod.array(zod.string()),
+          city: zod.string().nullish(),
+          country: zod.string().nullish(),
+          timezone: zod.string().nullish(),
+          hourlyRate: zod.number().nullish(),
+          currency: zod.string(),
+          yearsExperience: zod.number().nullish(),
+          education: zod.string().nullish(),
+          averageRating: zod.number(),
+          reviewCount: zod.number(),
+          isVerified: zod.boolean(),
+          profileImageUrl: zod.string().nullish(),
+          websiteUrl: zod.string().nullish(),
+          videoIntroUrl: zod.string().nullish(),
+          profileSlug: zod.string().nullish(),
+          stripeOnboarded: zod.boolean(),
+          isProSubscriber: zod.boolean().optional(),
+          cancellationPolicyHours: zod.number().optional(),
+          cancellationFeePercent: zod.number().optional(),
+          isPubliclyVisible: zod
+            .boolean()
+            .describe(
+              "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+            ),
+          orgId: zod
+            .number()
+            .nullish()
+            .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
+          user: zod
+            .object({
+              id: zod.string(),
+              email: zod.string(),
+              firstName: zod.string().nullish(),
+              lastName: zod.string().nullish(),
+              imageUrl: zod.string().nullish(),
+              role: zod
+                .union([
+                  zod.literal("teacher"),
+                  zod.literal("student"),
+                  zod.literal(null),
+                ])
+                .nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .optional(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a lightweight teacher inquiry
+ */
+export const CreateInquiryBody = zod.object({
+  recipientTeacherId: zod.string(),
+  listingId: zod.number().optional(),
+  senderName: zod.string().optional(),
+  senderEmail: zod.string().optional(),
+  subject: zod.string(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List sent and received inquiries for current user
+ */
+export const ListMyInquiriesResponse = zod.object({
+  inquiries: zod.array(
+    zod.object({
+      id: zod.number(),
+      senderId: zod.string().nullish(),
+      senderName: zod.string().nullish(),
+      senderEmail: zod.string().nullish(),
+      recipientTeacherId: zod.string(),
+      listingId: zod.number().nullish(),
+      subject: zod.string(),
+      message: zod.string(),
+      status: zod.enum(["new", "responded", "archived", "converted"]),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary List enabled SEO landing pages
+ */
+export const ListSeoLandingPagesResponse = zod.object({
+  pages: zod.array(
+    zod.object({
+      id: zod.number(),
+      slug: zod.string(),
+      instrument: zod.string().nullish(),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      title: zod.string(),
+      description: zod.string(),
+      introCopy: zod.string().nullish(),
+      isEnabled: zod.boolean(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get SEO landing page with matching teachers
+ */
+export const GetSeoLandingPageParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetSeoLandingPageResponse = zod.object({
+  page: zod.object({
+    id: zod.number(),
+    slug: zod.string(),
+    instrument: zod.string().nullish(),
+    city: zod.string().nullish(),
+    country: zod.string().nullish(),
+    title: zod.string(),
+    description: zod.string(),
+    introCopy: zod.string().nullish(),
+    isEnabled: zod.boolean(),
+  }),
+  teachers: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      bio: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      genres: zod.array(zod.string()),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      timezone: zod.string().nullish(),
+      hourlyRate: zod.number().nullish(),
+      currency: zod.string(),
+      yearsExperience: zod.number().nullish(),
+      education: zod.string().nullish(),
+      averageRating: zod.number(),
+      reviewCount: zod.number(),
+      isVerified: zod.boolean(),
+      profileImageUrl: zod.string().nullish(),
+      websiteUrl: zod.string().nullish(),
+      videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+      stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
+      user: zod
+        .object({
+          id: zod.string(),
+          email: zod.string(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
+          role: zod
+            .union([
+              zod.literal("teacher"),
+              zod.literal("student"),
+              zod.literal(null),
+            ])
+            .nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
 });
 
 /**
@@ -195,6 +755,216 @@ export const GetTeacherResponse = zod.object({
     .number()
     .nullish()
     .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string(),
+      firstName: zod.string().nullish(),
+      lastName: zod.string().nullish(),
+      imageUrl: zod.string().nullish(),
+      role: zod
+        .union([
+          zod.literal("teacher"),
+          zod.literal("student"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get public teacher verification summary
+ */
+export const GetTeacherVerificationParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const GetTeacherVerificationResponse = zod.object({
+  userId: zod.string(),
+  verificationStatus: zod.enum([
+    "not_submitted",
+    "pending",
+    "verified",
+    "rejected",
+    "expired",
+  ]),
+  isVerified: zod.boolean(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+});
+
+/**
+ * @summary Submit teacher verification details
+ */
+export const SubmitTeacherVerificationBody = zod.object({
+  credentialSummary: zod.string().optional(),
+  institutionAffiliations: zod.array(zod.string()).optional(),
+  professionalHighlights: zod.string().optional(),
+  documents: zod
+    .array(
+      zod.object({
+        documentType: zod.string(),
+        fileKey: zod.string().optional(),
+        publicNote: zod.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const SubmitTeacherVerificationResponse = zod.object({
+  ok: zod.boolean().optional(),
+  profile: zod
+    .object({
+      id: zod.number(),
+      userId: zod.string(),
+      bio: zod.string().nullish(),
+      instruments: zod.array(zod.string()),
+      genres: zod.array(zod.string()),
+      city: zod.string().nullish(),
+      country: zod.string().nullish(),
+      timezone: zod.string().nullish(),
+      hourlyRate: zod.number().nullish(),
+      currency: zod.string(),
+      yearsExperience: zod.number().nullish(),
+      education: zod.string().nullish(),
+      averageRating: zod.number(),
+      reviewCount: zod.number(),
+      isVerified: zod.boolean(),
+      profileImageUrl: zod.string().nullish(),
+      websiteUrl: zod.string().nullish(),
+      videoIntroUrl: zod.string().nullish(),
+      profileSlug: zod.string().nullish(),
+      stripeOnboarded: zod.boolean(),
+      isProSubscriber: zod.boolean().optional(),
+      cancellationPolicyHours: zod.number().optional(),
+      cancellationFeePercent: zod.number().optional(),
+      isPubliclyVisible: zod
+        .boolean()
+        .describe(
+          "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+        ),
+      orgId: zod
+        .number()
+        .nullish()
+        .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
+      user: zod
+        .object({
+          id: zod.string(),
+          email: zod.string(),
+          firstName: zod.string().nullish(),
+          lastName: zod.string().nullish(),
+          imageUrl: zod.string().nullish(),
+          role: zod
+            .union([
+              zod.literal("teacher"),
+              zod.literal("student"),
+              zod.literal(null),
+            ])
+            .nullish(),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Update teacher trial lesson and policy settings
+ */
+export const UpdateTeacherPoliciesBody = zod.object({
+  acceptsTrialLessons: zod.boolean().optional(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number().optional(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number().optional(),
+  seoSlug: zod.string().nullish(),
+});
+
+export const UpdateTeacherPoliciesResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  bio: zod.string().nullish(),
+  instruments: zod.array(zod.string()),
+  genres: zod.array(zod.string()),
+  city: zod.string().nullish(),
+  country: zod.string().nullish(),
+  timezone: zod.string().nullish(),
+  hourlyRate: zod.number().nullish(),
+  currency: zod.string(),
+  yearsExperience: zod.number().nullish(),
+  education: zod.string().nullish(),
+  averageRating: zod.number(),
+  reviewCount: zod.number(),
+  isVerified: zod.boolean(),
+  profileImageUrl: zod.string().nullish(),
+  websiteUrl: zod.string().nullish(),
+  videoIntroUrl: zod.string().nullish(),
+  profileSlug: zod.string().nullish(),
+  stripeOnboarded: zod.boolean(),
+  isProSubscriber: zod.boolean().optional(),
+  cancellationPolicyHours: zod.number().optional(),
+  cancellationFeePercent: zod.number().optional(),
+  isPubliclyVisible: zod
+    .boolean()
+    .describe(
+      "Whether this teacher opts into appearing on the public marketplace. Defaults to true. Private-org teachers with this set to false are only discoverable and bookable within their school.",
+    ),
+  orgId: zod
+    .number()
+    .nullish()
+    .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
   user: zod
     .object({
       id: zod.string(),
@@ -255,6 +1025,21 @@ export const GetTeacherBySlugResponse = zod.object({
     .number()
     .nullish()
     .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
   user: zod
     .object({
       id: zod.string(),
@@ -324,6 +1109,21 @@ export const UpdateMyTeacherSlugResponse = zod.object({
     .number()
     .nullish()
     .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
   user: zod
     .object({
       id: zod.string(),
@@ -420,6 +1220,21 @@ export const GetMyTeacherProfileResponse = zod.object({
     .number()
     .nullish()
     .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
   user: zod
     .object({
       id: zod.string(),
@@ -512,6 +1327,21 @@ export const UpdateMyTeacherProfileResponse = zod.object({
     .number()
     .nullish()
     .describe("The organisation this teacher belongs to, if any."),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
+  verificationSubmittedAt: zod.coerce.date().nullish(),
+  verifiedAt: zod.coerce.date().nullish(),
+  credentialSummary: zod.string().nullish(),
+  institutionAffiliations: zod.array(zod.string()),
+  professionalHighlights: zod.string().nullish(),
+  acceptsTrialLessons: zod.boolean(),
+  trialLessonPriceInCents: zod.number().nullish(),
+  trialLessonDurationMinutes: zod.number(),
+  cancellationPolicy: zod.string().nullish(),
+  reschedulingPolicy: zod.string().nullish(),
+  noticeRequiredHours: zod.number(),
+  seoSlug: zod.string().nullish(),
   user: zod
     .object({
       id: zod.string(),
@@ -687,6 +1517,27 @@ export const ListListingsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -815,6 +1666,21 @@ export const GetListingResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -926,6 +1792,21 @@ export const UpdateListingResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -1034,6 +1915,27 @@ export const GetTeacherListingsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -1140,6 +2042,27 @@ export const ListMasterclassesResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -1245,6 +2168,21 @@ export const GetMasterclassResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -1339,6 +2277,21 @@ export const UpdateMasterclassResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -1423,6 +2376,27 @@ export const ListLiveConcertsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -1518,6 +2492,27 @@ export const ListMyLiveConcertsResponse = zod.object({
               .number()
               .nullish()
               .describe("The organisation this teacher belongs to, if any."),
+            verificationStatus: zod
+              .enum([
+                "not_submitted",
+                "pending",
+                "verified",
+                "rejected",
+                "expired",
+              ])
+              .optional(),
+            verificationSubmittedAt: zod.coerce.date().nullish(),
+            verifiedAt: zod.coerce.date().nullish(),
+            credentialSummary: zod.string().nullish(),
+            institutionAffiliations: zod.array(zod.string()),
+            professionalHighlights: zod.string().nullish(),
+            acceptsTrialLessons: zod.boolean(),
+            trialLessonPriceInCents: zod.number().nullish(),
+            trialLessonDurationMinutes: zod.number(),
+            cancellationPolicy: zod.string().nullish(),
+            reschedulingPolicy: zod.string().nullish(),
+            noticeRequiredHours: zod.number(),
+            seoSlug: zod.string().nullish(),
             user: zod
               .object({
                 id: zod.string(),
@@ -1602,6 +2597,21 @@ export const GetLiveConcertResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -1693,6 +2703,21 @@ export const UpdateLiveConcertResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -2330,6 +3355,27 @@ export const ListEnsembleBookingsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -2524,6 +3570,27 @@ export const ListDigitalProductsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -2645,6 +3712,21 @@ export const GetDigitalProductResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -2740,6 +3822,21 @@ export const UpdateDigitalProductResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -2870,6 +3967,27 @@ export const ListBookingsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -3009,6 +4127,21 @@ export const GetBookingResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -3138,6 +4271,21 @@ export const UpdateBookingResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -3472,6 +4620,27 @@ export const GetTeacherDashboardResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -3586,6 +4755,27 @@ export const GetTeacherDashboardResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -3708,6 +4898,27 @@ export const GetStudentDashboardResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -3812,6 +5023,27 @@ export const GetStudentDashboardResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -3871,6 +5103,21 @@ export const GetStudentDashboardResponse = zod.object({
         .number()
         .nullish()
         .describe("The organisation this teacher belongs to, if any."),
+      verificationStatus: zod
+        .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+        .optional(),
+      verificationSubmittedAt: zod.coerce.date().nullish(),
+      verifiedAt: zod.coerce.date().nullish(),
+      credentialSummary: zod.string().nullish(),
+      institutionAffiliations: zod.array(zod.string()),
+      professionalHighlights: zod.string().nullish(),
+      acceptsTrialLessons: zod.boolean(),
+      trialLessonPriceInCents: zod.number().nullish(),
+      trialLessonDurationMinutes: zod.number(),
+      cancellationPolicy: zod.string().nullish(),
+      reschedulingPolicy: zod.string().nullish(),
+      noticeRequiredHours: zod.number(),
+      seoSlug: zod.string().nullish(),
       user: zod
         .object({
           id: zod.string(),
@@ -5932,6 +7179,27 @@ export const GetMyCoachBookingsResponse = zod.object({
             .number()
             .nullish()
             .describe("The organisation this teacher belongs to, if any."),
+          verificationStatus: zod
+            .enum([
+              "not_submitted",
+              "pending",
+              "verified",
+              "rejected",
+              "expired",
+            ])
+            .optional(),
+          verificationSubmittedAt: zod.coerce.date().nullish(),
+          verifiedAt: zod.coerce.date().nullish(),
+          credentialSummary: zod.string().nullish(),
+          institutionAffiliations: zod.array(zod.string()),
+          professionalHighlights: zod.string().nullish(),
+          acceptsTrialLessons: zod.boolean(),
+          trialLessonPriceInCents: zod.number().nullish(),
+          trialLessonDurationMinutes: zod.number(),
+          cancellationPolicy: zod.string().nullish(),
+          reschedulingPolicy: zod.string().nullish(),
+          noticeRequiredHours: zod.number(),
+          seoSlug: zod.string().nullish(),
           user: zod
             .object({
               id: zod.string(),
@@ -6075,6 +7343,27 @@ export const GetCoachProfileResponse = zod
                 .number()
                 .nullish()
                 .describe("The organisation this teacher belongs to, if any."),
+              verificationStatus: zod
+                .enum([
+                  "not_submitted",
+                  "pending",
+                  "verified",
+                  "rejected",
+                  "expired",
+                ])
+                .optional(),
+              verificationSubmittedAt: zod.coerce.date().nullish(),
+              verifiedAt: zod.coerce.date().nullish(),
+              credentialSummary: zod.string().nullish(),
+              institutionAffiliations: zod.array(zod.string()),
+              professionalHighlights: zod.string().nullish(),
+              acceptsTrialLessons: zod.boolean(),
+              trialLessonPriceInCents: zod.number().nullish(),
+              trialLessonDurationMinutes: zod.number(),
+              cancellationPolicy: zod.string().nullish(),
+              reschedulingPolicy: zod.string().nullish(),
+              noticeRequiredHours: zod.number(),
+              seoSlug: zod.string().nullish(),
               user: zod
                 .object({
                   id: zod.string(),

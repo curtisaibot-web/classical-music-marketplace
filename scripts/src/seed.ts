@@ -9,6 +9,7 @@ import {
   bookingsTable,
   ordersTable,
   reviewsTable,
+  seoLandingPagesTable,
 } from "@workspace/db";
 
 async function seed() {
@@ -396,6 +397,64 @@ async function seed() {
     console.log("  ✓ 5 reviews");
   }
 
+  // ── SEO Landing Pages ─────────────────────────────────────────────────────
+  await db
+    .insert(seoLandingPagesTable)
+    .values([
+      {
+        slug: "violin-teachers-london",
+        instrument: "violin",
+        city: "London",
+        country: "GB",
+        title: "Violin Teachers in London",
+        description: "Find expert violin teachers in London. Private lessons for all levels.",
+        introCopy: "Whether you're a complete beginner or an advanced student preparing for conservatoire auditions, London is home to some of the world's finest violin teachers. Browse verified instructors, read student reviews, and book your first lesson today.",
+        isEnabled: true,
+      },
+      {
+        slug: "piano-teachers-new-york",
+        instrument: "piano",
+        city: "New York",
+        country: "US",
+        title: "Piano Teachers in New York",
+        description: "Discover top piano teachers in New York City. From classical technique to jazz — all levels welcome.",
+        introCopy: "New York City's extraordinary musical landscape attracts world-class piano educators from every tradition. Find a teacher who matches your goals and schedule, and start your journey today.",
+        isEnabled: true,
+      },
+      {
+        slug: "online-classical-guitar-lessons",
+        instrument: "guitar",
+        city: null,
+        country: null,
+        title: "Online Classical Guitar Lessons",
+        description: "Book online classical guitar lessons with professional concert guitarists. Study anywhere in the world.",
+        introCopy: "Study classical and flamenco guitar from the comfort of your home with internationally-trained concert guitarists. All lessons are delivered via high-quality video call with flexible scheduling.",
+        isEnabled: true,
+      },
+      {
+        slug: "cello-teachers-barcelona",
+        instrument: "cello",
+        city: "Barcelona",
+        country: "ES",
+        title: "Cello Teachers in Barcelona",
+        description: "Find experienced cello teachers in Barcelona. Private lessons for beginners to advanced students.",
+        introCopy: "Barcelona is a vibrant hub for classical string education. Connect with conservatoire-trained cello instructors offering both in-person and online lessons.",
+        isEnabled: true,
+      },
+      {
+        slug: "opera-voice-lessons-paris",
+        instrument: "voice",
+        city: "Paris",
+        country: "FR",
+        title: "Opera & Voice Lessons in Paris",
+        description: "Study opera and classical singing with Conservatoire de Paris–trained teachers in the City of Light.",
+        introCopy: "Paris is one of the world's great centres for operatic training. Study bel canto, French mélodie, German lieder, and operatic repertoire with teachers at the highest level.",
+        isEnabled: true,
+      },
+    ])
+    .onConflictDoNothing();
+
+  console.log("  ✓ SEO landing pages");
   console.log("✅ Seed complete!");
 }
 

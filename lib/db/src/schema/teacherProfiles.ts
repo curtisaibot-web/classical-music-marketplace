@@ -1,8 +1,16 @@
-import { pgTable, text, timestamp, integer, serial, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, serial, boolean, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { organisationsTable } from "./organisations";
+
+export const verificationStatusEnum = pgEnum("verification_status", [
+  "not_submitted",
+  "pending",
+  "verified",
+  "rejected",
+  "expired",
+]);
 
 export const teacherProfilesTable = pgTable("teacher_profiles", {
   id: serial("id").primaryKey(),
@@ -34,6 +42,22 @@ export const teacherProfilesTable = pgTable("teacher_profiles", {
   cancellationFeePercent: integer("cancellation_fee_percent").notNull().default(50),
   orgId: integer("org_id").references(() => organisationsTable.id, { onDelete: "set null" }),
   isPubliclyVisible: boolean("is_publicly_visible").notNull().default(true),
+
+  // Stage 1 Marketplace Trust fields
+  verificationStatus: verificationStatusEnum("verification_status").notNull().default("not_submitted"),
+  verificationSubmittedAt: timestamp("verification_submitted_at", { withTimezone: true }),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  credentialSummary: text("credential_summary"),
+  institutionAffiliations: text("institution_affiliations").array().notNull().default([]),
+  professionalHighlights: text("professional_highlights"),
+  acceptsTrialLessons: boolean("accepts_trial_lessons").notNull().default(false),
+  trialLessonPriceInCents: integer("trial_lesson_price_in_cents"),
+  trialLessonDurationMinutes: integer("trial_lesson_duration_minutes").notNull().default(30),
+  cancellationPolicy: text("cancellation_policy"),
+  reschedulingPolicy: text("rescheduling_policy"),
+  noticeRequiredHours: integer("notice_required_hours").notNull().default(24),
+  seoSlug: text("seo_slug").unique(),
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -172,6 +172,23 @@ paths:
           description: "When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers."
           schema:
             type: string
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: country
+          in: query
+          schema: { type: string }
+        - name: skillLevel
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced, all]
+        - name: minRating
+          in: query
+          schema: { type: number }
+        - name: verifiedOnly
+          in: query
+          schema: { type: boolean }
       responses:
         "200":
           description: List of teachers
@@ -179,6 +196,98 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeacherListResponse"
+
+  /search:
+    get:
+      operationId: searchMarketplace
+      tags: [listings]
+      summary: Search across marketplace objects
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: instrument
+          in: query
+          schema: { type: string }
+        - name: city
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 8 }
+      responses:
+        "200":
+          description: Marketplace search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchMarketplaceResponse"
+
+  /inquiries:
+    post:
+      operationId: createInquiry
+      tags: [teachers]
+      summary: Create a lightweight teacher inquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInquiryBody"
+      responses:
+        "201":
+          description: Created inquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inquiry"
+
+  /inquiries/mine:
+    get:
+      operationId: listMyInquiries
+      tags: [teachers]
+      summary: List sent and received inquiries for current user
+      security: [{ clerkAuth: [] }]
+      responses:
+        "200":
+          description: My inquiries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryListResponse"
+
+  /seo/landing-pages:
+    get:
+      operationId: listSeoLandingPages
+      tags: [teachers]
+      summary: List enabled SEO landing pages
+      responses:
+        "200":
+          description: SEO landing pages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoLandingPageListResponse"
+
+  /seo/landing-pages/{slug}:
+    get:
+      operationId: getSeoLandingPage
+      tags: [teachers]
+      summary: Get SEO landing page with matching teachers
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: SEO landing page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoLandingPageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /teachers/{userId}:
     get:
@@ -200,6 +309,70 @@ paths:
                 $ref: "#/components/schemas/TeacherProfile"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /teachers/{userId}/verification:
+    get:
+      operationId: getTeacherVerification
+      tags: [teachers]
+      summary: Get public teacher verification summary
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Teacher verification summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherVerificationSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /teachers/me/verification:
+    post:
+      operationId: submitTeacherVerification
+      tags: [teachers]
+      summary: Submit teacher verification details
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitTeacherVerificationBody"
+      responses:
+        "200":
+          description: Verification submission accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  profile:
+                    $ref: "#/components/schemas/TeacherProfile"
+
+  /teachers/me/policies:
+    put:
+      operationId: updateTeacherPolicies
+      tags: [teachers]
+      summary: Update teacher trial lesson and policy settings
+      security: [{ clerkAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeacherPoliciesBody"
+      responses:
+        "200":
+          description: Updated teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
 
   /teachers/by-slug/{slug}:
     get:
@@ -4506,12 +4679,42 @@ components:
         orgId:
           type: ["integer", "null"]
           description: The organisation this teacher belongs to, if any.
+        verificationStatus:
+          type: string
+          enum: [not_submitted, pending, verified, rejected, expired]
+        verificationSubmittedAt:
+          type: ["string", "null"]
+          format: date-time
+        verifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        credentialSummary:
+          type: ["string", "null"]
+        institutionAffiliations:
+          type: array
+          items: { type: string }
+        professionalHighlights:
+          type: ["string", "null"]
+        acceptsTrialLessons:
+          type: boolean
+        trialLessonPriceInCents:
+          type: ["integer", "null"]
+        trialLessonDurationMinutes:
+          type: integer
+        cancellationPolicy:
+          type: ["string", "null"]
+        reschedulingPolicy:
+          type: ["string", "null"]
+        noticeRequiredHours:
+          type: integer
+        seoSlug:
+          type: ["string", "null"]
         user:
           $ref: "#/components/schemas/User"
         createdAt:
           type: string
           format: date-time
-      required: [id, userId, instruments, genres, currency, averageRating, reviewCount, isVerified, stripeOnboarded, isPubliclyVisible, createdAt]
+      required: [id, userId, instruments, genres, currency, averageRating, reviewCount, isVerified, stripeOnboarded, isPubliclyVisible, institutionAffiliations, acceptsTrialLessons, trialLessonDurationMinutes, noticeRequiredHours, createdAt]
 
     TeacherListResponse:
       type: object
@@ -4622,6 +4825,164 @@ components:
         isPubliclyVisible:
           type: boolean
           description: Set to false to opt out of the public marketplace (only available within your school org).
+
+    TeacherVerificationSummary:
+      type: object
+      properties:
+        userId: { type: string }
+        verificationStatus:
+          type: string
+          enum: [not_submitted, pending, verified, rejected, expired]
+        isVerified: { type: boolean }
+        verifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        credentialSummary:
+          type: ["string", "null"]
+        institutionAffiliations:
+          type: array
+          items: { type: string }
+        professionalHighlights:
+          type: ["string", "null"]
+      required: [userId, verificationStatus, isVerified, institutionAffiliations]
+
+    SubmitTeacherVerificationBody:
+      type: object
+      properties:
+        credentialSummary: { type: string }
+        institutionAffiliations:
+          type: array
+          items: { type: string }
+        professionalHighlights: { type: string }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              documentType: { type: string }
+              fileKey: { type: string }
+              publicNote: { type: string }
+            required: [documentType]
+
+    UpdateTeacherPoliciesBody:
+      type: object
+      properties:
+        acceptsTrialLessons: { type: boolean }
+        trialLessonPriceInCents:
+          type: ["integer", "null"]
+        trialLessonDurationMinutes: { type: integer }
+        cancellationPolicy:
+          type: ["string", "null"]
+        reschedulingPolicy:
+          type: ["string", "null"]
+        noticeRequiredHours: { type: integer }
+        seoSlug:
+          type: ["string", "null"]
+
+    Inquiry:
+      type: object
+      properties:
+        id: { type: integer }
+        senderId:
+          type: ["string", "null"]
+        senderName:
+          type: ["string", "null"]
+        senderEmail:
+          type: ["string", "null"]
+        recipientTeacherId: { type: string }
+        listingId:
+          type: ["integer", "null"]
+        subject: { type: string }
+        message: { type: string }
+        status:
+          type: string
+          enum: [new, responded, archived, converted]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, recipientTeacherId, subject, message, status, createdAt]
+
+    CreateInquiryBody:
+      type: object
+      properties:
+        recipientTeacherId: { type: string }
+        listingId: { type: integer }
+        senderName: { type: string }
+        senderEmail: { type: string }
+        subject: { type: string }
+        message: { type: string }
+      required: [recipientTeacherId, subject, message]
+
+    InquiryListResponse:
+      type: object
+      properties:
+        inquiries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Inquiry"
+        total: { type: integer }
+      required: [inquiries, total]
+
+    SeoLandingPage:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        instrument:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        title: { type: string }
+        description: { type: string }
+        introCopy:
+          type: ["string", "null"]
+        isEnabled: { type: boolean }
+      required: [id, slug, title, description, isEnabled]
+
+    SeoLandingPageListResponse:
+      type: object
+      properties:
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeoLandingPage"
+        total: { type: integer }
+      required: [pages, total]
+
+    SeoLandingPageResponse:
+      type: object
+      properties:
+        page:
+          $ref: "#/components/schemas/SeoLandingPage"
+        teachers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherProfile"
+      required: [page, teachers]
+
+    SearchMarketplaceResponse:
+      type: object
+      properties:
+        query: { type: string }
+        teachers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherProfile"
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Listing"
+        masterclasses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Masterclass"
+        digitalProducts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DigitalProduct"
+      required: [query, teachers, listings, masterclasses, digitalProducts]
 
     # ── Student Profile ──────────────────────────────────────────────────────
     StudentProfile:

@@ -134,6 +134,17 @@ export const ListingSkillLevel = {
   all: "all",
 } as const;
 
+export type TeacherProfileVerificationStatus =
+  (typeof TeacherProfileVerificationStatus)[keyof typeof TeacherProfileVerificationStatus];
+
+export const TeacherProfileVerificationStatus = {
+  not_submitted: "not_submitted",
+  pending: "pending",
+  verified: "verified",
+  rejected: "rejected",
+  expired: "expired",
+} as const;
+
 export interface TeacherProfile {
   id: number;
   userId: string;
@@ -176,6 +187,27 @@ export interface TeacherProfile {
    * @nullable
    */
   orgId?: number | null;
+  verificationStatus?: TeacherProfileVerificationStatus;
+  /** @nullable */
+  verificationSubmittedAt?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  credentialSummary?: string | null;
+  institutionAffiliations: string[];
+  /** @nullable */
+  professionalHighlights?: string | null;
+  acceptsTrialLessons: boolean;
+  /** @nullable */
+  trialLessonPriceInCents?: number | null;
+  trialLessonDurationMinutes: number;
+  /** @nullable */
+  cancellationPolicy?: string | null;
+  /** @nullable */
+  reschedulingPolicy?: string | null;
+  noticeRequiredHours: number;
+  /** @nullable */
+  seoSlug?: string | null;
   user?: User;
   createdAt: string;
 }
@@ -287,6 +319,189 @@ export interface UpdateTeacherProfileBody {
   isPubliclyVisible?: boolean;
 }
 
+export type TeacherVerificationSummaryVerificationStatus =
+  (typeof TeacherVerificationSummaryVerificationStatus)[keyof typeof TeacherVerificationSummaryVerificationStatus];
+
+export const TeacherVerificationSummaryVerificationStatus = {
+  not_submitted: "not_submitted",
+  pending: "pending",
+  verified: "verified",
+  rejected: "rejected",
+  expired: "expired",
+} as const;
+
+export interface TeacherVerificationSummary {
+  userId: string;
+  verificationStatus: TeacherVerificationSummaryVerificationStatus;
+  isVerified: boolean;
+  /** @nullable */
+  verifiedAt?: string | null;
+  /** @nullable */
+  credentialSummary?: string | null;
+  institutionAffiliations: string[];
+  /** @nullable */
+  professionalHighlights?: string | null;
+}
+
+export type SubmitTeacherVerificationBodyDocumentsItem = {
+  documentType: string;
+  fileKey?: string;
+  publicNote?: string;
+};
+
+export interface SubmitTeacherVerificationBody {
+  credentialSummary?: string;
+  institutionAffiliations?: string[];
+  professionalHighlights?: string;
+  documents?: SubmitTeacherVerificationBodyDocumentsItem[];
+}
+
+export interface UpdateTeacherPoliciesBody {
+  acceptsTrialLessons?: boolean;
+  /** @nullable */
+  trialLessonPriceInCents?: number | null;
+  trialLessonDurationMinutes?: number;
+  /** @nullable */
+  cancellationPolicy?: string | null;
+  /** @nullable */
+  reschedulingPolicy?: string | null;
+  noticeRequiredHours?: number;
+  /** @nullable */
+  seoSlug?: string | null;
+}
+
+export type InquiryStatus = (typeof InquiryStatus)[keyof typeof InquiryStatus];
+
+export const InquiryStatus = {
+  new: "new",
+  responded: "responded",
+  archived: "archived",
+  converted: "converted",
+} as const;
+
+export interface Inquiry {
+  id: number;
+  /** @nullable */
+  senderId?: string | null;
+  /** @nullable */
+  senderName?: string | null;
+  /** @nullable */
+  senderEmail?: string | null;
+  recipientTeacherId: string;
+  /** @nullable */
+  listingId?: number | null;
+  subject: string;
+  message: string;
+  status: InquiryStatus;
+  createdAt: string;
+}
+
+export interface CreateInquiryBody {
+  recipientTeacherId: string;
+  listingId?: number;
+  senderName?: string;
+  senderEmail?: string;
+  subject: string;
+  message: string;
+}
+
+export interface InquiryListResponse {
+  inquiries: Inquiry[];
+  total: number;
+}
+
+export interface SeoLandingPage {
+  id: number;
+  slug: string;
+  /** @nullable */
+  instrument?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  country?: string | null;
+  title: string;
+  description: string;
+  /** @nullable */
+  introCopy?: string | null;
+  isEnabled: boolean;
+}
+
+export interface SeoLandingPageListResponse {
+  pages: SeoLandingPage[];
+  total: number;
+}
+
+export interface SeoLandingPageResponse {
+  page: SeoLandingPage;
+  teachers: TeacherProfile[];
+}
+
+export interface Masterclass {
+  id: number;
+  listingId: number;
+  teacherId: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  scheduledAt: string;
+  durationMinutes: number;
+  maxPerformers: number;
+  maxObservers: number;
+  performerPriceInCents: number;
+  observerPriceInCents: number;
+  currency: string;
+  registeredPerformers: number;
+  registeredObservers: number;
+  /** @nullable */
+  meetingUrl?: string | null;
+  /** @nullable */
+  recordingUrl?: string | null;
+  isLive: boolean;
+  isCancelled: boolean;
+  /** @nullable */
+  instrument?: string | null;
+  /** @nullable */
+  imageUrl?: string | null;
+  teacher?: TeacherProfile;
+  createdAt: string;
+}
+
+export interface DigitalProduct {
+  id: number;
+  listingId: number;
+  teacherId: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  category: string;
+  /** @nullable */
+  instrument?: string | null;
+  /** @nullable */
+  difficulty?: string | null;
+  /** @nullable */
+  fileKey?: string | null;
+  /** @nullable */
+  fileSize?: number | null;
+  /** @nullable */
+  fileType?: string | null;
+  /** @nullable */
+  previewUrl?: string | null;
+  downloadCount: number;
+  isPublished: boolean;
+  priceInCents: number;
+  currency: string;
+  teacher?: TeacherProfile;
+  createdAt: string;
+}
+
+export interface SearchMarketplaceResponse {
+  query: string;
+  teachers: TeacherProfile[];
+  listings: Listing[];
+  masterclasses: Masterclass[];
+  digitalProducts: DigitalProduct[];
+}
+
 export interface StudentProfile {
   id: number;
   userId: string;
@@ -380,36 +595,6 @@ export interface UpdateListingBody {
   durationMinutes?: number;
   imageUrl?: string;
   tags?: string[];
-}
-
-export interface Masterclass {
-  id: number;
-  listingId: number;
-  teacherId: string;
-  title: string;
-  /** @nullable */
-  description?: string | null;
-  scheduledAt: string;
-  durationMinutes: number;
-  maxPerformers: number;
-  maxObservers: number;
-  performerPriceInCents: number;
-  observerPriceInCents: number;
-  currency: string;
-  registeredPerformers: number;
-  registeredObservers: number;
-  /** @nullable */
-  meetingUrl?: string | null;
-  /** @nullable */
-  recordingUrl?: string | null;
-  isLive: boolean;
-  isCancelled: boolean;
-  /** @nullable */
-  instrument?: string | null;
-  /** @nullable */
-  imageUrl?: string | null;
-  teacher?: TeacherProfile;
-  createdAt: string;
 }
 
 export interface MasterclassListResponse {
@@ -530,34 +715,6 @@ export interface MyLiveConcertTicketResponse {
   hasTicket: boolean;
   /** @nullable */
   orderId?: number | null;
-}
-
-export interface DigitalProduct {
-  id: number;
-  listingId: number;
-  teacherId: string;
-  title: string;
-  /** @nullable */
-  description?: string | null;
-  category: string;
-  /** @nullable */
-  instrument?: string | null;
-  /** @nullable */
-  difficulty?: string | null;
-  /** @nullable */
-  fileKey?: string | null;
-  /** @nullable */
-  fileSize?: number | null;
-  /** @nullable */
-  fileType?: string | null;
-  /** @nullable */
-  previewUrl?: string | null;
-  downloadCount: number;
-  isPublished: boolean;
-  priceInCents: number;
-  currency: string;
-  teacher?: TeacherProfile;
-  createdAt: string;
 }
 
 export interface DigitalProductListResponse {
@@ -2513,6 +2670,11 @@ export type ListTeachersParams = {
    * When provided, filter results to teachers belonging to this organisation. School-private orgs only return their own teachers. Public-marketplace orgs return their teachers plus unaffiliated teachers.
    */
   orgSlug?: string;
+  q?: string;
+  country?: string;
+  skillLevel?: ListTeachersSkillLevel;
+  minRating?: number;
+  verifiedOnly?: boolean;
 };
 
 export type ListTeachersListingType =
@@ -2525,6 +2687,28 @@ export const ListTeachersListingType = {
   digital_product: "digital_product",
   coaching: "coaching",
 } as const;
+
+export type ListTeachersSkillLevel =
+  (typeof ListTeachersSkillLevel)[keyof typeof ListTeachersSkillLevel];
+
+export const ListTeachersSkillLevel = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+  all: "all",
+} as const;
+
+export type SearchMarketplaceParams = {
+  q?: string;
+  instrument?: string;
+  city?: string;
+  limit?: number;
+};
+
+export type SubmitTeacherVerification200 = {
+  ok?: boolean;
+  profile?: TeacherProfile;
+};
 
 export type ListListingsParams = {
   type?: ListListingsType;

@@ -24,3 +24,6 @@ export * from "./practicePartners";
 export * from "./ensembles";
 export * from "./payouts";
 export * from "./audioEnhancementJobs";
+export * from "./teacherVerificationDocuments";
+export * from "./inquiries";
+export * from "./seoLandingPages";
