@@ -249,7 +249,8 @@ router.patch("/live-concerts/:id", requireAuth, async (req, res): Promise<void> 
   const auth = getAuth(req);
   const userId = auth.userId!;
 
-  const id = parseInt(req.params.id, 10);
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid concert id" });
     return;
@@ -308,7 +309,8 @@ router.get("/live-concerts/:id/my-ticket", requireAuth, async (req, res): Promis
   const auth = getAuth(req);
   const userId = auth.userId!;
 
-  const id = parseInt(req.params.id, 10);
+  const rawId2 = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId2, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid concert id" });
     return;

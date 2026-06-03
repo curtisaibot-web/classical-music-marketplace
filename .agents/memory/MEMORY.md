@@ -1,0 +1,2 @@
+- [Harmonia DB Schema Conventions](harmonia-db-schema.md) — drizzle-kit push has interactive prompt issues; apply schema changes via executeSql() instead and rebuild lib/db with npx tsc --build
+- [Harmonia Stage 1 Architecture](harmonia-stage1-arch.md) — Stack is Express 5 + Drizzle + PG + Clerk + React Query v5 + Wouter + Tailwind v4 + Orval codegen; codegen cmd and build order documented
